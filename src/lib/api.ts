@@ -394,6 +394,33 @@ export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(asyn
   return { daily: rows, totals, avg }
 })
 
+// --- Data Export ---
+
+export const exportData = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+
+  const body_logs = db.prepare('SELECT * FROM body_logs WHERE user_id = ?').all(user.id) as BodyLog[]
+  const food_log = db.prepare('SELECT * FROM food_log WHERE user_id = ?').all(user.id) as FoodLogEntry[]
+  const workouts = db.prepare('SELECT * FROM workout_sessions WHERE user_id = ?').all(user.id) as WorkoutSession[]
+  const workout_sets = db.prepare(
+    `SELECT ws.* FROM workout_sets ws
+     JOIN workout_sessions wse ON ws.session_id = wse.id
+     WHERE wse.user_id = ?`
+  ).all(user.id) as WorkoutSet[]
+
+  return {
+    exported_at: new Date().toISOString(),
+    app: 'FitTrack',
+    version: '0.1.0',
+    user: { ...user },
+    body_logs,
+    food_log,
+    workouts,
+    workout_sets,
+  }
+})
+
 // --- Dashboard Stats ---
 
 export const getDashboardStats = createServerFn({ method: 'GET' }).handler(async () => {

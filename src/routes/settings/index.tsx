@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { getUser, updateUser, logBodyweight } from '~/lib/api'
+import { getUser, updateUser, logBodyweight, exportData } from '~/lib/api'
 import { ACTIVITY_LABELS, type ActivityLevel, type GoalType } from '~/lib/nutrition'
 
 export const Route = createFileRoute('/settings/')({
@@ -112,6 +112,28 @@ function SettingsPage() {
         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
           Daily weigh-ins help track trends. Weight fluctuates daily; focus on weekly averages.
         </p>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Export Data</div>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+          Download all your data (food logs, workouts, body logs) as a JSON file for backup.
+        </p>
+        <button
+          className="btn btn-secondary"
+          onClick={async () => {
+            const data = await exportData()
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `fittrack-export-${new Date().toISOString().split('T')[0]}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+          }}
+        >
+          ⬇ Export as JSON
+        </button>
       </div>
 
       <div className="card">
