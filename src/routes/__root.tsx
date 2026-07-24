@@ -1,0 +1,88 @@
+import {
+  HeadContent,
+  Link,
+  Scripts,
+  Outlet,
+  createRootRoute,
+} from '@tanstack/react-router'
+import * as React from 'react'
+import appCss from '~/styles/app.css?url'
+
+export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      { charSet: 'utf-8' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      { name: 'theme-color', content: '#6741d9' },
+      { name: 'description', content: 'Science-backed nutrition and workout companion' },
+      { title: 'FitTrack - Nutrition & Workout Companion' },
+    ],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'manifest', href: '/manifest.json' },
+      { rel: 'apple-touch-icon', href: '/icon-192.png' },
+    ],
+  }),
+  shellComponent: RootDocument,
+})
+
+function RootDocument({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <header className="app-header">
+          <nav className="app-nav">
+            <Link to="/" className="app-nav-brand" activeProps={{}} activeOptions={{ exact: true }}>
+              💪 FitTrack
+            </Link>
+            <Link
+              to="/"
+              activeProps={{ className: 'app-nav-link active' }}
+              inactiveProps={{ className: 'app-nav-link' }}
+              activeOptions={{ exact: true }}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to="/nutrition"
+              activeProps={{ className: 'app-nav-link active' }}
+              inactiveProps={{ className: 'app-nav-link' }}
+            >
+              Nutrition
+            </Link>
+            <Link
+              to="/workout"
+              activeProps={{ className: 'app-nav-link active' }}
+              inactiveProps={{ className: 'app-nav-link' }}
+            >
+              Workout
+            </Link>
+            <Link
+              to="/progress"
+              activeProps={{ className: 'app-nav-link active' }}
+              inactiveProps={{ className: 'app-nav-link' }}
+            >
+              Progress
+            </Link>
+            <Link
+              to="/settings"
+              activeProps={{ className: 'app-nav-link active' }}
+              inactiveProps={{ className: 'app-nav-link' }}
+            >
+              Settings
+            </Link>
+          </nav>
+        </header>
+        <main className="app-main">
+          <div className="app-container">
+            {children}
+          </div>
+        </main>
+        <Scripts />
+      </body>
+    </html>
+  )
+}
