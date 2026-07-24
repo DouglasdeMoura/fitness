@@ -20,6 +20,24 @@
     min-height: 100vh;
   }
 
+  [data-theme="dark"] {
+    --surface-background: #0d0d0d;
+    --surface-elevated: #1a1a1a;
+    --surface-neutral: #2a2a2a;
+    --text-primary: #f0f0f0;
+    --text-secondary: #999;
+    --border-subtle: #333;
+    --border-strong: #444;
+    --accent-primary: #9d7eff;
+    --accent-primary-faint: rgba(157, 126, 255, 0.12);
+    --accent-primary-hover: #8b6eff;
+  }
+
+  [data-theme="dark"] body {
+    background: var(--surface-background);
+    color: var(--text-primary);
+  }
+
   .app-container {
     max-width: var(--app-max-width);
     margin: 0 auto;

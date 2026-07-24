@@ -22,6 +22,17 @@ export const Route = createRootRoute({
       { rel: 'manifest', href: '/manifest.json' },
       { rel: 'apple-touch-icon', href: '/icon-192.png' },
     ],
+    scripts: [
+      {
+        type: 'text/javascript',
+        children: `
+          (function() {
+            var theme = localStorage.getItem('fittrack-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+          })();
+        `,
+      },
+    ],
   }),
   shellComponent: RootDocument,
 })
@@ -74,6 +85,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             >
               Settings
             </Link>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ marginLeft: '8px', padding: '6px 10px' }}
+              onClick={() => {
+                const current = document.documentElement.getAttribute('data-theme') || 'light'
+                const next = current === 'dark' ? 'light' : 'dark'
+                document.documentElement.setAttribute('data-theme', next)
+                localStorage.setItem('fittrack-theme', next)
+              }}
+              aria-label="Toggle dark mode"
+            >
+              🌓
+            </button>
           </nav>
         </header>
         <main className="app-main">
