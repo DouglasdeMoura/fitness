@@ -303,6 +303,97 @@ export const deleteWorkoutSet = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+// --- Weekly Volume Analysis ---
+// Based on Schoenfeld et al. 2017: 10-20 sets per muscle group per week for hypertrophy
+
+export type MuscleVolume = {
+  muscle_group: string
+  total_sets: number
+  total_volume: number
+  min_recommended: number
+  max_recommended: number
+  status: 'under' | 'optimal' | 'high'
+}
+
+export const getWeeklyVolume = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+
+  const rows = db.prepare(
+    `SELECT e.muscle_group, COUNT(ws.id) as total_sets, COALESCE(SUM(ws.reps * ws.weight_kg), 0) as total_volume
+     FROM workout_sets ws
+     JOIN exercises e ON ws.exercise_id = e.id
+     JOIN workout_sessions wse ON ws.session_id = wse.id
+     WHERE wse.user_id = ? AND wse.date >= date('now', '-7 days')
+     GROUP BY e.muscle_group
+     ORDER BY total_sets DESC`
+  ).all(user.id) as { muscle_group: string; total_sets: number; total_volume: number }[]
+
+  const guidelines: Record<string, { min: number; max: number }> = {
+    chest: { min: 8, max: 16 },
+    back: { min: 10, max: 20 },
+    shoulders: { min: 8, max: 16 },
+    arms: { min: 8, max: 16 },
+    legs: { min: 10, max: 20 },
+    core: { min: 8, max: 16 },
+    full_body: { min: 10, max: 20 },
+  }
+
+  return rows.map((r) => {
+    const g = guidelines[r.muscle_group] || { min: 8, max: 16 }
+    const status: MuscleVolume['status'] =
+      r.total_sets < g.min ? 'under' : r.total_sets > g.max ? 'high' : 'optimal'
+    return { ...r, min_recommended: g.min, max_recommended: g.max, status }
+  }) as MuscleVolume[]
+})
+
+// --- Weekly Nutrition Reports ---
+
+export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+
+  const rows = db.prepare(
+    `SELECT date,
+       SUM(calories) as calories,
+       SUM(protein_g) as protein_g,
+       SUM(carbs_g) as carbs_g,
+       SUM(fat_g) as fat_g,
+       COUNT(*) as entries
+     FROM food_log
+     WHERE user_id = ? AND date >= date('now', '-7 days')
+     GROUP BY date
+     ORDER BY date DESC`
+  ).all(user.id) as Array<{
+    date: string
+    calories: number
+    protein_g: number
+    carbs_g: number
+    fat_g: number
+    entries: number
+  }>
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      calories: acc.calories + r.calories,
+      protein_g: acc.protein_g + r.protein_g,
+      carbs_g: acc.carbs_g + r.carbs_g,
+      fat_g: acc.fat_g + r.fat_g,
+      days: acc.days + 1,
+    }),
+    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, days: 0 }
+  )
+
+  const avg = {
+    calories: totals.days > 0 ? Math.round(totals.calories / totals.days) : 0,
+    protein_g: totals.days > 0 ? Math.round(totals.protein_g / totals.days) : 0,
+    carbs_g: totals.days > 0 ? Math.round(totals.carbs_g / totals.days) : 0,
+    fat_g: totals.days > 0 ? Math.round(totals.fat_g / totals.days) : 0,
+  }
+
+  return { daily: rows, totals, avg }
+})
+
 // --- Dashboard Stats ---
 
 export const getDashboardStats = createServerFn({ method: 'GET' }).handler(async () => {
