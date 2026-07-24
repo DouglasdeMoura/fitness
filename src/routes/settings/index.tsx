@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getUser, updateUser, logBodyweight, exportData } from '~/lib/api'
+import { runOrQueue } from '~/lib/offline'
 import { ACTIVITY_LABELS, type ActivityLevel, type GoalType } from '~/lib/nutrition'
 
 export const Route = createFileRoute('/settings/')({
@@ -42,7 +43,9 @@ function SettingsPage() {
   const handleLogWeight = async () => {
     const w = parseFloat(weight)
     if (!w) return
-    await logBodyweight({ data: { weight_kg: w } })
+    await runOrQueue('logBodyweight', { weight_kg: w }, () =>
+      logBodyweight({ data: { weight_kg: w } })
+    )
     setWeight('')
   }
 

@@ -10,6 +10,7 @@ import {
   type ActivityLevel,
   type GoalType,
 } from './nutrition'
+import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
 // --- Ensure default user exists ---
 
@@ -465,3 +466,261 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(async
     recentBodyweight,
   }
 })
+
+// --- Offline Support ---
+
+/**
+ * Days of history sent to a device for offline use. Covers the trailing 7-day
+ * windows that the volume and nutrition reports read from, with a week of slack
+ * so a device that has been offline for several days can still render its own
+ * recent history without a round trip.
+ */
+const OFFLINE_HISTORY_DAYS = 14
+
+/**
+ * Everything the app needs to stay useful with no network: the full food and
+ * exercise reference data, plus the user's recent logs and current targets.
+ * The client stores this in IndexedDB and the service worker keeps a copy of
+ * the response, so a cold start offline still has data to render.
+ */
+export const getOfflineBundle = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  const targets = await getDailyTargets()
+  const since = `-${OFFLINE_HISTORY_DAYS} days`
+
+  const foods = db.prepare('SELECT * FROM foods ORDER BY name').all() as Food[]
+  const exercises = db.prepare('SELECT * FROM exercises ORDER BY name').all() as Exercise[]
+
+  const food_log = db.prepare(
+    `SELECT * FROM food_log
+     WHERE user_id = ? AND date >= date('now', ?)
+     ORDER BY date DESC, meal_type`
+  ).all(user.id, since) as FoodLogEntry[]
+
+  const workout_sessions = db.prepare(
+    `SELECT * FROM workout_sessions
+     WHERE user_id = ? AND date >= date('now', ?)
+     ORDER BY date DESC`
+  ).all(user.id, since) as WorkoutSession[]
+
+  const workout_sets = db.prepare(
+    `SELECT ws.* FROM workout_sets ws
+     JOIN workout_sessions wse ON ws.session_id = wse.id
+     WHERE wse.user_id = ? AND wse.date >= date('now', ?)
+     ORDER BY ws.session_id, ws.set_number`
+  ).all(user.id, since) as WorkoutSet[]
+
+  const body_logs = db.prepare(
+    'SELECT * FROM body_logs WHERE user_id = ? ORDER BY date DESC LIMIT 90'
+  ).all(user.id) as BodyLog[]
+
+  return {
+    generated_at: new Date().toISOString(),
+    history_days: OFFLINE_HISTORY_DAYS,
+    user,
+    targets,
+    foods,
+    exercises,
+    food_log,
+    workout_sessions,
+    workout_sets,
+    body_logs,
+  }
+})
+
+/**
+ * Replay mutations a device recorded while offline.
+ *
+ * Ordering matters: entries arrive oldest-first so a workout session created
+ * offline is inserted before the sets that reference it. Each entry is applied
+ * in its own transaction alongside its sync_queue row, so one bad mutation
+ * fails on its own instead of discarding the rest of the batch.
+ */
+export const syncQueuedMutations = createServerFn({ method: 'POST' })
+  .validator((data: { mutations: QueuedMutation[] }) => data)
+  .handler(async (ctx): Promise<SyncResult> => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const mutations = ctx.data?.mutations ?? []
+
+    const findApplied = db.prepare(
+      `SELECT result_id FROM sync_queue WHERE client_id = ? AND status = 'applied'`
+    )
+    const findByTempRef = db.prepare(
+      `SELECT result_id FROM sync_queue WHERE temp_ref = ? AND status = 'applied'`
+    )
+    const recordOutcome = db.prepare(
+      `INSERT INTO sync_queue (client_id, kind, payload, temp_ref, result_id, status, error, queued_at)
+       VALUES (@client_id, @kind, @payload, @temp_ref, @result_id, @status, @error, @queued_at)
+       ON CONFLICT(client_id) DO UPDATE SET
+         result_id = excluded.result_id,
+         status = excluded.status,
+         error = excluded.error,
+         applied_at = datetime('now')`
+    )
+
+    // Sessions created earlier in this same batch, keyed by their device-side
+    // placeholder id. Falls back to sync_queue when the session was created in
+    // an earlier batch that already landed.
+    const sessionIds = new Map<string, number>()
+
+    const resolveSessionId = (m: Extract<QueuedMutation, { kind: 'addWorkoutSet' }>): number => {
+      if (typeof m.payload.session_id === 'number') return m.payload.session_id
+      const ref = m.payload.session_temp_ref
+      if (!ref) throw new Error('workout set is missing both session_id and session_temp_ref')
+      const inBatch = sessionIds.get(ref)
+      if (inBatch) return inBatch
+      const stored = findByTempRef.get(ref) as { result_id: number | null } | undefined
+      if (!stored?.result_id) throw new Error(`unknown workout session reference "${ref}"`)
+      return stored.result_id
+    }
+
+    const apply = (m: QueuedMutation): number | undefined => {
+      switch (m.kind) {
+        case 'addFoodLogEntry': {
+          const d = m.payload
+          const res = db.prepare(
+            `INSERT INTO food_log (user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            user.id, d.food_id ?? null, d.custom_name ?? null,
+            d.date || todayString(), d.meal_type, d.servings,
+            d.calories, d.protein_g, d.carbs_g, d.fat_g, d.notes ?? null
+          )
+          return res.lastInsertRowid as number
+        }
+        case 'deleteFoodLogEntry': {
+          db.prepare('DELETE FROM food_log WHERE id = ? AND user_id = ?').run(m.payload.id, user.id)
+          return m.payload.id
+        }
+        case 'logBodyweight': {
+          const d = m.payload
+          const date = d.date || todayString()
+          db.prepare(
+            `INSERT INTO body_logs (user_id, date, weight_kg, body_fat_pct, notes)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, date) DO UPDATE SET
+               weight_kg = excluded.weight_kg,
+               body_fat_pct = COALESCE(excluded.body_fat_pct, body_logs.body_fat_pct),
+               notes = excluded.notes`
+          ).run(user.id, date, d.weight_kg, d.body_fat_pct ?? null, d.notes ?? null)
+          const row = db.prepare(
+            'SELECT id FROM body_logs WHERE user_id = ? AND date = ?'
+          ).get(user.id, date) as { id: number }
+          return row.id
+        }
+        case 'addFood': {
+          const d = m.payload
+          const res = db.prepare(
+            `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`
+          ).run(
+            d.name, d.brand ?? null, d.serving_size, d.serving_unit,
+            d.calories_per_serving, d.protein_g, d.carbs_g, d.fat_g,
+            d.fiber_g ?? 0, d.sugar_g ?? 0, d.sodium_mg ?? 0
+          )
+          return res.lastInsertRowid as number
+        }
+        case 'createWorkoutSession': {
+          const d = m.payload
+          const res = db.prepare(
+            'INSERT INTO workout_sessions (user_id, date, name) VALUES (?, ?, ?)'
+          ).run(user.id, d.date || todayString(), d.name || 'Workout')
+          return res.lastInsertRowid as number
+        }
+        case 'addWorkoutSet': {
+          const d = m.payload
+          const sessionId = resolveSessionId(m)
+          const res = db.prepare(
+            `INSERT INTO workout_sets (session_id, exercise_id, set_number, reps, weight_kg, rpe, rest_seconds, notes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            sessionId, d.exercise_id, d.set_number, d.reps, d.weight_kg,
+            d.rpe ?? 7, d.rest_seconds ?? null, d.notes ?? null
+          )
+          return res.lastInsertRowid as number
+        }
+      }
+    }
+
+    const applyAndRecord = db.transaction((m: QueuedMutation) => {
+      const result_id = apply(m)
+      recordOutcome.run({
+        client_id: m.client_id,
+        kind: m.kind,
+        payload: JSON.stringify(m.payload),
+        temp_ref: m.kind === 'createWorkoutSession' ? m.payload.temp_ref : null,
+        result_id: result_id ?? null,
+        status: 'applied',
+        error: null,
+        queued_at: m.queued_at,
+      })
+      return result_id
+    })
+
+    const outcomes: SyncOutcome[] = []
+
+    for (const m of mutations) {
+      const already = findApplied.get(m.client_id) as { result_id: number | null } | undefined
+      if (already) {
+        if (m.kind === 'createWorkoutSession' && already.result_id) {
+          sessionIds.set(m.payload.temp_ref, already.result_id)
+        }
+        outcomes.push({
+          client_id: m.client_id,
+          kind: m.kind,
+          status: 'duplicate',
+          result_id: already.result_id ?? undefined,
+        })
+        continue
+      }
+
+      try {
+        const result_id = applyAndRecord(m)
+        if (m.kind === 'createWorkoutSession' && result_id) {
+          sessionIds.set(m.payload.temp_ref, result_id)
+        }
+        outcomes.push({ client_id: m.client_id, kind: m.kind, status: 'applied', result_id })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        recordOutcome.run({
+          client_id: m.client_id,
+          kind: m.kind,
+          payload: JSON.stringify(m.payload),
+          temp_ref: null,
+          result_id: null,
+          status: 'failed',
+          error: message,
+          queued_at: m.queued_at,
+        })
+        outcomes.push({ client_id: m.client_id, kind: m.kind, status: 'failed', error: message })
+      }
+    }
+
+    return {
+      applied: outcomes.filter((o) => o.status === 'applied').length,
+      duplicates: outcomes.filter((o) => o.status === 'duplicate').length,
+      failed: outcomes.filter((o) => o.status === 'failed').length,
+      outcomes,
+      synced_at: new Date().toISOString(),
+    }
+  })
+
+/**
+ * Entries the server has already accepted, so a device can drop anything from
+ * its outbox that landed on a previous attempt whose response it never saw.
+ */
+export const getSyncedClientIds = createServerFn({ method: 'POST' })
+  .validator((data: { client_ids: string[] }) => data)
+  .handler(async (ctx) => {
+    const ids = ctx.data?.client_ids ?? []
+    if (ids.length === 0) return { client_ids: [] as string[] }
+    const db = getDb()
+    const placeholders = ids.map(() => '?').join(', ')
+    const rows = db.prepare(
+      `SELECT client_id FROM sync_queue
+       WHERE status = 'applied' AND client_id IN (${placeholders})`
+    ).all(...ids) as { client_id: string }[]
+    return { client_ids: rows.map((r) => r.client_id) }
+  })

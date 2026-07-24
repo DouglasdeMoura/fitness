@@ -2,6 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getExercises, getWorkoutSessions, createWorkoutSession, addWorkoutSet } from '~/lib/api'
+import { queueMutation, runOrQueue } from '~/lib/offline'
+import { makeTempRef } from '~/lib/sync'
 import { estimate1RM, calculateVolume, type Exercise } from '~/lib/workout'
 
 export const Route = createFileRoute('/workout/')({
@@ -20,13 +22,20 @@ function WorkoutPage() {
     queryFn: () => getWorkoutSessions({ data: { limit: 10 } }),
   })
 
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
+  // id is null while the session itself is still sitting in the offline
+  // outbox; tempRef is what its sets reference until the server assigns one.
+  const [activeSession, setActiveSession] = useState<{ id: number | null; tempRef: string } | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sets, setSets] = useState<Array<{ reps: number; weight: number; rpe: number }>>([])
 
   const handleStartWorkout = async () => {
-    const result = await createWorkoutSession({ data: { name: 'Training Session' } })
-    setActiveSessionId(result.id)
+    const tempRef = makeTempRef()
+    const outcome = await runOrQueue(
+      'createWorkoutSession',
+      { name: 'Training Session', temp_ref: tempRef },
+      () => createWorkoutSession({ data: { name: 'Training Session' } })
+    )
+    setActiveSession({ id: outcome.queued ? null : outcome.result.id, tempRef })
     setSets([])
   }
 
@@ -37,17 +46,26 @@ function WorkoutPage() {
   }
 
   const handleSaveSet = async (set: { reps: number; weight: number; rpe: number }, index: number) => {
-    if (!activeSessionId || !selectedExercise) return
-    await addWorkoutSet({
-      data: {
-        session_id: activeSessionId,
-        exercise_id: selectedExercise.id,
-        set_number: index + 1,
-        reps: set.reps,
-        weight_kg: set.weight,
-        rpe: set.rpe,
-      },
-    })
+    if (!activeSession || !selectedExercise) return
+    const setFields = {
+      exercise_id: selectedExercise.id,
+      set_number: index + 1,
+      reps: set.reps,
+      weight_kg: set.weight,
+      rpe: set.rpe,
+    }
+
+    const sessionId = activeSession.id
+    if (sessionId === null) {
+      // The session has not reached the server yet, so the set has to travel
+      // through the outbox behind it to be attached to the right row.
+      await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
+      return
+    }
+
+    await runOrQueue('addWorkoutSet', { ...setFields, session_id: sessionId }, () =>
+      addWorkoutSet({ data: { ...setFields, session_id: sessionId } })
+    )
   }
 
   const totalVolume = sets.reduce((sum, s) => sum + calculateVolume(1, s.reps, s.weight), 0)
@@ -61,7 +79,7 @@ function WorkoutPage() {
         <h1 className="section-title">Workout</h1>
       </div>
 
-      {!activeSessionId ? (
+      {!activeSession ? (
         <>
           <div className="card" style={{ textAlign: 'center' }}>
             <div className="empty-state-icon">🏋️</div>
@@ -103,7 +121,7 @@ function WorkoutPage() {
               <div className="card-title" style={{ margin: 0 }}>Active Session</div>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => { setActiveSessionId(null); setSelectedExercise(null); setSets([]) }}
+                onClick={() => { setActiveSession(null); setSelectedExercise(null); setSets([]) }}
               >
                 Finish
               </button>

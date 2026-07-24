@@ -21,6 +21,13 @@ A science-backed, installable web app for nutrition and workout tracking. Built 
 - Workout frequency tracking (30/90 day windows)
 - Body composition logging
 
+### Offline Support
+- Service worker caches the app shell, static assets, and reference data
+- Food database, exercise library, and the last 14 days of logs are stored in IndexedDB
+- Meals, sets, and weigh-ins recorded offline are queued and replayed on reconnect
+- Replay is idempotent: every queued change carries a client-generated id, so a
+  retried sync cannot duplicate a meal or a set
+
 ## Science References
 
 | Metric | Formula | Reference |
@@ -53,7 +60,11 @@ The app runs at http://localhost:3000
 2. Click the install icon in the address bar
 3. Or use menu > "Install FitTrack"
 
-The app works offline once installed.
+The app works offline once installed. The service worker is registered in
+production builds only (`npm run build && npm run start`), so a dev server is
+never shadowed by a cached shell. Anything logged while offline is held on the
+device and syncs automatically once the connection returns; the banner at the
+top of the app shows what is still waiting.
 
 ## Tech Stack
 
@@ -87,7 +98,10 @@ The loop uses models from most powerful to least powerful, falling back when rat
 ```
 fitness/
 ├── prd/                    # Product requirements documents
-├── public/                 # Static assets, PWA manifest
+├── public/
+│   ├── manifest.json       # PWA manifest
+│   ├── sw.js               # Service worker (app shell + asset caching)
+│   └── offline.html        # Fallback page for uncached routes
 ├── scripts/
 │   ├── seed.mjs            # Database seeding
 │   └── dev-loop.sh         # Self-improving AI dev loop
@@ -97,7 +111,11 @@ fitness/
 │   │   ├── db.ts           # SQLite connection + types
 │   │   ├── schema.sql      # Database schema
 │   │   ├── nutrition.ts    # Science-backed nutrition calculations
-│   │   └── workout.ts      # Science-backed workout calculations
+│   │   ├── workout.ts      # Science-backed workout calculations
+│   │   ├── offline.ts      # IndexedDB cache + offline mutation outbox
+│   │   └── sync.ts         # Shared offline queue contract
+│   ├── components/
+│   │   └── OfflineStatus.tsx  # Connectivity + pending sync banner
 │   ├── routes/
 │   │   ├── __root.tsx      # Root layout with navigation
 │   │   ├── index.tsx       # Dashboard

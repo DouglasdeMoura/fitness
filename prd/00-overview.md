@@ -56,7 +56,7 @@ Individuals focused on performance and physique improvement who want:
 - [ ] Multi-user support
 
 ### Phase 4: Polish
-- [ ] Offline-first service worker
+- [x] Offline-first service worker
 - [ ] Push notifications (meal reminders)
 - [ ] Dark mode toggle
 - [ ] Internationalization

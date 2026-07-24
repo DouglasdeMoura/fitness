@@ -6,6 +6,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import * as React from 'react'
+import { OfflineStatus } from '~/components/OfflineStatus'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -102,6 +103,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         </header>
         <main className="app-main">
           <div className="app-container">
+            <OfflineStatus />
             {children}
           </div>
         </main>

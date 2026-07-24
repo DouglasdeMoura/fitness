@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getFoodLog, addFoodLogEntry, deleteFoodLogEntry, searchFoods, getDailyTargets, addFood, type Food } from '~/lib/api'
+import { runOrQueue, searchCachedFoods } from '~/lib/offline'
 
 export const Route = createFileRoute('/nutrition/')({
   head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
@@ -93,7 +94,11 @@ function NutritionPage() {
                   <td>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => deleteFoodLogEntry({ data: { id: entry.id } })}
+                      onClick={() =>
+                        runOrQueue('deleteFoodLogEntry', { id: entry.id }, () =>
+                          deleteFoodLogEntry({ data: { id: entry.id } })
+                        )
+                      }
                     >
                       Delete
                     </button>
@@ -125,30 +130,37 @@ function AddFoodCard({ selectedDate }: { selectedDate: string; targets: any }) {
 
   const handleSearch = async () => {
     if (query.length < 2) return
-    const res = await searchFoods({ data: { query } })
-    setResults(res)
+    try {
+      setResults(await searchFoods({ data: { query } }))
+    } catch {
+      // No network: fall back to the food database cached for offline use.
+      setResults(await searchCachedFoods(query))
+    }
   }
 
   const handleAdd = async () => {
     if (!selectedFood) return
-    await addFoodLogEntry({
-      data: {
-        food_id: selectedFood.id,
-        custom_name: selectedFood.name,
-        date: selectedDate,
-        meal_type: mealType || currentMeal,
-        servings,
-        calories: selectedFood.calories_per_serving * servings,
-        protein_g: selectedFood.protein_g * servings,
-        carbs_g: selectedFood.carbs_g * servings,
-        fat_g: selectedFood.fat_g * servings,
-      },
-    })
+    const entry = {
+      food_id: selectedFood.id,
+      custom_name: selectedFood.name,
+      date: selectedDate,
+      meal_type: mealType || currentMeal,
+      servings,
+      calories: selectedFood.calories_per_serving * servings,
+      protein_g: selectedFood.protein_g * servings,
+      carbs_g: selectedFood.carbs_g * servings,
+      fat_g: selectedFood.fat_g * servings,
+    }
+    const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
+      addFoodLogEntry({ data: entry })
+    )
     setSelectedFood(null)
     setServings(1)
     setQuery('')
     setResults([])
-    window.location.reload()
+    // A queued entry is not on the server yet, so a reload would hide it and
+    // look like the log was lost; the offline banner reports it instead.
+    if (!outcome.queued) window.location.reload()
   }
 
   return (
@@ -257,28 +269,29 @@ function CustomFoodForm({ onCreated }: { onCreated: (food: Food) => void }) {
 
   const handleCreate = async () => {
     if (!name || !calories) return
-    const food = await addFood({
-      data: {
-        name,
-        brand: brand || null,
-        serving_size: parseFloat(serving) || 100,
-        serving_unit: unit,
-        calories_per_serving: parseFloat(calories) || 0,
-        protein_g: parseFloat(protein) || 0,
-        carbs_g: parseFloat(carbs) || 0,
-        fat_g: parseFloat(fat) || 0,
-        fiber_g: 0,
-        sugar_g: 0,
-        sodium_mg: 0,
-      },
-    })
+    const draft = {
+      name,
+      brand: brand || null,
+      serving_size: parseFloat(serving) || 100,
+      serving_unit: unit,
+      calories_per_serving: parseFloat(calories) || 0,
+      protein_g: parseFloat(protein) || 0,
+      carbs_g: parseFloat(carbs) || 0,
+      fat_g: parseFloat(fat) || 0,
+      fiber_g: 0,
+      sugar_g: 0,
+      sodium_mg: 0,
+    }
+    const outcome = await runOrQueue('addFood', draft, () => addFood({ data: draft }))
     setShow(false)
     setName('')
     setCalories('')
     setProtein('')
     setCarbs('')
     setFat('')
-    onCreated(food)
+    // Only a food the server accepted has an id to log servings against;
+    // a queued one becomes selectable once it syncs.
+    if (!outcome.queued) onCreated(outcome.result)
   }
 
   return (

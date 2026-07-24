@@ -108,6 +108,28 @@ CREATE TABLE IF NOT EXISTS workout_sets (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Replay log for mutations queued on-device while offline.
+-- Every queued mutation carries a UUID minted by the client, so a sync that is
+-- retried (flaky reconnect, two tabs, background sync firing twice) resolves to
+-- the same row instead of duplicating a meal or a set.
+-- temp_ref holds the client-side placeholder id for rows whose real primary key
+-- only exists after the insert, letting a set queued offline find its session
+-- even when the two are synced in separate batches.
+CREATE TABLE IF NOT EXISTS sync_queue (
+  client_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  temp_ref TEXT,
+  result_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'applied'
+    CHECK(status IN ('applied', 'failed')),
+  error TEXT,
+  queued_at TEXT NOT NULL,
+  applied_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_queue_temp_ref ON sync_queue(temp_ref);
+
 CREATE TABLE IF NOT EXISTS programs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
