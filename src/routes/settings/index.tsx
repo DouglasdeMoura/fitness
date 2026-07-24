@@ -1,4 +1,5 @@
-import { createFileRoute, useSuspenseQuery } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getUser, updateUser, logBodyweight } from '~/lib/api'
 import { ACTIVITY_LABELS, type ActivityLevel, type GoalType } from '~/lib/nutrition'

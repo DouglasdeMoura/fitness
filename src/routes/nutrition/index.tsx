@@ -1,4 +1,5 @@
-import { createFileRoute, useSuspenseQuery } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getFoodLog, addFoodLogEntry, deleteFoodLogEntry, searchFoods, getDailyTargets, type Food } from '~/lib/api'
 

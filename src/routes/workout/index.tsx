@@ -1,4 +1,5 @@
-import { createFileRoute, useSuspenseQuery } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getExercises, getWorkoutSessions, createWorkoutSession, addWorkoutSet } from '~/lib/api'
 import { estimate1RM, calculateVolume, type Exercise } from '~/lib/workout'
