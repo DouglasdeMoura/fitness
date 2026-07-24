@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { getFoodLog, addFoodLogEntry, deleteFoodLogEntry, searchFoods, getDailyTargets, type Food } from '~/lib/api'
+import { getFoodLog, addFoodLogEntry, deleteFoodLogEntry, searchFoods, getDailyTargets, addFood, type Food } from '~/lib/api'
 
 export const Route = createFileRoute('/nutrition/')({
   head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
@@ -222,11 +222,115 @@ function AddFoodCard({ selectedDate }: { selectedDate: string; targets: any }) {
           )}
           {query.length >= 2 && results.length === 0 && (
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              No results. Try a different search term.
+              No results. Try a different search term or create a custom food below.
             </p>
           )}
+          <CustomFoodForm onCreated={(food) => setSelectedFood(food)} />
         </div>
       )}
+    </div>
+  )
+}
+
+function CustomFoodForm({ onCreated }: { onCreated: (food: Food) => void }) {
+  const [show, setShow] = useState(false)
+  const [name, setName] = useState('')
+  const [brand, setBrand] = useState('')
+  const [serving, setServing] = useState('100')
+  const [unit, setUnit] = useState('g')
+  const [calories, setCalories] = useState('')
+  const [protein, setProtein] = useState('')
+  const [carbs, setCarbs] = useState('')
+  const [fat, setFat] = useState('')
+
+  if (!show) {
+    return (
+      <button
+        className="btn btn-secondary btn-sm"
+        style={{ marginTop: '8px' }}
+        onClick={() => setShow(true)}
+      >
+        + Create Custom Food
+      </button>
+    )
+  }
+
+  const handleCreate = async () => {
+    if (!name || !calories) return
+    const food = await addFood({
+      data: {
+        name,
+        brand: brand || null,
+        serving_size: parseFloat(serving) || 100,
+        serving_unit: unit,
+        calories_per_serving: parseFloat(calories) || 0,
+        protein_g: parseFloat(protein) || 0,
+        carbs_g: parseFloat(carbs) || 0,
+        fat_g: parseFloat(fat) || 0,
+        fiber_g: 0,
+        sugar_g: 0,
+        sodium_mg: 0,
+      },
+    })
+    setShow(false)
+    setName('')
+    setCalories('')
+    setProtein('')
+    setCarbs('')
+    setFat('')
+    onCreated(food)
+  }
+
+  return (
+    <div style={{ marginTop: '16px', padding: '12px', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
+      <strong style={{ fontSize: '0.875rem' }}>New Custom Food</strong>
+      <div className="grid-2" style={{ marginTop: '12px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Name</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Food name" />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Brand (optional)</label>
+          <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} />
+        </div>
+      </div>
+      <div className="grid-2" style={{ marginTop: '8px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Serving Size</label>
+          <input className="input" type="number" value={serving} onChange={(e) => setServing(e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Unit</label>
+          <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="piece">piece</option>
+            <option value="cup">cup</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-group" style={{ marginTop: '8px' }}>
+        <label className="label">Calories per serving</label>
+        <input className="input" type="number" value={calories} onChange={(e) => setCalories(e.target.value)} />
+      </div>
+      <div className="grid-3" style={{ marginTop: '8px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Protein (g)</label>
+          <input className="input" type="number" value={protein} onChange={(e) => setProtein(e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Carbs (g)</label>
+          <input className="input" type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="label">Fat (g)</label>
+          <input className="input" type="number" value={fat} onChange={(e) => setFat(e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+        <button className="btn btn-primary btn-sm" onClick={handleCreate}>Save Food</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setShow(false)}>Cancel</button>
+      </div>
     </div>
   )
 }
