@@ -1,0 +1,138 @@
+-- FitTrack Database Schema
+-- Science-backed fitness & nutrition tracker
+
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL DEFAULT 'Athlete',
+  email TEXT UNIQUE,
+  birth_date TEXT,
+  sex TEXT DEFAULT 'male' CHECK(sex IN ('male', 'female', 'other')),
+  height_cm REAL,
+  activity_level TEXT DEFAULT 'moderate'
+    CHECK(activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active')),
+  goal_type TEXT DEFAULT 'build_muscle'
+    CHECK(goal_type IN ('lose_fat', 'build_muscle', 'maintain', 'recomp')),
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS body_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  date TEXT NOT NULL,
+  weight_kg REAL,
+  body_fat_pct REAL,
+  muscle_mass_kg REAL,
+  waist_cm REAL,
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS foods (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  brand TEXT,
+  serving_size REAL NOT NULL DEFAULT 100,
+  serving_unit TEXT NOT NULL DEFAULT 'g',
+  calories_per_serving REAL NOT NULL,
+  protein_g REAL NOT NULL DEFAULT 0,
+  carbs_g REAL NOT NULL DEFAULT 0,
+  fat_g REAL NOT NULL DEFAULT 0,
+  fiber_g REAL DEFAULT 0,
+  sugar_g REAL DEFAULT 0,
+  sodium_mg REAL DEFAULT 0,
+  source TEXT DEFAULT 'user',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_foods_name ON foods(name);
+
+CREATE TABLE IF NOT EXISTS food_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  food_id INTEGER REFERENCES foods(id),
+  custom_name TEXT,
+  date TEXT NOT NULL,
+  meal_type TEXT NOT NULL DEFAULT 'snack'
+    CHECK(meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+  servings REAL NOT NULL DEFAULT 1,
+  calories REAL NOT NULL,
+  protein_g REAL NOT NULL,
+  carbs_g REAL NOT NULL,
+  fat_g REAL NOT NULL,
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_log_date ON food_log(date);
+
+CREATE TABLE IF NOT EXISTS exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'compound'
+    CHECK(category IN ('compound', 'isolation', 'bodyweight', 'cardio', 'mobility')),
+  muscle_group TEXT NOT NULL,
+  equipment TEXT,
+  instructions TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
+
+CREATE TABLE IF NOT EXISTS workout_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  date TEXT NOT NULL,
+  name TEXT,
+  duration_minutes INTEGER,
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workout_sessions_date ON workout_sessions(date);
+
+CREATE TABLE IF NOT EXISTS workout_sets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+  set_number INTEGER NOT NULL,
+  reps INTEGER,
+  weight_kg REAL,
+  rpe INTEGER DEFAULT 7,
+  rest_seconds INTEGER,
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS programs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  description TEXT,
+  frequency_per_week INTEGER DEFAULT 3,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS program_days (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  day_name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS program_exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_day_id INTEGER NOT NULL REFERENCES program_days(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+  target_sets INTEGER,
+  target_reps TEXT,
+  target_rpe INTEGER,
+  rest_seconds INTEGER,
+  sort_order INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
