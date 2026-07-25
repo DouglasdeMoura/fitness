@@ -123,27 +123,29 @@ Number: #$ISSUE_NUM
 Description: $ISSUE_BODY
 
 Instructions:
-1. Read src/routes/__root.tsx and src/routes/index.tsx to see the Astryx pattern already established
-2. Implement the feature using ONLY Astryx DS components (no custom CSS classes)
-3. Run: npm run build (fix any errors)
-4. Commit your work with a conventional commit message
-5. Do NOT push to remote
-
-Do NOT run e2e tests (they take too long). Just ensure npm run build passes.
+1. Read AGENTS.md for Astryx DS conventions and CLI usage
+2. Read the relevant PRD files in prd/ for context
+3. Read the existing code in src/routes/__root.tsx and src/routes/index.tsx to see the Astryx pattern already established
+4. Read existing tests in tests/unit/ and tests/e2e/ for test patterns
+5. Implement the feature using ONLY Astryx DS components (no custom CSS, no <div> for layout, no style={{}})
+6. Write meaningful tests for the feature you implement:
+   - Unit tests in tests/unit/ for any calculation logic (Vitest)
+   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)
+   - Tests must verify the feature actually works as a user would experience it
+   - Avoid useless tests - each test should verify meaningful behavior
+7. Run ALL tests and ensure they pass before committing:
+   - npm run test:unit  (Vitest)
+   - npm run build      (production build)
+8. Commit your work with a conventional commit message
+9. Do NOT push to remote
 
 Important conventions:
+- Use Astryx components: Card, Button, TextInput, Table, Heading, MetadataList, etc.
+- Run "npm run astryx component <Name>" to check component props
 - Use createServerFn from @tanstack/react-start for API calls
 - Use createFileRoute for route definitions
 - Use useSuspenseQuery for data fetching
 - All calculations must be science-backed with citations in comments
-
-Important conventions:
-- Use createServerFn from @tanstack/react-start for API calls
-- Use createFileRoute for route definitions
-- Use useSuspenseQuery for data fetching
-- All calculations must be science-backed with citations in comments
-- Tests use @playwright/test for e2e and vitest for unit tests
-- E2E tests target http://localhost:3000 (dev server auto-starts)
 PROMPT_EOF
 )
 
@@ -164,9 +166,10 @@ PROMPT_EOF
     # Disable set -e for this block since omp/timeout may return non-zero
     OUTPUT_FILE=$(mktemp)
     set +e
-    # 1800s (30min) timeout — complex refactoring tasks need time for the agent
-    # to read files, make edits, and iterate. 600s was too short.
-    timeout 1800 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
+    # No timeout — let the model work as long as it needs. omp has its own
+    # internal timeouts. Killing a working model mid-refactor is worse than
+    # waiting. The verification step after will catch incomplete work.
+    omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
     EXIT_CODE=$?
     set -e
 
