@@ -47,57 +47,29 @@ if [[ ! -f "$STATE_FILE" ]]; then
   echo '{"current_model_index": 0, "completed_issues": []}' > "$STATE_FILE"
 fi
 
-# Model chain: most powerful to least powerful (based on 2025/2026 benchmarks)
-# References: SWE-bench, Arena-Hard, LMSYS Chatbot Arena, Aider leaderboard
-#
-# Models are tried in order. When a model is rate-limited (resource_exhausted),
-# the script falls back to the next. The last few are known-working fallbacks.
-#
-# Status legend (as of last test):
-#   RL = rate limited (will work when quota resets)
-#   OK = currently working
+# Model chain: user-specified order, most powerful to least powerful.
+# When a model is rate-limited, the script falls back to the next.
+# Rate limit info is fetched via `omp usage` before each iteration.
 MODELS=(
-  # Tier 1: Most powerful (extended thinking / max reasoning)
-  "claude-opus-5-thinking-xhigh"       # Claude Opus 5, extended thinking [RL]
-  "gpt-5.3-codex-xhigh"                # GPT-5.3 Codex, newest coding model [RL]
-  "gpt-5.2-codex-xhigh"                # GPT-5.2 Codex, xhigh reasoning [RL]
-  "claude-opus-4-8-xhigh"              # Claude Opus 4.8, xhigh [RL]
-  "claude-sonnet-5-xhigh"              # Claude Sonnet 5, xhigh [RL]
-  "kimi-k2.7-code"                     # Kimi K2.7, coding specialist [RL]
-
-  # Tier 2: Strong coding models
-  "gpt-5.1-codex-max-high"             # GPT-5.1 Codex Max [RL]
-  "claude-opus-4-7-xhigh"              # Claude Opus 4.7 [RL]
-  "gemini-3.1-pro"                     # Gemini 3.1 Pro [RL]
-  "gpt-5.2-high"                       # GPT-5.2 high reasoning [RL]
-  "claude-fable-5-xhigh"               # Claude Fable 5 [RL]
-  "grok-code-fast-1"                   # Grok coding model [RL]
-  "deepseek-ai/deepseek-v4-pro"        # DeepSeek V4 Pro [RL]
-
-  # Tier 3: Solid models
-  "gpt-5.2"                            # GPT-5.2 base [RL]
-  "gemini-3-pro"                       # Gemini 3 Pro [RL]
-  "claude-opus-4-8-high"               # Claude Opus 4.8 high [RL]
-  "kimi-k2.5"                          # Kimi K2.5 [RL]
-  "glm-5.2-max"                        # GLM 5.2 Max [RL]
-  "gpt-5.5-high"                       # GPT-5.5 [RL]
-
-  # Tier 4: Medium capability
-  "gpt-5.2-low"                        # GPT-5.2 low reasoning [RL]
-  "claude-sonnet-5-high"               # Claude Sonnet 5 high [RL]
-  "gemini-3-flash"                     # Gemini 3 Flash [RL]
-  "gpt-5.1"                            # GPT-5.1 [RL]
-  "gpt-5.4-low"                        # GPT-5.4 [RL]
-
-  # Tier 5: Known working fallbacks (always available)
-  "composer-2.5"                       # Cursor Composer 2.5 [OK]
-  "composer-2.5-fast"                  # Cursor Composer 2.5 Fast [OK]
-  "default"                            # Provider default model [OK]
+  "openai-codex/gpt-5.6-sol"            # GPT-5.6 Sol via OpenAI Codex provider
+  "cursor/gpt-5.6-sol-high"             # GPT-5.6 Sol High via Cursor
+  "cursor/claude-opus-5-high"           # Claude Opus 5 High via Cursor
+  "zai/glm-5.2"                         # GLM 5.2 via ZAI (most quota available)
+  "cursor/kimi-k2.7-code"              # Kimi K2.7 Code via Cursor
+  "cursor/composer-2.5"                # Composer 2.5 via Cursor (known working)
+  "cursor/default"                     # Default via Cursor
+  "nvidia/deepseek-ai/deepseek-v4-pro" # DeepSeek V4 Pro via NVIDIA
+  "nvidia/z-ai/glm-5.2"               # GLM 5.2 via NVIDIA
 )
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║          FitTrack Self-Improving Dev Loop                    ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Show rate limit status before starting
+echo "📊 Provider Usage Status:"
+omp usage 2>/dev/null | grep -E "(account|resets|capacity)" | head -20 || echo "  (unable to fetch usage)"
 echo ""
 
 # Read current model index
@@ -153,19 +125,32 @@ Description: $ISSUE_BODY
 Instructions:
 1. Read the relevant PRD files in prd/ for context
 2. Read the existing code to understand patterns and conventions
-3. Implement the feature following existing patterns
-4. Use Astryx DS components where appropriate
-5. Add or update database schema in src/lib/schema.sql if needed
-6. Add server functions in src/lib/api.ts for any new data operations
-7. Test that the app compiles (npm run build)
-8. Commit your work with a conventional commit message
-9. Do NOT push to remote
+3. Read existing tests in tests/unit/ and tests/e2e/ to understand test patterns
+4. Implement the feature following existing patterns
+5. Write meaningful tests for the feature you implement:
+   - Unit tests in tests/unit/ for any calculation logic (Vitest)
+   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)
+   - Tests must verify the feature actually works as a user would experience it
+   - Avoid useless tests - each test should verify meaningful behavior
+6. Run ALL tests and ensure they pass before committing:
+   - npm run test:unit  (Vitest)
+   - npm run test:e2e   (Playwright browser tests)
+   - npm run build      (production build)
+7. Commit your work with a conventional commit message
+8. Do NOT push to remote
+
+A feature is NOT complete until:
+- Unit tests pass (npm run test:unit)
+- Browser e2e tests pass (npm run test:e2e)
+- Production build succeeds (npm run build)
 
 Important conventions:
 - Use createServerFn from @tanstack/react-start for API calls
 - Use createFileRoute for route definitions
 - Use useSuspenseQuery for data fetching
 - All calculations must be science-backed with citations in comments
+- Tests use @playwright/test for e2e and vitest for unit tests
+- E2E tests target http://localhost:3000 (dev server auto-starts)
 PROMPT_EOF
 )
 
@@ -251,16 +236,100 @@ PROMPT_EOF
     break
   fi
 
-  # Self-improvement: analyze what worked
+  # ─── Verification: A feature is only "complete" if tests + build pass ───
   echo ""
-  echo "📈 Self-improvement analysis..."
+  echo "🔬 Verification: running unit tests, browser e2e tests, and build..."
+  echo ""
 
-  # Check if the build still passes
-  if npm run build 2>/dev/null; then
-    echo "✅ Build passes after this iteration"
+  VERIFICATION_PASSED=true
+  VERIFICATION_DETAILS=""
+
+  # 1. Unit tests
+  echo "  ▸ Running unit tests (Vitest)..."
+  set +e
+  UNIT_OUTPUT=$(npm run test:unit 2>&1)
+  UNIT_EXIT=$?
+  set -e
+  if [[ $UNIT_EXIT -eq 0 ]]; then
+    UNIT_COUNT=$(echo "$UNIT_OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' || echo "?")
+    echo "    ✅ Unit tests passed ($UNIT_COUNT tests)"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:${UNIT_COUNT}passed "
   else
-    echo "⚠️  Build has errors. The next iteration should fix them."
-    # Create an issue for build fixes if needed
+    echo "    ❌ Unit tests FAILED"
+    VERIFICATION_PASSED=false
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:FAILED "
+    # Capture failing test names
+    echo "$UNIT_OUTPUT" | grep -E "FAIL|×|✗" | head -5
+  fi
+
+  # 2. Browser e2e tests
+  echo "  ▸ Running browser e2e tests (Playwright)..."
+  set +e
+  E2E_OUTPUT=$(npm run test:e2e 2>&1)
+  E2E_EXIT=$?
+  set -e
+  if [[ $E2E_EXIT -eq 0 ]]; then
+    E2E_COUNT=$(echo "$E2E_OUTPUT" | grep -oP '\d+(?= passed)' | tail -1 || echo "?")
+    echo "    ✅ Browser tests passed ($E2E_COUNT tests)"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:${E2E_COUNT}passed "
+  else
+    echo "    ❌ Browser tests FAILED"
+    VERIFICATION_PASSED=false
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:FAILED "
+    # Show failing test names
+    echo "$E2E_OUTPUT" | grep -E "failed|Error|✗" | head -10
+  fi
+
+  # 3. Production build
+  echo "  ▸ Running production build..."
+  set +e
+  BUILD_OUTPUT=$(npm run build 2>&1)
+  BUILD_EXIT=$?
+  set -e
+  if [[ $BUILD_EXIT -eq 0 ]]; then
+    echo "    ✅ Build succeeded"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:passed"
+  else
+    echo "    ❌ Build FAILED"
+    VERIFICATION_PASSED=false
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:FAILED"
+  fi
+
+  echo ""
+  if $VERIFICATION_PASSED; then
+    echo "✅✅✅ FEATURE VERIFIED: $VERIFICATION_DETAILS"
+    echo "   All tests pass. Feature is confirmed working in the browser."
+
+    # Update learnings with verification success
+    jq --arg details "$VERIFICATION_DETAILS" \
+      '.last_verification = $details | .verification_streak = ((.verification_streak // 0) + 1)' \
+      "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+  else
+    echo "⚠️  VERIFICATION INCOMPLETE: $VERIFICATION_DETAILS"
+    echo "   Feature committed but tests/build need attention."
+    echo "   Next iteration should fix failing tests or create a bug-fix issue."
+
+    # Record the verification failure for self-improvement
+    jq --arg details "$VERIFICATION_DETAILS" \
+      '.last_verification = $details | .verification_streak = 0 | .verification_failures = ((.verification_failures // 0) + 1)' \
+      "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+
+    # Create a GitHub issue for the failing tests if build or e2e failed
+    if gh issue list --state open --search "fix failing tests in:title" --json number --limit 1 2>/dev/null | jq -e '.[0]' > /dev/null 2>&1; then
+      echo "   (Bug fix issue already exists)"
+    else
+      echo "   Creating bug-fix issue..."
+      gh issue create \
+        --title "fix: failing tests after iteration (self-improvement loop)" \
+        --label "bug" \
+        --body "The dev loop detected failing tests during verification.
+
+Details: $VERIFICATION_DETAILS
+
+Run \`npm run test:unit && npm run test:e2e && npm run build\` to see failures.
+
+This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
+    fi
   fi
 
   echo ""
@@ -281,6 +350,11 @@ echo "  Failed:           $FAIL_COUNT"
 echo ""
 echo "  Model usage:"
 jq -r '.model_usage | to_entries[] | "    \(.key): \(.value) runs"' "$LEARNINGS_FILE" 2>/dev/null || echo "    (no data yet)"
+echo ""
+echo "  Verification:"
+echo "    Streak:    $(jq -r '.verification_streak // 0' "$LEARNINGS_FILE") consecutive passes"
+echo "    Failures:  $(jq -r '.verification_failures // 0' "$LEARNINGS_FILE") total"
+echo "    Last:      $(jq -r '.last_verification // "none"' "$LEARNINGS_FILE")"
 echo ""
 echo "Remaining open issues:"
 gh issue list --state open --limit 10 2>/dev/null | head -15 || echo "  (unable to fetch)"

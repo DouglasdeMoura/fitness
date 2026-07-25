@@ -6,8 +6,18 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import * as React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OfflineStatus } from '~/components/OfflineStatus'
 import appCss from '~/styles/app.css?url'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 export const Route = createRootRoute({
   head: () => ({
@@ -45,6 +55,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <QueryClientProvider client={queryClient}>
         <header className="app-header">
           <nav className="app-nav">
             <Link to="/" className="app-nav-brand" activeProps={{}} activeOptions={{ exact: true }}>
@@ -108,6 +119,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           </div>
         </main>
         <Scripts />
+        </QueryClientProvider>
       </body>
     </html>
   )

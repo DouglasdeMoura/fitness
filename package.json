@@ -10,9 +10,15 @@
     "preview": "vite preview",
     "db:seed": "node scripts/seed.mjs",
     "dev-loop": "bash scripts/dev-loop.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "npx playwright test",
+    "test:watch": "vitest watch"
   },
   "dependencies": {
+    "@astryxdesign/cli": "^0.1.8",
     "@astryxdesign/core": "^0.1.8",
     "@astryxdesign/theme-neutral": "^0.1.8",
     "@tanstack/react-query": "^5.101.4",
@@ -24,15 +30,18 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.5.4",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "nitro": "3.0.260610-beta",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   }
 }

@@ -10,3 +10,4 @@ dist
 .DS_Store
 *.log
 .dev-loop
+test-results/
