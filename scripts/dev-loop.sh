@@ -85,7 +85,7 @@ for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
     ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body 2>/dev/null || echo "")
   else
     # Get the lowest-numbered open issue (work in order)
-    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -s 'min_by(.number) // empty')
+    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
   fi
 
   if [[ -z "$ISSUE_DATA" ]]; then
