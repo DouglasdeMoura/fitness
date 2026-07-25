@@ -14,6 +14,9 @@ import { Route as NutritionIndexRouteImport } from './routes/nutrition/index'
 import { Route as ProgressIndexRouteImport } from './routes/progress/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
+import { Route as NutritionPlanningIndexRouteImport } from './routes/nutrition/planning/index'
+import { Route as NutritionTemplatesIndexRouteImport } from './routes/nutrition/templates/index'
+import { Route as NutritionTemplatesTemplateIdRouteImport } from './routes/nutrition/templates/$templateId'
 import { Route as WorkoutProgramsIndexRouteImport } from './routes/workout/programs/index'
 import { Route as WorkoutProgramsProgramIdRouteImport } from './routes/workout/programs/$programId'
 
@@ -42,6 +45,22 @@ const WorkoutIndexRoute = WorkoutIndexRouteImport.update({
   path: '/workout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NutritionPlanningIndexRoute = NutritionPlanningIndexRouteImport.update({
+  id: '/nutrition/planning/',
+  path: '/nutrition/planning/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NutritionTemplatesIndexRoute = NutritionTemplatesIndexRouteImport.update({
+  id: '/nutrition/templates/',
+  path: '/nutrition/templates/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NutritionTemplatesTemplateIdRoute =
+  NutritionTemplatesTemplateIdRouteImport.update({
+    id: '/nutrition/templates/$templateId',
+    path: '/nutrition/templates/$templateId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const WorkoutProgramsIndexRoute = WorkoutProgramsIndexRouteImport.update({
   id: '/workout/programs/',
   path: '/workout/programs/',
@@ -60,7 +79,10 @@ export interface FileRoutesByFullPath {
   '/progress/': typeof ProgressIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/nutrition/planning/': typeof NutritionPlanningIndexRoute
+  '/nutrition/templates/': typeof NutritionTemplatesIndexRoute
   '/workout/programs/': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -69,7 +91,10 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workout': typeof WorkoutIndexRoute
+  '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/nutrition/planning': typeof NutritionPlanningIndexRoute
+  '/nutrition/templates': typeof NutritionTemplatesIndexRoute
   '/workout/programs': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRoutesById {
@@ -79,7 +104,10 @@ export interface FileRoutesById {
   '/progress/': typeof ProgressIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/nutrition/planning/': typeof NutritionPlanningIndexRoute
+  '/nutrition/templates/': typeof NutritionTemplatesIndexRoute
   '/workout/programs/': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRouteTypes {
@@ -90,7 +118,10 @@ export interface FileRouteTypes {
     | '/progress/'
     | '/settings/'
     | '/workout/'
+    | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
+    | '/nutrition/planning/'
+    | '/nutrition/templates/'
     | '/workout/programs/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,7 +130,10 @@ export interface FileRouteTypes {
     | '/progress'
     | '/settings'
     | '/workout'
+    | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
+    | '/nutrition/planning'
+    | '/nutrition/templates'
     | '/workout/programs'
   id:
     | '__root__'
@@ -108,7 +142,10 @@ export interface FileRouteTypes {
     | '/progress/'
     | '/settings/'
     | '/workout/'
+    | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
+    | '/nutrition/planning/'
+    | '/nutrition/templates/'
     | '/workout/programs/'
   fileRoutesById: FileRoutesById
 }
@@ -118,7 +155,10 @@ export interface RootRouteChildren {
   ProgressIndexRoute: typeof ProgressIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
+  NutritionTemplatesTemplateIdRoute: typeof NutritionTemplatesTemplateIdRoute
   WorkoutProgramsProgramIdRoute: typeof WorkoutProgramsProgramIdRoute
+  NutritionPlanningIndexRoute: typeof NutritionPlanningIndexRoute
+  NutritionTemplatesIndexRoute: typeof NutritionTemplatesIndexRoute
   WorkoutProgramsIndexRoute: typeof WorkoutProgramsIndexRoute
 }
 
@@ -159,6 +199,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/nutrition/planning/': {
+      id: '/nutrition/planning/'
+      path: '/nutrition/planning'
+      fullPath: '/nutrition/planning/'
+      preLoaderRoute: typeof NutritionPlanningIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nutrition/templates/': {
+      id: '/nutrition/templates/'
+      path: '/nutrition/templates'
+      fullPath: '/nutrition/templates/'
+      preLoaderRoute: typeof NutritionTemplatesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nutrition/templates/$templateId': {
+      id: '/nutrition/templates/$templateId'
+      path: '/nutrition/templates/$templateId'
+      fullPath: '/nutrition/templates/$templateId'
+      preLoaderRoute: typeof NutritionTemplatesTemplateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/workout/programs/': {
       id: '/workout/programs/'
       path: '/workout/programs'
@@ -182,7 +243,10 @@ const rootRouteChildren: RootRouteChildren = {
   ProgressIndexRoute: ProgressIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
+  NutritionTemplatesTemplateIdRoute: NutritionTemplatesTemplateIdRoute,
   WorkoutProgramsProgramIdRoute: WorkoutProgramsProgramIdRoute,
+  NutritionPlanningIndexRoute: NutritionPlanningIndexRoute,
+  NutritionTemplatesIndexRoute: NutritionTemplatesIndexRoute,
   WorkoutProgramsIndexRoute: WorkoutProgramsIndexRoute,
 }
 export const routeTree = rootRouteImport

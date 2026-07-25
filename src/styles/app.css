@@ -339,4 +339,19 @@
     font-weight: 700;
     margin: 0;
   }
+  .meal-plan-grid {
+    overflow-x: auto;
+  }
+
+  .meal-plan-cell {
+    min-width: 180px;
+    vertical-align: top;
+  }
+
+  .meal-plan-macros {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 6px 0;
+  }
+
 }

@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getFoodLog, addFoodLogEntry, deleteFoodLogEntry, searchFoods, getDailyTargets, addFood, type Food } from '~/lib/api'
@@ -32,6 +32,10 @@ function NutritionPage() {
     <div>
       <div className="section-header">
         <h1 className="section-title">Nutrition</h1>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <Link to="/nutrition/templates" className="btn btn-secondary btn-sm">Templates</Link>
+          <Link to="/nutrition/planning" className="btn btn-secondary btn-sm">Weekly Plan</Link>
+        </div>
       </div>
 
       <div className="grid-2">

@@ -1,14 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getDb, type User, type Food, type FoodLogEntry, type Exercise, type WorkoutSession, type WorkoutSet, type BodyLog, type Program, type ProgramDay, type ProgramExercise, type PeriodizationType } from './db'
+import { getDb, type User, type Food, type FoodLogEntry, type Exercise, type WorkoutSession, type WorkoutSet, type BodyLog, type Program, type ProgramDay, type ProgramExercise, type PeriodizationType, type MealTemplate, type MealTemplateItem, type MealPlan, type MealType } from './db'
 import {
   calculateBMR,
   calculateTDEE,
   calculateAge,
   calculateMacroTargets,
+  calculateFoodMacros,
+  sumNutritionTotals,
+  getWeekStart,
+  addDays,
   todayString,
   emptyTotals,
   type ActivityLevel,
   type GoalType,
+  type NutritionTotals,
 } from './nutrition'
 import { resolveProgramTargets } from './workout'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
@@ -592,6 +597,279 @@ export const startWorkoutFromProgram = createServerFn({ method: 'POST' })
       dayName: day.day_name,
       targets: dayTargets?.targets ?? [],
     }
+  })
+
+
+
+// --- Meal Templates & Planning ---
+
+export type MealTemplateItemInput = {
+  food_id: number
+  servings: number
+  sort_order: number
+}
+
+export type MealTemplateDetail = MealTemplate & {
+  items: Array<MealTemplateItem & {
+    food_name: string
+    serving_unit: string
+    calories_per_serving: number
+    protein_g: number
+    carbs_g: number
+    fat_g: number
+    fiber_g: number
+  }>
+  totals: NutritionTotals
+}
+
+export type MealPlanSlot = {
+  date: string
+  meal_type: MealType
+  plan_id: number | null
+  template_id: number | null
+  template_name: string | null
+  macros: NutritionTotals
+}
+
+export type WeekMealPlan = {
+  start_date: string
+  end_date: string
+  days: Array<{
+    date: string
+    day_label: string
+    slots: MealPlanSlot[]
+    day_totals: NutritionTotals
+  }>
+  week_totals: NutritionTotals
+  targets: Awaited<ReturnType<typeof getDailyTargets>>
+}
+
+function loadMealTemplateDetail(db: ReturnType<typeof getDb>, templateId: number, userId: number): MealTemplateDetail | null {
+  const template = db.prepare('SELECT * FROM meal_templates WHERE id = ? AND user_id = ?').get(templateId, userId) as MealTemplate | undefined
+  if (!template) return null
+
+  const items = db.prepare(
+    `SELECT mti.*, f.name as food_name, f.serving_unit, f.calories_per_serving, f.protein_g, f.carbs_g, f.fat_g, f.fiber_g
+     FROM meal_template_items mti
+     JOIN foods f ON mti.food_id = f.id
+     WHERE mti.template_id = ?
+     ORDER BY mti.sort_order`
+  ).all(templateId) as MealTemplateDetail['items']
+
+  const totals = sumNutritionTotals(
+    items.map((item) => calculateFoodMacros(item, item.servings))
+  )
+
+  return { ...template, items, totals }
+}
+
+function templateMacros(db: ReturnType<typeof getDb>, templateId: number): NutritionTotals {
+  const items = db.prepare(
+    `SELECT f.calories_per_serving, f.protein_g, f.carbs_g, f.fat_g, f.fiber_g, mti.servings
+     FROM meal_template_items mti
+     JOIN foods f ON mti.food_id = f.id
+     WHERE mti.template_id = ?`
+  ).all(templateId) as Array<Food & { servings: number }>
+
+  return sumNutritionTotals(items.map((item) => calculateFoodMacros(item, item.servings)))
+}
+
+export const getMealTemplates = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  const templates = db.prepare(
+    'SELECT * FROM meal_templates WHERE user_id = ? ORDER BY created_at DESC'
+  ).all(user.id) as MealTemplate[]
+
+  return templates.map((template) => ({
+    ...template,
+    item_count: (db.prepare('SELECT COUNT(*) as count FROM meal_template_items WHERE template_id = ?').get(template.id) as { count: number }).count,
+    totals: templateMacros(db, template.id),
+  }))
+})
+
+export const getMealTemplate = createServerFn({ method: 'GET' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    return loadMealTemplateDetail(db, ctx.data.id, user.id)
+  })
+
+export const saveMealTemplate = createServerFn({ method: 'POST' })
+  .validator((data: {
+    id?: number
+    name: string
+    description?: string
+    default_meal_type: MealType
+    items: MealTemplateItemInput[]
+  }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const d = ctx.data
+
+    const save = db.transaction(() => {
+      let templateId = d.id
+
+      if (templateId) {
+        db.prepare(
+          'UPDATE meal_templates SET name = ?, description = ?, default_meal_type = ? WHERE id = ? AND user_id = ?'
+        ).run(d.name, d.description ?? null, d.default_meal_type, templateId, user.id)
+      } else {
+        const result = db.prepare(
+          'INSERT INTO meal_templates (user_id, name, description, default_meal_type) VALUES (?, ?, ?, ?)'
+        ).run(user.id, d.name, d.description ?? null, d.default_meal_type)
+        templateId = result.lastInsertRowid as number
+      }
+
+      db.prepare('DELETE FROM meal_template_items WHERE template_id = ?').run(templateId)
+
+      for (const item of d.items) {
+        db.prepare(
+          'INSERT INTO meal_template_items (template_id, food_id, servings, sort_order) VALUES (?, ?, ?, ?)'
+        ).run(templateId, item.food_id, item.servings, item.sort_order)
+      }
+
+      return templateId
+    })
+
+    const templateId = save()
+    return loadMealTemplateDetail(db, templateId, user.id)
+  })
+
+export const deleteMealTemplate = createServerFn({ method: 'POST' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    db.prepare('DELETE FROM meal_templates WHERE id = ? AND user_id = ?').run(ctx.data.id, user.id)
+    return { success: true }
+  })
+
+export const getWeekMealPlan = createServerFn({ method: 'GET' })
+  .validator((data: { start_date?: string } | undefined) => data ?? {})
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const startDate = getWeekStart(ctx.data?.start_date || todayString())
+    const endDate = addDays(startDate, 6)
+    const targets = await getDailyTargets()
+
+    const plans = db.prepare(
+      `SELECT mp.*, mt.name as template_name
+       FROM meal_plans mp
+       JOIN meal_templates mt ON mp.template_id = mt.id
+       WHERE mp.user_id = ? AND mp.date >= ? AND mp.date <= ?`
+    ).all(user.id, startDate, endDate) as Array<MealPlan & { template_name: string }>
+
+    const mealTypes: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
+    const days = []
+    let weekTotals = emptyTotals()
+
+    for (let offset = 0; offset < 7; offset++) {
+      const date = addDays(startDate, offset)
+      const slots: MealPlanSlot[] = []
+      let dayTotals = emptyTotals()
+
+      for (const mealType of mealTypes) {
+        const plan = plans.find((entry) => entry.date === date && entry.meal_type === mealType)
+        const macros = plan ? templateMacros(db, plan.template_id) : emptyTotals()
+        dayTotals = sumNutritionTotals([dayTotals, macros])
+        slots.push({
+          date,
+          meal_type: mealType,
+          plan_id: plan?.id ?? null,
+          template_id: plan?.template_id ?? null,
+          template_name: plan?.template_name ?? null,
+          macros,
+        })
+      }
+
+      weekTotals = sumNutritionTotals([weekTotals, dayTotals])
+      days.push({
+        date,
+        day_label: new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        slots,
+        day_totals: dayTotals,
+      })
+    }
+
+    return {
+      start_date: startDate,
+      end_date: endDate,
+      days,
+      week_totals: weekTotals,
+      targets,
+    } satisfies WeekMealPlan
+  })
+
+export const setMealPlan = createServerFn({ method: 'POST' })
+  .validator((data: { date: string; meal_type: MealType; template_id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const d = ctx.data
+
+    const template = db.prepare('SELECT id FROM meal_templates WHERE id = ? AND user_id = ?').get(d.template_id, user.id)
+    if (!template) throw new Error('Meal template not found')
+
+    db.prepare(
+      `INSERT INTO meal_plans (user_id, date, meal_type, template_id)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, date, meal_type) DO UPDATE SET template_id = excluded.template_id`
+    ).run(user.id, d.date, d.meal_type, d.template_id)
+
+    return { success: true }
+  })
+
+export const clearMealPlan = createServerFn({ method: 'POST' })
+  .validator((data: { date: string; meal_type: MealType }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    db.prepare('DELETE FROM meal_plans WHERE user_id = ? AND date = ? AND meal_type = ?').run(user.id, ctx.data.date, ctx.data.meal_type)
+    return { success: true }
+  })
+
+export const logMealFromPlan = createServerFn({ method: 'POST' })
+  .validator((data: { date: string; meal_type: MealType }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const plan = db.prepare(
+      'SELECT * FROM meal_plans WHERE user_id = ? AND date = ? AND meal_type = ?'
+    ).get(user.id, ctx.data.date, ctx.data.meal_type) as MealPlan | undefined
+
+    if (!plan) throw new Error('No meal planned for this slot')
+
+    const template = loadMealTemplateDetail(db, plan.template_id, user.id)
+    if (!template) throw new Error('Meal template not found')
+
+    const insert = db.prepare(
+      `INSERT INTO food_log (user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+
+    const logged = template.items.map((item) => {
+      const macros = calculateFoodMacros(item, item.servings)
+      const result = insert.run(
+        user.id,
+        item.food_id,
+        null,
+        ctx.data.date,
+        ctx.data.meal_type,
+        item.servings,
+        macros.calories,
+        macros.protein_g,
+        macros.carbs_g,
+        macros.fat_g,
+        `From template: ${template.name}`,
+      )
+      return db.prepare('SELECT * FROM food_log WHERE id = ?').get(result.lastInsertRowid) as FoodLogEntry
+    })
+
+    return { entries: logged, template_name: template.name }
   })
 
 

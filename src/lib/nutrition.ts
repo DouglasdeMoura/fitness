@@ -146,3 +146,60 @@ export function formatDate(date: Date): string {
 export function todayString(): string {
   return formatDate(new Date())
 }
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+export const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
+
+export const MEAL_TYPE_LABELS: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
+}
+
+export type FoodMacrosInput = {
+  calories_per_serving: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  fiber_g?: number
+}
+
+/**
+ * Scale per-serving food macros by servings.
+ * Uses label values (Atwater general factors: protein 4 kcal/g, carbs 4 kcal/g, fat 9 kcal/g).
+ * Reference: Atwater WO. USDA Farmers' Bulletin No. 142. 1902; codified in NLEA/FDA labeling.
+ */
+export function calculateFoodMacros(food: FoodMacrosInput, servings: number): NutritionTotals {
+  return {
+    calories: food.calories_per_serving * servings,
+    protein_g: food.protein_g * servings,
+    carbs_g: food.carbs_g * servings,
+    fat_g: food.fat_g * servings,
+    fiber_g: (food.fiber_g ?? 0) * servings,
+  }
+}
+
+export function sumNutritionTotals(items: NutritionTotals[]): NutritionTotals {
+  return items.reduce((acc, item) => addTotals(acc, item), emptyTotals())
+}
+
+/** Monday of the week containing the given date (ISO week start). */
+export function getWeekStart(dateStr: string): string {
+  const date = new Date(`${dateStr}T12:00:00`)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + diff)
+  return formatDate(date)
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const date = new Date(`${dateStr}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return formatDate(date)
+}
+
+export function formatWeekday(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short' })
+}

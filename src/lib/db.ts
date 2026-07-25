@@ -187,3 +187,32 @@ export type ProgramExercise = {
   sort_order: number
   created_at: string
 }
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+export type MealTemplate = {
+  id: number
+  user_id: number
+  name: string
+  description: string | null
+  default_meal_type: MealType
+  created_at: string
+}
+
+export type MealTemplateItem = {
+  id: number
+  template_id: number
+  food_id: number
+  servings: number
+  sort_order: number
+  created_at: string
+}
+
+export type MealPlan = {
+  id: number
+  user_id: number
+  date: string
+  meal_type: MealType
+  template_id: number
+  created_at: string
+}

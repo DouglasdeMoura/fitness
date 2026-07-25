@@ -164,3 +164,38 @@ CREATE TABLE IF NOT EXISTS sync_queue (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sync_queue_temp_ref ON sync_queue(temp_ref);
+-- Saved meal templates (food combos / recipes)
+CREATE TABLE IF NOT EXISTS meal_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  description TEXT,
+  default_meal_type TEXT NOT NULL DEFAULT 'lunch'
+    CHECK(default_meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_meal_templates_user ON meal_templates(user_id);
+
+CREATE TABLE IF NOT EXISTS meal_template_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id INTEGER NOT NULL REFERENCES meal_templates(id) ON DELETE CASCADE,
+  food_id INTEGER NOT NULL REFERENCES foods(id),
+  servings REAL NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Weekly meal plan slots (assign a template to date + meal type)
+CREATE TABLE IF NOT EXISTS meal_plans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  date TEXT NOT NULL,
+  meal_type TEXT NOT NULL
+    CHECK(meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+  template_id INTEGER NOT NULL REFERENCES meal_templates(id) ON DELETE CASCADE,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id, date, meal_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_meal_plans_date ON meal_plans(date);
