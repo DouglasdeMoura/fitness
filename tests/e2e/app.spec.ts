@@ -25,29 +25,47 @@ test.describe('Dashboard - User Landing Experience', () => {
 
   test('displays calorie target and consumed metrics on first visit', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('.card-title:has-text("Today\'s Calories")')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText("Today's Calories")).toBeVisible({ timeout: 10000 })
     await expect(page.locator('text=/kcal/').first()).toBeVisible()
+    // Calorie ProgressBar exposes a descriptive accessible label even though
+    // the visible label is hidden.
+    await expect(
+      page.getByRole('progressbar', { name: /calories consumed today/i }),
+    ).toBeVisible()
   })
 
   test('shows macro tracking section with protein, carbs, and fat', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('.card-title:has-text("Macros")')).toBeVisible()
-    await expect(page.locator('.stat-label:has-text("Protein")')).toBeVisible()
-    await expect(page.locator('.stat-label:has-text("Carbs")')).toBeVisible()
-    await expect(page.locator('.stat-label:has-text("Fat")')).toBeVisible()
+    await expect(page.getByText('Macros', { exact: true })).toBeVisible()
+    await expect(page.getByText('Protein', { exact: true })).toBeVisible()
+    await expect(page.getByText('Carbs', { exact: true })).toBeVisible()
+    await expect(page.getByText('Fat', { exact: true })).toBeVisible()
+    // Each macro renders its own labelled progress bar.
+    await expect(page.getByRole('progressbar', { name: 'Protein consumed' })).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Carbs consumed' })).toBeVisible()
+    await expect(page.getByRole('progressbar', { name: 'Fat consumed' })).toBeVisible()
   })
 
-  test('displays quick action buttons', async ({ page }) => {
+  test('renders quick actions as styled navigation links', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('.card-title:has-text("Quick Actions")')).toBeVisible()
-    await expect(page.locator('a:has-text("Log Food")')).toBeVisible()
-    await expect(page.locator('a:has-text("Start Workout")')).toBeVisible()
+    await expect(page.getByText('Quick Actions')).toBeVisible()
+    // Button with href renders a styled <a>, preserving link semantics and
+    // client-side routing.
+    await expect(page.getByRole('link', { name: 'Log Food' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Start Workout' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'View Progress' })).toBeVisible()
   })
 
   test('shows current goal type from user profile', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('.card-title:has-text("Your Goal")')).toBeVisible()
-    await expect(page.locator('.stat-label:has-text("Goal Type")')).toBeVisible()
+    await expect(page.getByText('Your Goal')).toBeVisible()
+    await expect(page.getByText('Goal Type')).toBeVisible()
+  })
+
+  test('quick action links navigate to their target page', async ({ page }) => {
+    await waitForAppReady(page)
+    await page.getByRole('link', { name: 'Log Food' }).click()
+    await expect(page).toHaveURL(/\/nutrition/)
   })
 })
 
