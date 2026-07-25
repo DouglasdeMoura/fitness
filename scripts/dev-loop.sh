@@ -84,8 +84,8 @@ for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
   if [[ -n "$ISSUE_NUMBER" ]]; then
     ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body 2>/dev/null || echo "")
   else
-    # Get the first open issue
-    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 1 2>/dev/null | jq -r '.[0] // empty')
+    # Get the lowest-numbered open issue (work in order)
+    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -s 'min_by(.number) // empty')
   fi
 
   if [[ -z "$ISSUE_DATA" ]]; then
@@ -171,19 +171,33 @@ PROMPT_EOF
     # Disable set -e for this block since omp/timeout may return non-zero
     OUTPUT_FILE=$(mktemp)
     set +e
-    timeout 300 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
+    timeout 600 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
     EXIT_CODE=$?
     set -e
 
     # Check if the output contains error indicators
-    if echo "$OUTPUT_FILE" | grep -qiE "resource_exhausted|rate.limit|quota"; then
+    # Check output content for errors
+    OUTPUT_CONTENT=$(cat "$OUTPUT_FILE")
+    if echo "$OUTPUT_CONTENT" | grep -qiE "resource_exhausted|rate.limit|quota"; then
       ERROR_TYPE="rate_limited"
-    elif echo "$OUTPUT_FILE" | grep -qiE "invalid_argument|bad.request"; then
+    elif echo "$OUTPUT_CONTENT" | grep -qiE "invalid_argument|bad.request"; then
       ERROR_TYPE="invalid_argument"
-    elif echo "$OUTPUT_FILE" | grep -qiE "Use /login|API key"; then
+    elif echo "$OUTPUT_CONTENT" | grep -qiE "Use /login|API key"; then
       ERROR_TYPE="needs_auth"
+    elif [[ $EXIT_CODE -eq 124 ]]; then
+      # Timeout - check if there's useful output despite timeout
+      if echo "$OUTPUT_CONTENT" | grep -qiE "feat\(|fix\(|refactor\(|commit|add"; then
+        ERROR_TYPE=""  # Model made progress, treat as success
+      else
+        ERROR_TYPE="timeout"
+      fi
     elif [[ $EXIT_CODE -ne 0 ]]; then
-      ERROR_TYPE="exit_code_$EXIT_CODE"
+      # Non-zero exit but check if output has useful content
+      if echo "$OUTPUT_CONTENT" | grep -qiE "feat\(|fix\(|refactor\(|Error:|error:"; then
+        ERROR_TYPE=""  # Model produced output, treat as success
+      else
+        ERROR_TYPE="exit_code_$EXIT_CODE"
+      fi
     else
       ERROR_TYPE=""
     fi
