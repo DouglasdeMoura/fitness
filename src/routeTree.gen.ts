@@ -14,6 +14,8 @@ import { Route as NutritionIndexRouteImport } from './routes/nutrition/index'
 import { Route as ProgressIndexRouteImport } from './routes/progress/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
+import { Route as WorkoutProgramsIndexRouteImport } from './routes/workout/programs/index'
+import { Route as WorkoutProgramsProgramIdRouteImport } from './routes/workout/programs/$programId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +42,17 @@ const WorkoutIndexRoute = WorkoutIndexRouteImport.update({
   path: '/workout/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkoutProgramsIndexRoute = WorkoutProgramsIndexRouteImport.update({
+  id: '/workout/programs/',
+  path: '/workout/programs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkoutProgramsProgramIdRoute =
+  WorkoutProgramsProgramIdRouteImport.update({
+    id: '/workout/programs/$programId',
+    path: '/workout/programs/$programId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +60,8 @@ export interface FileRoutesByFullPath {
   '/progress/': typeof ProgressIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/workout/programs/': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +69,8 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workout': typeof WorkoutIndexRoute
+  '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/workout/programs': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,14 +79,37 @@ export interface FileRoutesById {
   '/progress/': typeof ProgressIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
+  '/workout/programs/': typeof WorkoutProgramsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/nutrition/' | '/progress/' | '/settings/' | '/workout/'
+  fullPaths:
+    | '/'
+    | '/nutrition/'
+    | '/progress/'
+    | '/settings/'
+    | '/workout/'
+    | '/workout/programs/$programId'
+    | '/workout/programs/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/nutrition' | '/progress' | '/settings' | '/workout'
+  to:
+    | '/'
+    | '/nutrition'
+    | '/progress'
+    | '/settings'
+    | '/workout'
+    | '/workout/programs/$programId'
+    | '/workout/programs'
   id:
-    '__root__' | '/' | '/nutrition/' | '/progress/' | '/settings/' | '/workout/'
+    | '__root__'
+    | '/'
+    | '/nutrition/'
+    | '/progress/'
+    | '/settings/'
+    | '/workout/'
+    | '/workout/programs/$programId'
+    | '/workout/programs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,6 +118,8 @@ export interface RootRouteChildren {
   ProgressIndexRoute: typeof ProgressIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
+  WorkoutProgramsProgramIdRoute: typeof WorkoutProgramsProgramIdRoute
+  WorkoutProgramsIndexRoute: typeof WorkoutProgramsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -117,6 +159,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workout/programs/': {
+      id: '/workout/programs/'
+      path: '/workout/programs'
+      fullPath: '/workout/programs/'
+      preLoaderRoute: typeof WorkoutProgramsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workout/programs/$programId': {
+      id: '/workout/programs/$programId'
+      path: '/workout/programs/$programId'
+      fullPath: '/workout/programs/$programId'
+      preLoaderRoute: typeof WorkoutProgramsProgramIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -126,6 +182,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProgressIndexRoute: ProgressIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
+  WorkoutProgramsProgramIdRoute: WorkoutProgramsProgramIdRoute,
+  WorkoutProgramsIndexRoute: WorkoutProgramsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

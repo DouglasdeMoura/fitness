@@ -83,6 +83,39 @@ CREATE TABLE IF NOT EXISTS exercises (
 
 CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
 
+CREATE TABLE IF NOT EXISTS programs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  description TEXT,
+  frequency_per_week INTEGER DEFAULT 3,
+  periodization_type TEXT NOT NULL DEFAULT 'linear'
+    CHECK(periodization_type IN ('linear', 'dup')),
+  progression_increment_pct REAL NOT NULL DEFAULT 2.5,
+  is_active INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS program_days (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  day_name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS program_exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_day_id INTEGER NOT NULL REFERENCES program_days(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+  target_sets INTEGER,
+  target_reps TEXT,
+  target_rpe INTEGER,
+  rest_seconds INTEGER,
+  sort_order INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS workout_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
@@ -90,6 +123,8 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
   name TEXT,
   duration_minutes INTEGER,
   notes TEXT,
+  program_id INTEGER REFERENCES programs(id),
+  program_day_id INTEGER REFERENCES program_days(id),
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -129,32 +164,3 @@ CREATE TABLE IF NOT EXISTS sync_queue (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sync_queue_temp_ref ON sync_queue(temp_ref);
-
-CREATE TABLE IF NOT EXISTS programs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  name TEXT NOT NULL,
-  description TEXT,
-  frequency_per_week INTEGER DEFAULT 3,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS program_days (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-  day_name TEXT NOT NULL,
-  sort_order INTEGER NOT NULL,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS program_exercises (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  program_day_id INTEGER NOT NULL REFERENCES program_days(id) ON DELETE CASCADE,
-  exercise_id INTEGER NOT NULL REFERENCES exercises(id),
-  target_sets INTEGER,
-  target_reps TEXT,
-  target_rpe INTEGER,
-  rest_seconds INTEGER,
-  sort_order INTEGER NOT NULL,
-  created_at TEXT DEFAULT (datetime('now'))
-);

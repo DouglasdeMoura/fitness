@@ -1,17 +1,39 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { getExercises, getWorkoutSessions, createWorkoutSession, addWorkoutSet } from '~/lib/api'
+import { useEffect, useState } from 'react'
+import { Badge, Button, Card } from '@astryxdesign/core'
+import {
+  getExercises,
+  getWorkoutSessions,
+  getWorkoutSession,
+  createWorkoutSession,
+  addWorkoutSet,
+  getProgramDayTargets,
+  type ProgramDayTarget,
+} from '~/lib/api'
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
-import { estimate1RM, calculateVolume, type Exercise } from '~/lib/workout'
+import type { Exercise } from '~/lib/db'
+import { estimate1RM, calculateVolume } from '~/lib/workout'
+
+type WorkoutSearch = {
+  session?: number
+}
 
 export const Route = createFileRoute('/workout/')({
   head: () => ({ meta: [{ title: 'Workout - FitTrack' }] }),
+  validateSearch: (search: Record<string, unknown>): WorkoutSearch => ({
+    session: typeof search.session === 'number'
+      ? search.session
+      : typeof search.session === 'string' && search.session
+        ? parseInt(search.session, 10)
+        : undefined,
+  }),
   component: WorkoutPage,
 })
 
 function WorkoutPage() {
+  const { session: sessionIdFromSearch } = Route.useSearch()
   const { data: exercises } = useSuspenseQuery({
     queryKey: ['exercises'],
     queryFn: () => getExercises({ data: {} }),
@@ -22,11 +44,42 @@ function WorkoutPage() {
     queryFn: () => getWorkoutSessions({ data: { limit: 10 } }),
   })
 
-  // id is null while the session itself is still sitting in the offline
-  // outbox; tempRef is what its sets reference until the server assigns one.
-  const [activeSession, setActiveSession] = useState<{ id: number | null; tempRef: string } | null>(null)
+  const [activeSession, setActiveSession] = useState<{ id: number | null; tempRef: string; programDayId?: number | null; programId?: number | null } | null>(null)
+  const [programTargets, setProgramTargets] = useState<ProgramDayTarget[]>([])
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sets, setSets] = useState<Array<{ reps: number; weight: number; rpe: number }>>([])
+
+  useEffect(() => {
+    if (!sessionIdFromSearch || activeSession?.id === sessionIdFromSearch) return
+
+    let cancelled = false
+    ;(async () => {
+      const loaded = await getWorkoutSession({ data: { id: sessionIdFromSearch } })
+      if (!loaded || cancelled) return
+
+      setActiveSession({ id: loaded.session.id, tempRef: `session-${loaded.session.id}` })
+
+      if (loaded.session.program_id && loaded.session.program_day_id) {
+        const dayTargets = await getProgramDayTargets({
+          data: {
+            programId: loaded.session.program_id,
+            programDayId: loaded.session.program_day_id,
+          },
+        })
+        if (!cancelled && dayTargets) {
+          setProgramTargets(dayTargets.targets)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionIdFromSearch, activeSession?.id])
+
+  const activeTarget = selectedExercise
+    ? programTargets.find((target) => target.exercise_id === selectedExercise.id)
+    : undefined
 
   const handleStartWorkout = async () => {
     const tempRef = makeTempRef()
@@ -36,13 +89,22 @@ function WorkoutPage() {
       () => createWorkoutSession({ data: { name: 'Training Session' } })
     )
     setActiveSession({ id: outcome.queued ? null : outcome.result.id, tempRef })
+    setProgramTargets([])
     setSets([])
   }
 
   const handleAddSet = () => {
     if (!selectedExercise) return
     const lastSet = sets[sets.length - 1]
-    setSets([...sets, { reps: lastSet?.reps || 8, weight: lastSet?.weight || 20, rpe: 7 }])
+    const suggestedWeight = activeTarget?.suggested_weight_kg
+    setSets([
+      ...sets,
+      {
+        reps: lastSet?.reps || parseInt(activeTarget?.target_reps.split('-')[0] || '8', 10),
+        weight: lastSet?.weight || suggestedWeight || 20,
+        rpe: lastSet?.rpe || activeTarget?.target_rpe || 7,
+      },
+    ])
   }
 
   const handleSaveSet = async (set: { reps: number; weight: number; rpe: number }, index: number) => {
@@ -57,8 +119,6 @@ function WorkoutPage() {
 
     const sessionId = activeSession.id
     if (sessionId === null) {
-      // The session has not reached the server yet, so the set has to travel
-      // through the outbox behind it to be attached to the right row.
       await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
       return
     }
@@ -77,20 +137,22 @@ function WorkoutPage() {
     <div>
       <div className="section-header">
         <h1 className="section-title">Workout</h1>
+        <Link to="/workout/programs" className="btn btn-secondary btn-sm">Training Programs</Link>
       </div>
 
       {!activeSession ? (
         <>
-          <div className="card" style={{ textAlign: 'center' }}>
+          <Card padding={4} style={{ textAlign: 'center', marginBottom: '16px' }}>
             <div className="empty-state-icon">🏋️</div>
             <h3>Ready to train?</h3>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Start a new training session to log your lifts
+              Start a free-form session or follow a structured training program
             </p>
-            <button className="btn btn-primary" onClick={handleStartWorkout}>
-              Start Workout
-            </button>
-          </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Button variant="primary" onClick={handleStartWorkout}>Start Workout</Button>
+              <Link to="/workout/programs" className="btn btn-secondary">Browse Programs</Link>
+            </div>
+          </Card>
 
           <div className="card">
             <div className="card-title">Recent Sessions</div>
@@ -121,7 +183,7 @@ function WorkoutPage() {
               <div className="card-title" style={{ margin: 0 }}>Active Session</div>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => { setActiveSession(null); setSelectedExercise(null); setSets([]) }}
+                onClick={() => { setActiveSession(null); setSelectedExercise(null); setSets([]); setProgramTargets([]) }}
               >
                 Finish
               </button>
@@ -142,6 +204,35 @@ function WorkoutPage() {
             )}
           </div>
 
+          {programTargets.length > 0 && (
+            <Card padding={4} style={{ marginBottom: '16px' }}>
+              <div className="card-title">Program Targets</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Exercise</th>
+                    <th>Target</th>
+                    <th>Suggested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {programTargets.map((target) => (
+                    <tr key={target.program_exercise_id}>
+                      <td>{target.exercise_name}</td>
+                      <td>
+                        {target.target_sets} x {target.target_reps} @ RPE {target.target_rpe}
+                        {target.dup_emphasis ? <Badge variant="info" style={{ marginLeft: '8px' }}>{target.dup_emphasis}</Badge> : null}
+                      </td>
+                      <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                        {target.suggested_weight_kg ? `${target.suggested_weight_kg} kg` : target.progression_note}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+
           <div className="card">
             <div className="card-title">Select Exercise</div>
             <select
@@ -154,7 +245,10 @@ function WorkoutPage() {
               }}
             >
               <option value="">Choose an exercise...</option>
-              {exercises.map((ex) => (
+              {(programTargets.length > 0
+                ? exercises.filter((ex) => programTargets.some((target) => target.exercise_id === ex.id))
+                : exercises
+              ).map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {ex.name} ({ex.muscle_group})
                 </option>
@@ -165,7 +259,15 @@ function WorkoutPage() {
           {selectedExercise && (
             <div className="card">
               <div className="section-header" style={{ marginBottom: '12px' }}>
-                <div className="card-title" style={{ margin: 0 }}>{selectedExercise.name}</div>
+                <div>
+                  <div className="card-title" style={{ margin: 0 }}>{selectedExercise.name}</div>
+                  {activeTarget ? (
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                      Target: {activeTarget.target_sets} x {activeTarget.target_reps} @ RPE {activeTarget.target_rpe}
+                      {activeTarget.suggested_weight_kg ? ` · Suggested ${activeTarget.suggested_weight_kg} kg` : ''}
+                    </p>
+                  ) : null}
+                </div>
                 <button className="btn btn-primary btn-sm" onClick={handleAddSet}>+ Add Set</button>
               </div>
               {selectedExercise.instructions && (

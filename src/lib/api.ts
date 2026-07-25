@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getDb, type User, type Food, type FoodLogEntry, type Exercise, type WorkoutSession, type WorkoutSet, type BodyLog } from './db'
+import { getDb, type User, type Food, type FoodLogEntry, type Exercise, type WorkoutSession, type WorkoutSet, type BodyLog, type Program, type ProgramDay, type ProgramExercise, type PeriodizationType } from './db'
 import {
   calculateBMR,
   calculateTDEE,
@@ -10,6 +10,7 @@ import {
   type ActivityLevel,
   type GoalType,
 } from './nutrition'
+import { resolveProgramTargets } from './workout'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
 // --- Ensure default user exists ---
@@ -264,14 +265,14 @@ export const getWorkoutSession = createServerFn({ method: 'GET' })
   })
 
 export const createWorkoutSession = createServerFn({ method: 'POST' })
-  .validator((data: { name?: string; date?: string }) => data)
+  .validator((data: { name?: string; date?: string; program_id?: number; program_day_id?: number }) => data)
   .handler(async (ctx) => {
     const db = getDb()
     const user = await ensureDefaultUser()
     const date = ctx.data.date || todayString()
     const result = db.prepare(
-      'INSERT INTO workout_sessions (user_id, date, name) VALUES (?, ?, ?)'
-    ).run(user.id, date, ctx.data.name || 'Workout')
+      'INSERT INTO workout_sessions (user_id, date, name, program_id, program_day_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(user.id, date, ctx.data.name || 'Workout', ctx.data.program_id ?? null, ctx.data.program_day_id ?? null)
     return { id: result.lastInsertRowid as number }
   })
 
@@ -303,6 +304,296 @@ export const deleteWorkoutSet = createServerFn({ method: 'POST' })
     db.prepare('DELETE FROM workout_sets WHERE id = ?').run(ctx.data.id)
     return { success: true }
   })
+
+
+// --- Training Programs ---
+
+export type ProgramExerciseInput = {
+  exercise_id: number
+  target_sets: number
+  target_reps: string
+  target_rpe: number
+  rest_seconds?: number
+  sort_order: number
+}
+
+export type ProgramDayInput = {
+  day_name: string
+  sort_order: number
+  exercises: ProgramExerciseInput[]
+}
+
+export type ProgramDetail = Program & {
+  days: Array<ProgramDay & {
+    exercises: Array<ProgramExercise & {
+      exercise_name: string
+      muscle_group: string
+    }>
+  }>
+}
+
+export type ProgramDayTarget = {
+  program_exercise_id: number
+  exercise_id: number
+  exercise_name: string
+  muscle_group: string
+  target_sets: number
+  target_reps: string
+  target_rpe: number
+  rest_seconds: number | null
+  suggested_weight_kg: number | null
+  progression_note: string
+  dup_emphasis?: 'strength' | 'hypertrophy' | 'endurance'
+}
+
+function loadProgramDetail(db: ReturnType<typeof getDb>, programId: number, userId: number): ProgramDetail | null {
+  const program = db.prepare('SELECT * FROM programs WHERE id = ? AND user_id = ?').get(programId, userId) as Program | undefined
+  if (!program) return null
+
+  const days = db.prepare(
+    'SELECT * FROM program_days WHERE program_id = ? ORDER BY sort_order'
+  ).all(programId) as ProgramDay[]
+
+  const exercises = db.prepare(
+    `SELECT pe.*, e.name as exercise_name, e.muscle_group
+     FROM program_exercises pe
+     JOIN exercises e ON pe.exercise_id = e.id
+     JOIN program_days pd ON pe.program_day_id = pd.id
+     WHERE pd.program_id = ?
+     ORDER BY pd.sort_order, pe.sort_order`
+  ).all(programId) as Array<ProgramExercise & { exercise_name: string; muscle_group: string }>
+
+  return {
+    ...program,
+    days: days.map((day) => ({
+      ...day,
+      exercises: exercises.filter((exercise) => exercise.program_day_id === day.id),
+    })),
+  }
+}
+
+export const getPrograms = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  return db.prepare(
+    `SELECT p.*, COUNT(DISTINCT pd.id) as day_count
+     FROM programs p
+     LEFT JOIN program_days pd ON pd.program_id = p.id
+     WHERE p.user_id = ?
+     GROUP BY p.id
+     ORDER BY p.is_active DESC, p.created_at DESC`
+  ).all(user.id) as Array<Program & { day_count: number }>
+})
+
+export const getProgram = createServerFn({ method: 'GET' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    return loadProgramDetail(db, ctx.data.id, user.id)
+  })
+
+export const saveProgram = createServerFn({ method: 'POST' })
+  .validator((data: {
+    id?: number
+    name: string
+    description?: string
+    frequency_per_week: number
+    periodization_type: PeriodizationType
+    progression_increment_pct?: number
+    is_active?: boolean
+    days: ProgramDayInput[]
+  }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const d = ctx.data
+
+    const save = db.transaction(() => {
+      let programId = d.id
+
+      if (programId) {
+        db.prepare(
+          `UPDATE programs
+           SET name = ?, description = ?, frequency_per_week = ?, periodization_type = ?,
+               progression_increment_pct = ?, is_active = ?
+           WHERE id = ? AND user_id = ?`
+        ).run(
+          d.name,
+          d.description ?? null,
+          d.frequency_per_week,
+          d.periodization_type,
+          d.progression_increment_pct ?? 2.5,
+          d.is_active ? 1 : 0,
+          programId,
+          user.id,
+        )
+      } else {
+        const result = db.prepare(
+          `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          user.id,
+          d.name,
+          d.description ?? null,
+          d.frequency_per_week,
+          d.periodization_type,
+          d.progression_increment_pct ?? 2.5,
+          d.is_active ? 1 : 0,
+        )
+        programId = result.lastInsertRowid as number
+      }
+
+      if (d.is_active) {
+        db.prepare('UPDATE programs SET is_active = 0 WHERE user_id = ? AND id != ?').run(user.id, programId)
+      }
+
+      const existingDays = db.prepare('SELECT id FROM program_days WHERE program_id = ?').all(programId) as Array<{ id: number }>
+      for (const day of existingDays) {
+        db.prepare('DELETE FROM program_exercises WHERE program_day_id = ?').run(day.id)
+      }
+      db.prepare('DELETE FROM program_days WHERE program_id = ?').run(programId)
+
+      for (const day of d.days) {
+        const dayResult = db.prepare(
+          'INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)'
+        ).run(programId, day.day_name, day.sort_order)
+
+        const dayId = dayResult.lastInsertRowid as number
+        for (const exercise of day.exercises) {
+          db.prepare(
+            `INSERT INTO program_exercises
+             (program_day_id, exercise_id, target_sets, target_reps, target_rpe, rest_seconds, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            dayId,
+            exercise.exercise_id,
+            exercise.target_sets,
+            exercise.target_reps,
+            exercise.target_rpe,
+            exercise.rest_seconds ?? null,
+            exercise.sort_order,
+          )
+        }
+      }
+
+      return programId
+    })
+
+    const programId = save()
+    return loadProgramDetail(db, programId, user.id)
+  })
+
+export const deleteProgram = createServerFn({ method: 'POST' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    db.prepare('DELETE FROM programs WHERE id = ? AND user_id = ?').run(ctx.data.id, user.id)
+    return { success: true }
+  })
+
+export const setActiveProgram = createServerFn({ method: 'POST' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    db.prepare('UPDATE programs SET is_active = 0 WHERE user_id = ?').run(user.id)
+    db.prepare('UPDATE programs SET is_active = 1 WHERE id = ? AND user_id = ?').run(ctx.data.id, user.id)
+    return { success: true }
+  })
+
+export const getProgramDayTargets = createServerFn({ method: 'GET' })
+  .validator((data: { programId: number; programDayId: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const program = db.prepare('SELECT * FROM programs WHERE id = ? AND user_id = ?').get(ctx.data.programId, user.id) as Program | undefined
+    if (!program) return null
+
+    const day = db.prepare('SELECT * FROM program_days WHERE id = ? AND program_id = ?').get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined
+    if (!day) return null
+
+    const exercises = db.prepare(
+      `SELECT pe.*, e.name as exercise_name, e.muscle_group
+       FROM program_exercises pe
+       JOIN exercises e ON pe.exercise_id = e.id
+       WHERE pe.program_day_id = ?
+       ORDER BY pe.sort_order`
+    ).all(ctx.data.programDayId) as Array<ProgramExercise & { exercise_name: string; muscle_group: string }>
+
+    const targets: ProgramDayTarget[] = exercises.map((exercise) => {
+      const lastSet = db.prepare(
+        `SELECT ws.weight_kg, ws.reps, ws.rpe
+         FROM workout_sets ws
+         JOIN workout_sessions wse ON ws.session_id = wse.id
+         WHERE wse.user_id = ? AND wse.program_id = ? AND ws.exercise_id = ?
+           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
+         ORDER BY wse.date DESC, ws.id DESC
+         LIMIT 1`
+      ).get(user.id, program.id, exercise.exercise_id) as { weight_kg: number; reps: number; rpe: number } | undefined
+
+      const prescription = {
+        target_sets: exercise.target_sets ?? 3,
+        target_reps: exercise.target_reps ?? '8-12',
+        target_rpe: exercise.target_rpe ?? 8,
+        rest_seconds: exercise.rest_seconds,
+      }
+
+      const resolved = resolveProgramTargets(
+        program.periodization_type,
+        prescription,
+        lastSet
+          ? { weight_kg: lastSet.weight_kg, reps: lastSet.reps, rpe: lastSet.rpe }
+          : null,
+        program.progression_increment_pct,
+      )
+
+      return {
+        program_exercise_id: exercise.id,
+        exercise_id: exercise.exercise_id,
+        exercise_name: exercise.exercise_name,
+        muscle_group: exercise.muscle_group,
+        target_sets: prescription.target_sets,
+        target_reps: prescription.target_reps,
+        target_rpe: prescription.target_rpe,
+        rest_seconds: exercise.rest_seconds,
+        suggested_weight_kg: resolved.suggested_weight_kg,
+        progression_note: resolved.progression_note,
+        dup_emphasis: resolved.dup_emphasis,
+      }
+    })
+
+    return {
+      program,
+      day,
+      targets,
+    }
+  })
+
+export const startWorkoutFromProgram = createServerFn({ method: 'POST' })
+  .validator((data: { programId: number; programDayId: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const day = db.prepare('SELECT * FROM program_days WHERE id = ? AND program_id = ?').get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined
+    if (!day) throw new Error('Program day not found')
+
+    const date = todayString()
+    const result = db.prepare(
+      'INSERT INTO workout_sessions (user_id, date, name, program_id, program_day_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(user.id, date, day.day_name, ctx.data.programId, ctx.data.programDayId)
+
+    const sessionId = result.lastInsertRowid as number
+    const dayTargets = await getProgramDayTargets({ data: { programId: ctx.data.programId, programDayId: ctx.data.programDayId } })
+
+    return {
+      sessionId,
+      dayName: day.day_name,
+      targets: dayTargets?.targets ?? [],
+    }
+  })
+
 
 // --- Weekly Volume Analysis ---
 // Based on Schoenfeld et al. 2017: 10-20 sets per muscle group per week for hypertrophy
@@ -410,6 +701,19 @@ export const exportData = createServerFn({ method: 'GET' }).handler(async () => 
      WHERE wse.user_id = ?`
   ).all(user.id) as WorkoutSet[]
 
+  const programs = db.prepare('SELECT * FROM programs WHERE user_id = ?').all(user.id)
+  const program_days = db.prepare(
+    `SELECT pd.* FROM program_days pd
+     JOIN programs p ON pd.program_id = p.id
+     WHERE p.user_id = ?`
+  ).all(user.id)
+  const program_exercises = db.prepare(
+    `SELECT pe.* FROM program_exercises pe
+     JOIN program_days pd ON pe.program_day_id = pd.id
+     JOIN programs p ON pd.program_id = p.id
+     WHERE p.user_id = ?`
+  ).all(user.id)
+
   return {
     exported_at: new Date().toISOString(),
     app: 'FitTrack',
@@ -419,6 +723,9 @@ export const exportData = createServerFn({ method: 'GET' }).handler(async () => 
     food_log,
     workouts,
     workout_sets,
+    programs,
+    program_days,
+    program_exercises,
   }
 })
 

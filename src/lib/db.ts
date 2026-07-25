@@ -7,6 +7,43 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 let dbInstance: Database.Database | null = null
 
+function runMigrations(db: Database.Database) {
+  const migrations: Array<{ table: string; column: string; sql: string }> = [
+    {
+      table: 'programs',
+      column: 'periodization_type',
+      sql: "ALTER TABLE programs ADD COLUMN periodization_type TEXT NOT NULL DEFAULT 'linear' CHECK(periodization_type IN ('linear', 'dup'))",
+    },
+    {
+      table: 'programs',
+      column: 'progression_increment_pct',
+      sql: 'ALTER TABLE programs ADD COLUMN progression_increment_pct REAL NOT NULL DEFAULT 2.5',
+    },
+    {
+      table: 'programs',
+      column: 'is_active',
+      sql: 'ALTER TABLE programs ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0',
+    },
+    {
+      table: 'workout_sessions',
+      column: 'program_id',
+      sql: 'ALTER TABLE workout_sessions ADD COLUMN program_id INTEGER REFERENCES programs(id)',
+    },
+    {
+      table: 'workout_sessions',
+      column: 'program_day_id',
+      sql: 'ALTER TABLE workout_sessions ADD COLUMN program_day_id INTEGER REFERENCES program_days(id)',
+    },
+  ]
+
+  for (const migration of migrations) {
+    const columns = db.prepare(`PRAGMA table_info(${migration.table})`).all() as Array<{ name: string }>
+    if (!columns.some((column) => column.name === migration.column)) {
+      db.exec(migration.sql)
+    }
+  }
+}
+
 export function getDb(): Database.Database {
   if (!dbInstance) {
     const dbPath = process.env.DATABASE_PATH || join(process.cwd(), 'data', 'fittrack.db')
@@ -19,6 +56,7 @@ export function getDb(): Database.Database {
 
     const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8')
     dbInstance.exec(schema)
+    runMigrations(dbInstance)
   }
   return dbInstance
 }
@@ -98,6 +136,8 @@ export type WorkoutSession = {
   name: string | null
   duration_minutes: number | null
   notes: string | null
+  program_id: number | null
+  program_day_id: number | null
   created_at: string
 }
 
@@ -111,5 +151,39 @@ export type WorkoutSet = {
   rpe: number
   rest_seconds: number | null
   notes: string | null
+  created_at: string
+}
+
+export type PeriodizationType = 'linear' | 'dup'
+
+export type Program = {
+  id: number
+  user_id: number
+  name: string
+  description: string | null
+  frequency_per_week: number
+  periodization_type: PeriodizationType
+  progression_increment_pct: number
+  is_active: number
+  created_at: string
+}
+
+export type ProgramDay = {
+  id: number
+  program_id: number
+  day_name: string
+  sort_order: number
+  created_at: string
+}
+
+export type ProgramExercise = {
+  id: number
+  program_day_id: number
+  exercise_id: number
+  target_sets: number | null
+  target_reps: string | null
+  target_rpe: number | null
+  rest_seconds: number | null
+  sort_order: number
   created_at: string
 }

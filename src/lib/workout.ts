@@ -99,6 +99,112 @@ export function calculateWorkoutStats(
   }
 }
 
+export type PeriodizationType = 'linear' | 'dup'
+
+export type ProgramPrescription = {
+  target_sets: number
+  target_reps: string
+  target_rpe: number
+  rest_seconds?: number | null
+}
+
+export type ResolvedProgramTarget = ProgramPrescription & {
+  suggested_weight_kg: number | null
+  progression_note: string
+  dup_emphasis?: DupDayEmphasis
+}
+
+export type DupDayEmphasis = 'strength' | 'hypertrophy' | 'endurance'
+
+/**
+ * Parse rep prescriptions like "8", "8-12", or "3-5".
+ */
+export function parseTargetReps(targetReps: string): number {
+  const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/)
+  if (!match) return 8
+  const low = parseInt(match[1], 10)
+  const high = match[2] ? parseInt(match[2], 10) : low
+  return Math.round((low + high) / 2)
+}
+
+/**
+ * DUP rotates rep zones within the week to vary intensity.
+ * Rhea MR et al. J Strength Cond Res. 2002; Prestes J et al. 2009.
+ */
+export function getDupDayEmphasis(targetReps: string): DupDayEmphasis {
+  const midpoint = parseTargetReps(targetReps)
+  if (midpoint <= 5) return 'strength'
+  if (midpoint <= 10) return 'hypertrophy'
+  return 'endurance'
+}
+
+/**
+ * Linear periodization keeps the same rep/RPE prescription and progresses load
+ * when autoregulation criteria are met (2-5% jumps are typical for compounds).
+ * Baker D et al. J Strength Cond Res. 2007.
+ */
+export function resolveLinearTargets(
+  prescription: ProgramPrescription,
+  lastPerformance: { weight_kg: number; reps: number; rpe: number } | null,
+  incrementPct = 2.5
+): ResolvedProgramTarget {
+  if (!lastPerformance) {
+    return {
+      ...prescription,
+      suggested_weight_kg: null,
+      progression_note: 'Select a weight that reaches the target RPE for all prescribed sets.',
+    }
+  }
+
+  const targetReps = parseTargetReps(prescription.target_reps)
+  const progression = suggestWeightProgression(
+    lastPerformance.weight_kg,
+    lastPerformance.reps,
+    targetReps,
+    lastPerformance.rpe,
+    incrementPct
+  )
+
+  return {
+    ...prescription,
+    suggested_weight_kg: progression.weight,
+    progression_note: progression.note,
+  }
+}
+
+/**
+ * Daily undulating periodization uses the day-specific prescription directly.
+ * Intensity and volume shift session-to-session instead of week-to-week.
+ * Rhea MR et al. J Strength Cond Res. 2002.
+ */
+export function resolveDupTargets(prescription: ProgramPrescription): ResolvedProgramTarget {
+  const emphasis = getDupDayEmphasis(prescription.target_reps)
+  const emphasisNote = {
+    strength: 'Strength emphasis: lower reps, higher relative intensity.',
+    hypertrophy: 'Hypertrophy emphasis: moderate reps in the 6-12 range.',
+    endurance: 'Metabolic emphasis: higher reps with controlled RPE.',
+  }[emphasis]
+
+  return {
+    ...prescription,
+    suggested_weight_kg: null,
+    progression_note: emphasisNote,
+    dup_emphasis: emphasis,
+  }
+}
+
+export function resolveProgramTargets(
+  periodizationType: PeriodizationType,
+  prescription: ProgramPrescription,
+  lastPerformance: { weight_kg: number; reps: number; rpe: number } | null,
+  incrementPct = 2.5
+): ResolvedProgramTarget {
+  if (periodizationType === 'dup') {
+    return resolveDupTargets(prescription)
+  }
+  return resolveLinearTargets(prescription, lastPerformance, incrementPct)
+}
+
 /**
  * Progressive overload percentage.
  * Suggests weight increase based on last performance.
@@ -107,25 +213,25 @@ export function suggestWeightProgression(
   lastWeight: number,
   lastReps: number,
   targetReps: number,
-  rpe: number
+  rpe: number,
+  incrementPct = 2.5
 ): { weight: number; reps: number; note: string } {
+  const multiplier = 1 + incrementPct / 100
+
   if (rpe <= 7 && lastReps >= targetReps + 2) {
-    // Easy set, completed extra reps - increase weight
     return {
-      weight: Math.round((lastWeight * 1.025) * 10) / 10,
+      weight: Math.round(lastWeight * multiplier * 10) / 10,
       reps: targetReps,
-      note: 'Increase weight 2.5% (RPE was low, extra reps achieved)',
+      note: `Increase weight ${incrementPct}% (RPE was low, extra reps achieved)`,
     }
   }
   if (rpe >= 9 && lastReps < targetReps) {
-    // Too hard, missed reps - keep weight, reduce target reps
     return {
       weight: lastWeight,
       reps: lastReps,
       note: 'Keep weight, RPE was high - maintain before progressing',
     }
   }
-  // In the sweet spot - micro progress
   return {
     weight: lastWeight,
     reps: targetReps + (lastReps >= targetReps ? 1 : 0),

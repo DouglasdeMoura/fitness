@@ -148,5 +148,158 @@ for (const e of exercises) {
   insertExercise.run(...e)
 }
 
+
+
+// Seed training programs
+const userId = db.prepare('SELECT id FROM users LIMIT 1').get()?.id
+if (!userId) {
+  db.prepare(
+    `INSERT INTO users (name, sex, height_cm, activity_level, goal_type)
+     VALUES ('Athlete', 'male', 178, 'moderate', 'build_muscle')`
+  ).run()
+}
+
+const athleteId = db.prepare('SELECT id FROM users LIMIT 1').get().id
+const exerciseIds = Object.fromEntries(
+  db.prepare('SELECT id, name FROM exercises').all().map((row) => [row.name, row.id])
+)
+
+function seedProgram(program, days) {
+  const existing = db.prepare('SELECT id FROM programs WHERE user_id = ? AND name = ?').get(athleteId, program.name)
+  if (existing) return existing.id
+
+  const result = db.prepare(
+    `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    athleteId,
+    program.name,
+    program.description,
+    program.frequency_per_week,
+    program.periodization_type,
+    program.progression_increment_pct,
+    program.is_active,
+  )
+
+  const programId = result.lastInsertRowid
+  for (const day of days) {
+    const dayResult = db.prepare(
+      'INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)'
+    ).run(programId, day.day_name, day.sort_order)
+    const dayId = dayResult.lastInsertRowid
+    for (const exercise of day.exercises) {
+      db.prepare(
+        `INSERT INTO program_exercises
+         (program_day_id, exercise_id, target_sets, target_reps, target_rpe, rest_seconds, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        dayId,
+        exerciseIds[exercise.name],
+        exercise.target_sets,
+        exercise.target_reps,
+        exercise.target_rpe,
+        exercise.rest_seconds,
+        exercise.sort_order,
+      )
+    }
+  }
+  return programId
+}
+
+const linearProgramId = seedProgram(
+  {
+    name: 'Upper/Lower Linear',
+    description: '4-day upper/lower split with steady load progression when RPE allows.',
+    frequency_per_week: 4,
+    periodization_type: 'linear',
+    progression_increment_pct: 2.5,
+    is_active: 1,
+  },
+  [
+    {
+      day_name: 'Upper A',
+      sort_order: 1,
+      exercises: [
+        { name: 'Barbell Bench Press', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 120, sort_order: 1 },
+        { name: 'Bent-Over Barbell Row', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
+        { name: 'Standing Overhead Press', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
+        { name: 'Lat Pulldown', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 4 },
+      ],
+    },
+    {
+      day_name: 'Lower A',
+      sort_order: 2,
+      exercises: [
+        { name: 'Barbell Back Squat', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 150, sort_order: 1 },
+        { name: 'Romanian Deadlift', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
+        { name: 'Walking Lunge', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
+      ],
+    },
+    {
+      day_name: 'Upper B',
+      sort_order: 3,
+      exercises: [
+        { name: 'Incline Dumbbell Press', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 1 },
+        { name: 'Seated Cable Row', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 2 },
+        { name: 'Lateral Raise', target_sets: 3, target_reps: '12-15', target_rpe: 8, rest_seconds: 60, sort_order: 3 },
+        { name: 'Barbell Curl', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 60, sort_order: 4 },
+      ],
+    },
+    {
+      day_name: 'Lower B',
+      sort_order: 4,
+      exercises: [
+        { name: 'Front Squat', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 150, sort_order: 1 },
+        { name: 'Leg Press', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
+        { name: 'Calf Raise', target_sets: 4, target_reps: '12-15', target_rpe: 8, rest_seconds: 60, sort_order: 3 },
+      ],
+    },
+  ],
+)
+
+const dupProgramId = seedProgram(
+  {
+    name: 'Full Body DUP',
+    description: '3-day full body with daily rep zone rotation (strength, hypertrophy, endurance).',
+    frequency_per_week: 3,
+    periodization_type: 'dup',
+    progression_increment_pct: 2.5,
+    is_active: 0,
+  },
+  [
+    {
+      day_name: 'Strength',
+      sort_order: 1,
+      exercises: [
+        { name: 'Barbell Back Squat', target_sets: 4, target_reps: '3-5', target_rpe: 8, rest_seconds: 180, sort_order: 1 },
+        { name: 'Barbell Bench Press', target_sets: 4, target_reps: '3-5', target_rpe: 8, rest_seconds: 180, sort_order: 2 },
+        { name: 'Bent-Over Barbell Row', target_sets: 3, target_reps: '4-6', target_rpe: 8, rest_seconds: 150, sort_order: 3 },
+      ],
+    },
+    {
+      day_name: 'Hypertrophy',
+      sort_order: 2,
+      exercises: [
+        { name: 'Front Squat', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 1 },
+        { name: 'Incline Dumbbell Press', target_sets: 4, target_reps: '8-12', target_rpe: 8, rest_seconds: 90, sort_order: 2 },
+        { name: 'Lat Pulldown', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
+        { name: 'Romanian Deadlift', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 4 },
+      ],
+    },
+    {
+      day_name: 'Endurance',
+      sort_order: 3,
+      exercises: [
+        { name: 'Leg Press', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 75, sort_order: 1 },
+        { name: 'Push-up', target_sets: 3, target_reps: '12-20', target_rpe: 7, rest_seconds: 60, sort_order: 2 },
+        { name: 'Seated Cable Row', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 75, sort_order: 3 },
+        { name: 'Dumbbell Hammer Curl', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 60, sort_order: 4 },
+      ],
+    },
+  ],
+)
+
+console.log(`Seeded training programs: linear #${linearProgramId}, dup #${dupProgramId}`)
+
 console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`)
 db.close()
