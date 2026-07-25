@@ -49,20 +49,50 @@ fi
 
 # Model chain: most powerful to least powerful (based on 2025/2026 benchmarks)
 # References: SWE-bench, Arena-Hard, LMSYS Chatbot Arena, Aider leaderboard
+#
+# Models are tried in order. When a model is rate-limited (resource_exhausted),
+# the script falls back to the next. The last few are known-working fallbacks.
+#
+# Status legend (as of last test):
+#   RL = rate limited (will work when quota resets)
+#   OK = currently working
 MODELS=(
-  "claude-opus-5-thinking-xhigh"    # Most powerful overall (extended thinking)
-  "gpt-5.2-codex-xhigh"             # Best coding model (GPT-5.2 family)
-  "claude-sonnet-5-xhigh"           # Excellent coding + fast
-  "gemini-3-pro"                    # Strong long-context reasoning
-  "gpt-5.1-codex-max"               # Strong coding model
-  "claude-4-sonnet"                 # Reliable Claude 4
-  "claude-fable-5-max"              # Fable variant, strong reasoning
-  "gpt-5.2"                         # Base GPT-5.2
-  "gemini-3-flash"                  # Fast, capable Gemini
-  "claude-opus-4-8-xhigh"           # Claude 4.8 Opus
-  "glm-5.2-max"                     # GLM strong model
-  "gpt-5.1"                         # GPT-5.1
-  "gpt-5.4-high"                    # GPT-5.4
+  # Tier 1: Most powerful (extended thinking / max reasoning)
+  "claude-opus-5-thinking-xhigh"       # Claude Opus 5, extended thinking [RL]
+  "gpt-5.3-codex-xhigh"                # GPT-5.3 Codex, newest coding model [RL]
+  "gpt-5.2-codex-xhigh"                # GPT-5.2 Codex, xhigh reasoning [RL]
+  "claude-opus-4-8-xhigh"              # Claude Opus 4.8, xhigh [RL]
+  "claude-sonnet-5-xhigh"              # Claude Sonnet 5, xhigh [RL]
+  "kimi-k2.7-code"                     # Kimi K2.7, coding specialist [RL]
+
+  # Tier 2: Strong coding models
+  "gpt-5.1-codex-max-high"             # GPT-5.1 Codex Max [RL]
+  "claude-opus-4-7-xhigh"              # Claude Opus 4.7 [RL]
+  "gemini-3.1-pro"                     # Gemini 3.1 Pro [RL]
+  "gpt-5.2-high"                       # GPT-5.2 high reasoning [RL]
+  "claude-fable-5-xhigh"               # Claude Fable 5 [RL]
+  "grok-code-fast-1"                   # Grok coding model [RL]
+  "deepseek-ai/deepseek-v4-pro"        # DeepSeek V4 Pro [RL]
+
+  # Tier 3: Solid models
+  "gpt-5.2"                            # GPT-5.2 base [RL]
+  "gemini-3-pro"                       # Gemini 3 Pro [RL]
+  "claude-opus-4-8-high"               # Claude Opus 4.8 high [RL]
+  "kimi-k2.5"                          # Kimi K2.5 [RL]
+  "glm-5.2-max"                        # GLM 5.2 Max [RL]
+  "gpt-5.5-high"                       # GPT-5.5 [RL]
+
+  # Tier 4: Medium capability
+  "gpt-5.2-low"                        # GPT-5.2 low reasoning [RL]
+  "claude-sonnet-5-high"               # Claude Sonnet 5 high [RL]
+  "gemini-3-flash"                     # Gemini 3 Flash [RL]
+  "gpt-5.1"                            # GPT-5.1 [RL]
+  "gpt-5.4-low"                        # GPT-5.4 [RL]
+
+  # Tier 5: Known working fallbacks (always available)
+  "composer-2.5"                       # Cursor Composer 2.5 [OK]
+  "composer-2.5-fast"                  # Cursor Composer 2.5 Fast [OK]
+  "default"                            # Provider default model [OK]
 )
 
 echo "╔══════════════════════════════════════════════════════════════╗"
@@ -152,7 +182,25 @@ PROMPT_EOF
     echo "🤖 Trying model: $MODEL (index $i)"
 
     # Run omp with this model
-    if omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" 2>&1; then
+    # Capture output to check for connect errors (omp exits 0 even on provider errors)
+    OUTPUT_FILE=$(mktemp)
+    timeout 300 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
+    EXIT_CODE=$?
+
+    # Check if the output contains error indicators
+    if echo "$OUTPUT_FILE" | grep -qiE "resource_exhausted|rate.limit|quota"; then
+      ERROR_TYPE="rate_limited"
+    elif echo "$OUTPUT_FILE" | grep -qiE "invalid_argument|bad.request"; then
+      ERROR_TYPE="invalid_argument"
+    elif echo "$OUTPUT_FILE" | grep -qiE "Use /login|API key"; then
+      ERROR_TYPE="needs_auth"
+    elif [[ $EXIT_CODE -ne 0 ]]; then
+      ERROR_TYPE="exit_code_$EXIT_CODE"
+    else
+      ERROR_TYPE=""
+    fi
+
+    if [[ -z "$ERROR_TYPE" ]]; then
       echo "✅ Model $MODEL succeeded"
       SUCCESS=true
 
@@ -173,9 +221,10 @@ PROMPT_EOF
         '.iterations = $iters | .successful = $succ | .model_usage[$model] = $usage' \
         "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
 
+      rm -f "$OUTPUT_FILE"
       break
     else
-      echo "⚠️  Model $MODEL failed (likely rate limit). Trying next..."
+      echo "⚠️  Model $MODEL failed ($ERROR_TYPE). Trying next..."
       MODEL_INDEX=$((i + 1))
       jq --argjson idx "$MODEL_INDEX" '.current_model_index = $idx' \
         "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
@@ -183,11 +232,12 @@ PROMPT_EOF
       # Track the failure
       FAIL_COUNT=$(jq -r '.failed' "$LEARNINGS_FILE")
       jq --argjson failed "$((FAIL_COUNT + 1))" \
-        --arg model "$MODEL" \
-        '.failed = $failed | .common_errors += ["Model " + $model + " rate limited"]' \
+        --arg model "$MODEL" --arg etype "$ERROR_TYPE" \
+        '.failed = $failed | .common_errors += ["Model " + $model + ": " + $etype]' \
         "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
 
-      sleep 2
+      rm -f "$OUTPUT_FILE"
+      sleep 1
     fi
   done
 
