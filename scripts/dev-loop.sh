@@ -183,9 +183,12 @@ PROMPT_EOF
 
     # Run omp with this model
     # Capture output to check for connect errors (omp exits 0 even on provider errors)
+    # Disable set -e for this block since omp/timeout may return non-zero
     OUTPUT_FILE=$(mktemp)
+    set +e
     timeout 300 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
     EXIT_CODE=$?
+    set -e
 
     # Check if the output contains error indicators
     if echo "$OUTPUT_FILE" | grep -qiE "resource_exhausted|rate.limit|quota"; then
