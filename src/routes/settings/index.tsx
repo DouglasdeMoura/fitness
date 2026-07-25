@@ -1,14 +1,54 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import {
+  Button,
+  Card,
+  DateInput,
+  FormLayout,
+  Heading,
+  HStack,
+  List,
+  ListItem,
+  NumberInput,
+  Selector,
+  Text,
+  TextInput,
+  VStack,
+} from '@astryxdesign/core'
 import { getUser, updateUser, logBodyweight, exportData } from '~/lib/api'
 import { runOrQueue } from '~/lib/offline'
-import { ACTIVITY_LABELS, type ActivityLevel, type GoalType } from '~/lib/nutrition'
+import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition'
+import {
+  GOAL_OPTIONS,
+  SCIENCE_REFERENCES,
+  SEX_OPTIONS,
+  activityOptions,
+  buildProfileUpdate,
+  exportDownloadFilename,
+  parseWeightKg,
+  saveProfileButtonLabel,
+  todayISODate,
+  toISODate,
+} from '~/lib/settings'
 
 export const Route = createFileRoute('/settings/')({
   head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
   component: SettingsPage,
 })
+
+async function exportFitTrackData(): Promise<void> {
+  const exportPayload = await exportData()
+  const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = exportDownloadFilename()
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 
 function SettingsPage() {
   const { data: user } = useSuspenseQuery({
@@ -17,141 +57,158 @@ function SettingsPage() {
   })
 
   const [name, setName] = useState(user.name)
-  const [height, setHeight] = useState(user.height_cm?.toString() || '')
-  const [sex, setSex] = useState(user.sex)
-  const [activity, setActivity] = useState<ActivityLevel>(user.activity_level as ActivityLevel)
+  const [heightCm, setHeightCm] = useState<number | null>(user.height_cm ?? null)
+  const [sex, setSex] = useState<Sex>(user.sex)
+  const [activity, setActivity] = useState<ActivityLevel>(
+    user.activity_level as ActivityLevel,
+  )
   const [goal, setGoal] = useState<GoalType>(user.goal_type as GoalType)
   const [birthDate, setBirthDate] = useState(user.birth_date || '')
-  const [weight, setWeight] = useState('')
+  const [weight, setWeight] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
 
   const handleSaveProfile = async () => {
     await updateUser({
-      data: {
+      data: buildProfileUpdate({
         name,
-        height_cm: parseFloat(height) || null,
-        sex: sex as any,
-        activity_level: activity,
-        goal_type: goal,
-        birth_date: birthDate || null,
-      },
+        heightCm,
+        sex,
+        activity,
+        goal,
+        birthDate,
+      }),
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   const handleLogWeight = async () => {
-    const w = parseFloat(weight)
-    if (!w) return
+    const w = parseWeightKg(weight)
+    if (w == null) return
     await runOrQueue('logBodyweight', { weight_kg: w }, () =>
-      logBodyweight({ data: { weight_kg: w } })
+      logBodyweight({ data: { weight_kg: w } }),
     )
-    setWeight('')
+    setWeight(null)
   }
 
   return (
-    <div>
-      <div className="section-header">
-        <h1 className="section-title">Settings</h1>
-      </div>
+    <VStack as="main" gap={4}>
+      <Heading level={1}>Settings</Heading>
 
-      <div className="card">
-        <div className="card-title">Profile</div>
-        <div className="form-group">
-          <label className="label">Name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label">Height (cm)</label>
-          <input className="input" type="number" value={height} onChange={(e) => setHeight(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label">Sex (for BMR calculation)</label>
-          <select className="input" value={sex} onChange={(e) => setSex(e.target.value as any)}>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label className="label">Birth Date</label>
-          <input className="input" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label">Activity Level</label>
-          <select className="input" value={activity} onChange={(e) => setActivity(e.target.value as ActivityLevel)}>
-            {Object.entries(ACTIVITY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label className="label">Primary Goal</label>
-          <select className="input" value={goal} onChange={(e) => setGoal(e.target.value as GoalType)}>
-            <option value="build_muscle">Build Muscle (+10% surplus)</option>
-            <option value="lose_fat">Lose Fat (-20% deficit)</option>
-            <option value="maintain">Maintain Weight</option>
-            <option value="recomp">Body Recomposition</option>
-          </select>
-        </div>
-        <button className="btn btn-primary" onClick={handleSaveProfile}>
-          {saved ? '✓ Saved' : 'Save Profile'}
-        </button>
-      </div>
-
-      <div className="card">
-        <div className="card-title">Log Today's Weight</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            className="input"
-            type="number"
-            step="0.1"
-            placeholder="Weight in kg"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
+      <Card>
+        <VStack gap={4}>
+          <Heading level={2}>Profile</Heading>
+          {/*
+            TextInput / NumberInput / Selector / DateInput each render their own
+            Field shell (label + description + status). Do not wrap them in Field.
+          */}
+          <FormLayout>
+            <TextInput label="Name" value={name} onChange={setName} />
+            <NumberInput
+              label="Height (cm)"
+              value={heightCm}
+              onChange={setHeightCm}
+              min={1}
+              max={300}
+              step={1}
+              isIntegerOnly
+              hasClear
+            />
+            <Selector
+              label="Sex (for BMR calculation)"
+              value={sex}
+              onChange={(value) => setSex(value as Sex)}
+              options={SEX_OPTIONS}
+            />
+            <DateInput
+              label="Birth Date"
+              value={toISODate(birthDate) ?? undefined}
+              onChange={(value) => setBirthDate(value ?? '')}
+              hasClear
+              max={todayISODate()}
+            />
+            <Selector
+              label="Activity Level"
+              value={activity}
+              onChange={(value) => setActivity(value as ActivityLevel)}
+              options={activityOptions()}
+            />
+            <Selector
+              label="Primary Goal"
+              value={goal}
+              onChange={(value) => setGoal(value as GoalType)}
+              options={GOAL_OPTIONS}
+            />
+          </FormLayout>
+          <Button
+            label={saveProfileButtonLabel(saved)}
+            variant="primary"
+            clickAction={handleSaveProfile}
           />
-          <button className="btn btn-primary" onClick={handleLogWeight}>Log</button>
-        </div>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-          Daily weigh-ins help track trends. Weight fluctuates daily; focus on weekly averages.
-        </p>
-      </div>
+        </VStack>
+      </Card>
 
-      <div className="card">
-        <div className="card-title">Export Data</div>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-          Download all your data (food logs, workouts, body logs) as a JSON file for backup.
-        </p>
-        <button
-          className="btn btn-secondary"
-          onClick={async () => {
-            const data = await exportData()
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `fittrack-export-${new Date().toISOString().split('T')[0]}.json`
-            a.click()
-            URL.revokeObjectURL(url)
-          }}
-        >
-          ⬇ Export as JSON
-        </button>
-      </div>
+      <Card>
+        <VStack gap={3}>
+          <Heading level={2}>Log Today&apos;s Weight</Heading>
+          <HStack gap={2} vAlign="end" wrap="wrap">
+            <NumberInput
+              label="Weight in kg"
+              value={weight}
+              onChange={setWeight}
+              min={1}
+              max={500}
+              step={0.1}
+              placeholder="Weight in kg"
+              units="kg"
+              hasClear
+              onEnter={handleLogWeight}
+            />
+            <Button label="Log" variant="primary" clickAction={handleLogWeight} />
+          </HStack>
+          <Text type="supporting">
+            Daily weigh-ins help track trends. Weight fluctuates daily; focus on
+            weekly averages.
+          </Text>
+        </VStack>
+      </Card>
 
-      <div className="card">
-        <div className="card-title">About</div>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          FitTrack uses evidence-based formulas for nutrition and training:
-        </p>
-        <ul style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', paddingLeft: '20px', lineHeight: 1.8 }}>
-          <li><strong>BMR:</strong> Mifflin-St Jeor equation (Frankenfield et al., 2005)</li>
-          <li><strong>Protein:</strong> 1.6-2.4 g/kg (Morton et al., 2018; Helms et al., 2014)</li>
-          <li><strong>1RM:</strong> Epley equation for estimation</li>
-          <li><strong>RPE/RIR:</strong> Zourdos et al., 2016 for autoregulation</li>
-          <li><strong>Volume:</strong> Schoenfeld et al., 2017 dose-response data</li>
-        </ul>
-      </div>
-    </div>
+      <Card>
+        <VStack gap={3}>
+          <Heading level={2}>Export Data</Heading>
+          <Text type="supporting">
+            Download all your data (food logs, workouts, body logs) as a JSON
+            file for backup.
+          </Text>
+          <Button
+            label="Export as JSON"
+            variant="secondary"
+            clickAction={exportFitTrackData}
+          />
+        </VStack>
+      </Card>
+
+      <Card>
+        <VStack gap={3}>
+          <Heading level={2}>About</Heading>
+          <Text type="supporting">
+            FitTrack uses evidence-based formulas for nutrition and training:
+          </Text>
+          <List
+            density="compact"
+            listStyle="disc"
+            header={<Text type="label">Science references</Text>}
+          >
+            {SCIENCE_REFERENCES.map((ref) => (
+              <ListItem
+                key={ref.topic}
+                label={ref.topic}
+                description={ref.citation}
+              />
+            ))}
+          </List>
+        </VStack>
+      </Card>
+    </VStack>
   )
 }

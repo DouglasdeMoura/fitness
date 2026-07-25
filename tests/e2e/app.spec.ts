@@ -164,52 +164,68 @@ test.describe('Settings - Profile Configuration', () => {
     await waitForAppReady(page)
     await nav(page).getByRole('link', { name: 'Settings' }).click()
     await expect(page).toHaveURL(/\/settings/)
-    await expect(page.locator('.card-title:has-text("Profile")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
   })
 
   test('displays all BMR-relevant input fields', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.label:has-text("Height")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('.label:has-text("Sex")')).toBeVisible()
-    await expect(page.locator('.label:has-text("Birth Date")')).toBeVisible()
+    await expect(page.getByLabel('Height (cm)')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('combobox', { name: /Sex/ })).toBeVisible()
+    await expect(page.getByLabel('Birth Date')).toBeVisible()
   })
 
   test('displays goal options with science-based descriptions', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.label:has-text("Primary Goal")')).toBeVisible({ timeout: 10000 })
-    const goalSelect = page.locator('select').filter({ hasText: 'Build Muscle' })
-    const options = await goalSelect.locator('option').allTextContents()
-    expect(options.some(o => o.includes('Build Muscle') && o.includes('surplus'))).toBeTruthy()
-    expect(options.some(o => o.includes('Lose Fat') && o.includes('deficit'))).toBeTruthy()
+    const goal = page.getByRole('combobox', { name: 'Primary Goal' })
+    await expect(goal).toBeVisible({ timeout: 10000 })
+    await goal.click()
+    const listbox = page.getByRole('listbox')
+    await expect(listbox.getByRole('option', { name: /Build Muscle.*surplus/ })).toBeVisible()
+    await expect(listbox.getByRole('option', { name: /Lose Fat.*deficit/ })).toBeVisible()
+    await page.keyboard.press('Escape')
   })
 
-  test('user can change activity level', async ({ page }) => {
+  test('user can change activity level and save profile', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.label:has-text("Activity Level")')).toBeVisible({ timeout: 10000 })
-    const activitySelect = page.locator('select').filter({ hasText: 'Sedentary' })
-    const options = await activitySelect.locator('option').allTextContents()
-    expect(options.some(o => o.includes('Sedentary'))).toBeTruthy()
-    expect(options.some(o => o.includes('Moderately active'))).toBeTruthy()
+    const activity = page.getByRole('combobox', { name: 'Activity Level' })
+    await expect(activity).toBeVisible({ timeout: 10000 })
+    await activity.click()
+    const listbox = page.getByRole('listbox')
+    await expect(listbox.getByRole('option', { name: /Sedentary/ })).toBeVisible()
+    await listbox.getByRole('option', { name: /Moderately active/ }).click()
+    await page.getByRole('button', { name: 'Save Profile' }).click()
+    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible({ timeout: 10000 })
   })
 
-  test('shows weight logging interface', async ({ page }) => {
+  test('shows weight logging interface and accepts a weigh-in', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.card-title:has-text("Log Today\'s Weight")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('input[placeholder="Weight in kg"]')).toBeVisible()
+    await expect(page.getByRole('heading', { name: "Log Today's Weight" })).toBeVisible({
+      timeout: 10000,
+    })
+    const weight = page.getByLabel('Weight in kg')
+    await expect(weight).toBeVisible()
+    await weight.fill('75.5')
+    await page.getByRole('button', { name: 'Log' }).click()
+    await expect(weight).toHaveValue('')
   })
 
   test('shows science references in About section', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.card-title:has-text("About")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('text=Mifflin-St Jeor')).toBeVisible()
-    await expect(page.locator('text=Morton')).toBeVisible()
-    await expect(page.locator('text=Epley')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'About' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Mifflin-St Jeor/)).toBeVisible()
+    await expect(page.getByText(/Morton/)).toBeVisible()
+    await expect(page.getByText(/Epley/)).toBeVisible()
   })
 
   test('user can export data as JSON', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.locator('.card-title:has-text("Export Data")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('button:has-text("Export as JSON")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Export Data' })).toBeVisible({
+      timeout: 10000,
+    })
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Export as JSON' }).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toMatch(/^fittrack-export-\d{4}-\d{2}-\d{2}\.json$/)
   })
 })
 
