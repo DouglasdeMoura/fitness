@@ -1,13 +1,11 @@
 import {
   HeadContent,
-  Link,
   Scripts,
-  Outlet,
   createRootRoute,
 } from '@tanstack/react-router'
 import * as React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { OfflineStatus } from '~/components/OfflineStatus'
+import { AppChrome } from '~/components/AppChrome'
 import appCss from '~/styles/app.css?url'
 
 const queryClient = new QueryClient({
@@ -56,69 +54,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-        <header className="app-header">
-          <nav className="app-nav">
-            <Link to="/" className="app-nav-brand" activeProps={{}} activeOptions={{ exact: true }}>
-              💪 FitTrack
-            </Link>
-            <Link
-              to="/"
-              activeProps={{ className: 'app-nav-link active' }}
-              inactiveProps={{ className: 'app-nav-link' }}
-              activeOptions={{ exact: true }}
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/nutrition"
-              activeProps={{ className: 'app-nav-link active' }}
-              inactiveProps={{ className: 'app-nav-link' }}
-            >
-              Nutrition
-            </Link>
-            <Link
-              to="/workout"
-              activeProps={{ className: 'app-nav-link active' }}
-              inactiveProps={{ className: 'app-nav-link' }}
-            >
-              Workout
-            </Link>
-            <Link
-              to="/progress"
-              activeProps={{ className: 'app-nav-link active' }}
-              inactiveProps={{ className: 'app-nav-link' }}
-            >
-              Progress
-            </Link>
-            <Link
-              to="/settings"
-              activeProps={{ className: 'app-nav-link active' }}
-              inactiveProps={{ className: 'app-nav-link' }}
-            >
-              Settings
-            </Link>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ marginLeft: '8px', padding: '6px 10px' }}
-              onClick={() => {
-                const current = document.documentElement.getAttribute('data-theme') || 'light'
-                const next = current === 'dark' ? 'light' : 'dark'
-                document.documentElement.setAttribute('data-theme', next)
-                localStorage.setItem('fittrack-theme', next)
-              }}
-              aria-label="Toggle dark mode"
-            >
-              🌓
-            </button>
-          </nav>
-        </header>
-        <main className="app-main">
-          <div className="app-container">
-            <OfflineStatus />
-            {children}
-          </div>
-        </main>
-        <Scripts />
+          <AppChrome>{children}</AppChrome>
+          <Scripts />
         </QueryClientProvider>
       </body>
     </html>

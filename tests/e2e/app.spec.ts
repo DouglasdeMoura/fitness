@@ -1,18 +1,26 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 
 async function waitForAppReady(page: Page) {
   await page.goto('/')
-  await expect(page.locator('.app-nav-brand')).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('navigation', { name: 'FitTrack navigation' })).toBeVisible({
+    timeout: 15000,
+  })
+  await expect(page.getByRole('link', { name: /FitTrack/ })).toBeVisible()
+}
+
+function nav(page: Page): Locator {
+  return page.getByRole('navigation', { name: 'FitTrack navigation' })
 }
 
 test.describe('Dashboard - User Landing Experience', () => {
   test('shows app header with all navigation links', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('.app-nav >> a:has-text("Dashboard")')).toBeVisible()
-    await expect(page.locator('.app-nav >> a:has-text("Nutrition")')).toBeVisible()
-    await expect(page.locator('.app-nav >> a:has-text("Workout")')).toBeVisible()
-    await expect(page.locator('.app-nav >> a:has-text("Progress")')).toBeVisible()
-    await expect(page.locator('.app-nav >> a:has-text("Settings")')).toBeVisible()
+    const topNav = nav(page)
+    await expect(topNav.getByRole('link', { name: 'Dashboard' })).toBeVisible()
+    await expect(topNav.getByRole('link', { name: 'Nutrition' })).toBeVisible()
+    await expect(topNav.getByRole('link', { name: 'Workout' })).toBeVisible()
+    await expect(topNav.getByRole('link', { name: 'Progress' })).toBeVisible()
+    await expect(topNav.getByRole('link', { name: 'Settings' })).toBeVisible()
   })
 
   test('displays calorie target and consumed metrics on first visit', async ({ page }) => {
@@ -46,7 +54,7 @@ test.describe('Dashboard - User Landing Experience', () => {
 test.describe('Nutrition - Food Logging Flow', () => {
   test('user can navigate to nutrition page', async ({ page }) => {
     await waitForAppReady(page)
-    await page.locator('.app-nav >> a:has-text("Nutrition")').click()
+    await nav(page).getByRole('link', { name: 'Nutrition' }).click()
     await expect(page).toHaveURL(/\/nutrition/)
     await expect(page.locator('.card-title:has-text("Daily Summary")')).toBeVisible()
   })
@@ -86,7 +94,7 @@ test.describe('Nutrition - Food Logging Flow', () => {
 test.describe('Workout - Session Logging Flow', () => {
   test('user can navigate to workout page', async ({ page }) => {
     await waitForAppReady(page)
-    await page.locator('.app-nav >> a:has-text("Workout")').click()
+    await nav(page).getByRole('link', { name: 'Workout' }).click()
     await expect(page).toHaveURL(/\/workout/)
   })
 
@@ -136,7 +144,7 @@ test.describe('Workout - Session Logging Flow', () => {
 test.describe('Settings - Profile Configuration', () => {
   test('user can navigate to settings', async ({ page }) => {
     await waitForAppReady(page)
-    await page.locator('.app-nav >> a:has-text("Settings")').click()
+    await nav(page).getByRole('link', { name: 'Settings' }).click()
     await expect(page).toHaveURL(/\/settings/)
     await expect(page.locator('.card-title:has-text("Profile")')).toBeVisible()
   })
@@ -190,7 +198,7 @@ test.describe('Settings - Profile Configuration', () => {
 test.describe('Progress - Analytics View', () => {
   test('user can navigate to progress page', async ({ page }) => {
     await waitForAppReady(page)
-    await page.locator('.app-nav >> a:has-text("Progress")').click()
+    await nav(page).getByRole('link', { name: 'Progress' }).click()
     await expect(page).toHaveURL(/\/progress/)
   })
 
@@ -215,46 +223,96 @@ test.describe('Navigation - Cross-page Flow', () => {
   test('user can navigate between all pages via header', async ({ page }) => {
     await waitForAppReady(page)
 
-    await page.locator('.app-nav >> a:has-text("Nutrition")').click()
+    await nav(page).getByRole('link', { name: 'Nutrition' }).click()
     await expect(page).toHaveURL(/\/nutrition/)
 
-    await page.locator('.app-nav >> a:has-text("Workout")').click()
+    await nav(page).getByRole('link', { name: 'Workout' }).click()
     await expect(page).toHaveURL(/\/workout/)
 
-    await page.locator('.app-nav >> a:has-text("Progress")').click()
+    await nav(page).getByRole('link', { name: 'Progress' }).click()
     await expect(page).toHaveURL(/\/progress/)
 
-    await page.locator('.app-nav >> a:has-text("Settings")').click()
+    await nav(page).getByRole('link', { name: 'Settings' }).click()
     await expect(page).toHaveURL(/\/settings/)
 
-    await page.locator('.app-nav >> a:has-text("Dashboard")').click()
+    await nav(page).getByRole('link', { name: 'Dashboard' }).click()
     await expect(page).toHaveURL(/\/$/)
   })
 
   test('brand logo links back to dashboard', async ({ page }) => {
     await page.goto('/nutrition')
-    await page.locator('.app-nav-brand').click()
+    await page.getByRole('link', { name: /FitTrack/ }).click()
     await expect(page).toHaveURL(/\/$/)
   })
 })
 
 test.describe('Dark Mode Toggle', () => {
-  test('dark mode toggle button is visible in header', async ({ page }) => {
+  test('dark mode toggle button is visible in TopNav endContent', async ({ page }) => {
     await waitForAppReady(page)
-    await expect(page.locator('button[aria-label="Toggle dark mode"]')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Toggle dark mode' })).toBeVisible()
   })
 
-  test('clicking toggle changes theme attribute', async ({ page }) => {
-    await waitForAppReady(page)
+  test('clicking toggle changes theme attribute via Astryx Theme', async ({ page }) => {
+    await page.goto('/')
     await page.evaluate(() => {
-      document.documentElement.setAttribute('data-theme', 'light')
       localStorage.setItem('fittrack-theme', 'light')
+      document.documentElement.setAttribute('data-theme', 'light')
     })
-    await page.locator('button[aria-label="Toggle dark mode"]').click()
-    await page.waitForTimeout(500)
-    const newTheme = await page.evaluate(() =>
-      document.documentElement.getAttribute('data-theme')
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Toggle dark mode' })).toBeVisible({
+      timeout: 15000,
+    })
+
+    await page.getByRole('button', { name: 'Toggle dark mode' }).click()
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+      .toBe('dark')
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem('fittrack-theme')))
+      .toBe('dark')
+  })
+
+  test('persists dark mode across reload', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      localStorage.setItem('fittrack-theme', 'light')
+      document.documentElement.setAttribute('data-theme', 'light')
+    })
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Toggle dark mode' })).toBeVisible({
+      timeout: 15000,
+    })
+
+    await page.getByRole('button', { name: 'Toggle dark mode' }).click()
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+      .toBe('dark')
+
+    await page.reload()
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
+      .toBe('dark')
+  })
+})
+
+test.describe('AppShell TopNav selection', () => {
+  test('marks the current section as selected for screen readers', async ({ page }) => {
+    await waitForAppReady(page)
+
+    await expect(nav(page).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'aria-current',
+      'page',
     )
-    expect(newTheme).toBe('dark')
+
+    await nav(page).getByRole('link', { name: 'Nutrition' }).click()
+    await expect(page).toHaveURL(/\/nutrition/)
+    await expect(nav(page).getByRole('link', { name: 'Nutrition' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(nav(page).getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 })
