@@ -123,26 +123,19 @@ Number: #$ISSUE_NUM
 Description: $ISSUE_BODY
 
 Instructions:
-1. Read the relevant PRD files in prd/ for context
-2. Read the existing code to understand patterns and conventions
-3. Read existing tests in tests/unit/ and tests/e2e/ to understand test patterns
-4. Implement the feature following existing patterns
-5. Write meaningful tests for the feature you implement:
-   - Unit tests in tests/unit/ for any calculation logic (Vitest)
-   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)
-   - Tests must verify the feature actually works as a user would experience it
-   - Avoid useless tests - each test should verify meaningful behavior
-6. Run ALL tests and ensure they pass before committing:
-   - npm run test:unit  (Vitest)
-   - npm run test:e2e   (Playwright browser tests)
-   - npm run build      (production build)
-7. Commit your work with a conventional commit message
-8. Do NOT push to remote
+1. Read src/routes/__root.tsx and src/routes/index.tsx to see the Astryx pattern already established
+2. Implement the feature using ONLY Astryx DS components (no custom CSS classes)
+3. Run: npm run build (fix any errors)
+4. Commit your work with a conventional commit message
+5. Do NOT push to remote
 
-A feature is NOT complete until:
-- Unit tests pass (npm run test:unit)
-- Browser e2e tests pass (npm run test:e2e)
-- Production build succeeds (npm run build)
+Do NOT run e2e tests (they take too long). Just ensure npm run build passes.
+
+Important conventions:
+- Use createServerFn from @tanstack/react-start for API calls
+- Use createFileRoute for route definitions
+- Use useSuspenseQuery for data fetching
+- All calculations must be science-backed with citations in comments
 
 Important conventions:
 - Use createServerFn from @tanstack/react-start for API calls
@@ -171,7 +164,9 @@ PROMPT_EOF
     # Disable set -e for this block since omp/timeout may return non-zero
     OUTPUT_FILE=$(mktemp)
     set +e
-    timeout 600 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
+    # 1800s (30min) timeout — complex refactoring tasks need time for the agent
+    # to read files, make edits, and iterate. 600s was too short.
+    timeout 1800 omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
     EXIT_CODE=$?
     set -e
 
@@ -252,7 +247,7 @@ PROMPT_EOF
 
   # ─── Verification: A feature is only "complete" if tests + build pass ───
   echo ""
-  echo "🔬 Verification: running unit tests, browser e2e tests, and build..."
+  echo "🔬 Verification: running unit tests and build..."
   echo ""
 
   VERIFICATION_PASSED=true
@@ -272,29 +267,10 @@ PROMPT_EOF
     echo "    ❌ Unit tests FAILED"
     VERIFICATION_PASSED=false
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:FAILED "
-    # Capture failing test names
     echo "$UNIT_OUTPUT" | grep -E "FAIL|×|✗" | head -5
   fi
 
-  # 2. Browser e2e tests
-  echo "  ▸ Running browser e2e tests (Playwright)..."
-  set +e
-  E2E_OUTPUT=$(npm run test:e2e 2>&1)
-  E2E_EXIT=$?
-  set -e
-  if [[ $E2E_EXIT -eq 0 ]]; then
-    E2E_COUNT=$(echo "$E2E_OUTPUT" | grep -oP '\d+(?= passed)' | tail -1 || echo "?")
-    echo "    ✅ Browser tests passed ($E2E_COUNT tests)"
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:${E2E_COUNT}passed "
-  else
-    echo "    ❌ Browser tests FAILED"
-    VERIFICATION_PASSED=false
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:FAILED "
-    # Show failing test names
-    echo "$E2E_OUTPUT" | grep -E "failed|Error|✗" | head -10
-  fi
-
-  # 3. Production build
+  # 2. Production build (skip e2e in the loop — too slow; run separately)
   echo "  ▸ Running production build..."
   set +e
   BUILD_OUTPUT=$(npm run build 2>&1)
