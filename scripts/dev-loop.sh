@@ -325,6 +325,19 @@ PROMPT_EOF
     jq --arg details "$VERIFICATION_DETAILS" \
       '.last_verification = $details | .verification_streak = ((.verification_streak // 0) + 1)' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+
+    # Close the issue now that its deliverable is verified (unit + build pass).
+    # Without this the loop re-picks completed issues every iteration — issue
+    # #15 was being re-selected after its Astryx migration already landed.
+    if [[ -n "$ISSUE_NUM" ]]; then
+      echo "  ▸ Closing issue #$ISSUE_NUM (verified: $VERIFICATION_DETAILS)..."
+      set +e
+      gh issue close "$ISSUE_NUM" \
+        --comment "✅ Implemented and verified by the self-improving dev loop.
+
+Verification: $VERIFICATION_DETAILS" 2>&1 | tail -3
+      set -e
+    fi
   else
     echo "⚠️  VERIFICATION INCOMPLETE: $VERIFICATION_DETAILS"
     echo "   Feature committed but tests/build need attention."
