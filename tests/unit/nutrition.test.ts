@@ -7,6 +7,9 @@ import {
   ACTIVITY_MULTIPLIERS,
   mealTypeForHour,
   buildFoodLogDraft,
+  calculateFoodMacros,
+  sumNutritionTotals,
+  addDays,
 } from '~/lib/nutrition'
 
 describe('BMR - Mifflin-St Jeor Equation', () => {
@@ -193,5 +196,92 @@ describe('Food log draft', () => {
       carbs_g: 12,
       fat_g: 0,
     })
+  })
+})
+
+describe('Food macro scaling (Atwater label values)', () => {
+  // Reference: Atwater general factors (protein 4, carbs 4, fat 9 kcal/g);
+  // codified in NLEA/FDA nutrition labeling.
+  const chicken = {
+    calories_per_serving: 165,
+    protein_g: 31,
+    carbs_g: 0,
+    fat_g: 3.6,
+  }
+
+  it('scales every macro linearly with servings', () => {
+    // 2 servings of raw chicken breast: 330 kcal, 62g protein (matches e2e preview).
+    const macros = calculateFoodMacros(chicken, 2)
+    expect(macros.calories).toBe(330)
+    expect(macros.protein_g).toBe(62)
+    expect(macros.carbs_g).toBe(0)
+    expect(macros.fat_g).toBeCloseTo(7.2, 5)
+  })
+
+  it('handles fractional servings', () => {
+    const macros = calculateFoodMacros(chicken, 1.5)
+    expect(macros.calories).toBeCloseTo(247.5, 1)
+    expect(macros.protein_g).toBeCloseTo(46.5, 1)
+  })
+
+  it('defaults fiber to 0 when the food omits it', () => {
+    const macros = calculateFoodMacros({ ...chicken, fiber_g: undefined }, 1)
+    expect(macros.fiber_g).toBe(0)
+  })
+
+  it('scales fiber when provided', () => {
+    const macros = calculateFoodMacros({ ...chicken, fiber_g: 4 }, 2)
+    expect(macros.fiber_g).toBe(8)
+  })
+
+  it('returns zeros for zero servings', () => {
+    const macros = calculateFoodMacros(chicken, 0)
+    expect(macros.calories).toBe(0)
+    expect(macros.protein_g).toBe(0)
+  })
+})
+
+describe('Nutrition totals aggregation', () => {
+  it('returns an empty total for no items', () => {
+    expect(sumNutritionTotals([])).toEqual({
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fat_g: 0,
+      fiber_g: 0,
+    })
+  })
+
+  it('sums macros across multiple items', () => {
+    const total = sumNutritionTotals([
+      { calories: 200, protein_g: 10, carbs_g: 30, fat_g: 5, fiber_g: 4 },
+      { calories: 130, protein_g: 22, carbs_g: 2, fat_g: 3.6, fiber_g: 0 },
+    ])
+    expect(total.calories).toBe(330)
+    expect(total.protein_g).toBeCloseTo(32, 5)
+    expect(total.carbs_g).toBe(32)
+    expect(total.fat_g).toBeCloseTo(8.6, 5)
+    expect(total.fiber_g).toBe(4)
+  })
+
+  it('returns the single item unchanged', () => {
+    const item = { calories: 250, protein_g: 20, carbs_g: 15, fat_g: 8, fiber_g: 3 }
+    expect(sumNutritionTotals([item])).toEqual(item)
+  })
+})
+
+describe('Date arithmetic (ISO, DST-safe at noon)', () => {
+  it('advances the day by the given offset', () => {
+    expect(addDays('2026-07-25', 1)).toBe('2026-07-26')
+    expect(addDays('2026-07-25', 7)).toBe('2026-08-01')
+  })
+
+  it('rolls over month and year boundaries', () => {
+    expect(addDays('2026-07-31', 1)).toBe('2026-08-01')
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+  })
+
+  it('supports negative offsets into the previous month', () => {
+    expect(addDays('2026-07-01', -1)).toBe('2026-06-30')
   })
 })

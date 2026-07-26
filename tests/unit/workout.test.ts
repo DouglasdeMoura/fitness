@@ -8,6 +8,8 @@ import {
   calculateWorkoutStats,
   suggestWeightProgression,
   VOLUME_GUIDELINES,
+  getDupDayEmphasis,
+  parseTargetReps,
 } from '~/lib/workout'
 
 describe('1RM Estimation - Epley Equation', () => {
@@ -153,5 +155,47 @@ describe('Workout Stats', () => {
     // ~150 seconds per set -> 10 sets = 1500 seconds = 25 minutes
     expect(stats.estimatedDuration).toBeGreaterThan(15)
     expect(stats.estimatedDuration).toBeLessThan(40)
+  })
+})
+
+describe('DUP rep-zone emphasis (Rhea et al. 2002; Prestes et al. 2009)', () => {
+  // DUP rotates rep zones within the week: <=5 strength, 6-10 hypertrophy, >=11 endurance.
+  it.each([
+    ['5', 'strength'],
+    ['6', 'hypertrophy'],
+    ['10', 'hypertrophy'],
+    ['11', 'endurance'],
+    ['3-5', 'strength'],
+    ['8-12', 'hypertrophy'],
+    ['12-15', 'endurance'],
+    ['15-20', 'endurance'],
+  ] as const)('classifies target reps "%s" as %s emphasis', (targetReps, expected) => {
+    expect(getDupDayEmphasis(targetReps)).toBe(expected)
+  })
+
+  it('falls back to a hypertrophy rep range when the prescription is unparseable', () => {
+    // parseTargetReps defaults to 8 reps (mid-hypertrophy) for garbage input.
+    expect(getDupDayEmphasis('')).toBe('hypertrophy')
+    expect(getDupDayEmphasis('rest')).toBe('hypertrophy')
+  })
+})
+
+describe('Target rep parsing', () => {
+  it('returns the single value for a plain number', () => {
+    expect(parseTargetReps('8')).toBe(8)
+  })
+
+  it('averages the endpoints of a rep range', () => {
+    // 8-12 midpoint = 10, 3-5 midpoint = 4
+    expect(parseTargetReps('8-12')).toBe(10)
+    expect(parseTargetReps('3-5')).toBe(4)
+  })
+
+  it('tolerates surrounding whitespace in ranges', () => {
+    expect(parseTargetReps('  6 - 8  ')).toBe(7)
+  })
+
+  it('defaults to 8 reps when no digits are present', () => {
+    expect(parseTargetReps('failure')).toBe(8)
   })
 })
