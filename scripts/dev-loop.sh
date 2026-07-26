@@ -95,7 +95,13 @@ while true; do
 
   # Pick an issue to work on
   if [[ -n "$ISSUE_NUMBER" ]]; then
-    ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body 2>/dev/null || echo "")
+    ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body,state 2>/dev/null || echo "")
+    # gh issue view returns closed issues too — without this check the loop
+    # would re-work the same issue forever after closing it.
+    if [[ -n "$ISSUE_DATA" && $(echo "$ISSUE_DATA" | jq -r '.state') != "OPEN" ]]; then
+      echo "✅ Issue #$ISSUE_NUMBER is closed. Nothing left to do."
+      break
+    fi
   else
     # Get the lowest-numbered open issue (work in order)
     ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
@@ -172,19 +178,20 @@ Important conventions:
 - All calculations must be science-backed with citations in comments
 TEMPLATE_END
 
-  # Substitute placeholders (safe — no shell expansion of issue content)
-  sed -i \
-    -e "s/__ISSUE_TITLE__/${ISSUE_TITLE//\//\\/}/g" \
-    -e "s/__ISSUE_NUM__/$ISSUE_NUM/g" \
-    -e "s/__ISSUE_BODY__/${ISSUE_BODY//\//\\/}/g" \
-    "$PROMPT_FILE"
-
+  # Substitute placeholders with bash pattern substitution — sed breaks on
+  # multiline issue bodies ("unterminated s command") and mangles &, \ in
+  # titles. Quoted replacement keeps & literal (bash 5.2+ patsub_replacement).
   PROMPT=$(cat "$PROMPT_FILE")
+  rm -f "$PROMPT_FILE"
+  PROMPT=${PROMPT//__ISSUE_TITLE__/"$ISSUE_TITLE"}
+  PROMPT=${PROMPT//__ISSUE_NUM__/"$ISSUE_NUM"}
+  PROMPT=${PROMPT//__ISSUE_BODY__/"$ISSUE_BODY"}
 
   if $DRY_RUN; then
     echo "[DRY RUN] Would dispatch model: ${MODELS[$MODEL_INDEX]}"
     echo "[DRY RUN] Prompt length: $(echo "$PROMPT" | wc -c) chars"
-    continue
+    # continue would re-pick the same issue forever (nothing changes in dry run)
+    break
   fi
 
   # Try models in order until one works
@@ -214,10 +221,15 @@ TEMPLATE_END
     CURRENT_BRANCH=$(git branch --show-current)
     if [[ "$CURRENT_BRANCH" != "main" ]]; then
       echo "    📌 Model created branch '$CURRENT_BRANCH'. Merging to main..."
-      git checkout main 2>/dev/null
-      git merge "$CURRENT_BRANCH" --no-edit 2>/dev/null
-      git branch -d "$CURRENT_BRANCH" 2>/dev/null
-      echo "    ✅ Merged to main"
+      # Guard each step: under set -e a failed checkout (dirty tree) or a
+      # merge conflict would kill the whole loop with stderr suppressed.
+      if git checkout main && git merge "$CURRENT_BRANCH" --no-edit; then
+        git branch -d "$CURRENT_BRANCH" 2>/dev/null || true
+        echo "    ✅ Merged to main"
+      else
+        git merge --abort 2>/dev/null || true
+        echo "    ⚠️  Could not merge '$CURRENT_BRANCH' to main — left as-is for manual review"
+      fi
     fi
 
     # Check if the output contains error indicators
@@ -305,9 +317,12 @@ TEMPLATE_END
 
   # 1. Unit tests
   echo "  ▸ Running unit tests (Vitest)..."
+  # pipefail inside the substitution: PIPESTATUS of the inner pipeline is not
+  # visible out here, and without it $? would be tee's exit code (always 0),
+  # silently passing verification on failing tests.
   set +e
-  UNIT_OUTPUT=$(npm run test:unit 2>&1 | tee /dev/stderr)
-  UNIT_EXIT=${PIPESTATUS[0]}
+  UNIT_OUTPUT=$(set -o pipefail; npm run test:unit 2>&1 | tee /dev/stderr)
+  UNIT_EXIT=$?
   set -e
   if [[ $UNIT_EXIT -eq 0 ]]; then
     UNIT_COUNT=$(echo "$UNIT_OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' || echo "?")
@@ -323,8 +338,8 @@ TEMPLATE_END
   # 2. Production build (skip e2e in the loop — too slow; run separately)
   echo "  ▸ Running production build..."
   set +e
-  BUILD_OUTPUT=$(npm run build 2>&1 | tee /dev/stderr)
-  BUILD_EXIT=${PIPESTATUS[0]}
+  BUILD_OUTPUT=$(set -o pipefail; npm run build 2>&1 | tee /dev/stderr)
+  BUILD_EXIT=$?
   set -e
   if [[ $BUILD_EXIT -eq 0 ]]; then
     echo "    ✅ Build succeeded"
@@ -338,24 +353,47 @@ TEMPLATE_END
   echo ""
   if $VERIFICATION_PASSED; then
     echo "✅✅✅ FEATURE VERIFIED: $VERIFICATION_DETAILS"
-    echo "   All tests pass. Feature is confirmed working in the browser."
+    echo "   Unit tests and build pass."
 
     # Update learnings with verification success
     jq --arg details "$VERIFICATION_DETAILS" \
       '.last_verification = $details | .verification_streak = ((.verification_streak // 0) + 1)' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
 
-    # Close the issue now that its deliverable is verified (unit + build pass).
-    # Without this the loop re-picks completed issues every iteration — issue
-    # #15 was being re-selected after its Astryx migration already landed.
-    if [[ -n "$ISSUE_NUM" ]]; then
-      echo "  ▸ Closing issue #$ISSUE_NUM (verified: $VERIFICATION_DETAILS)..."
-      set +e
-      gh issue close "$ISSUE_NUM" \
-        --comment "✅ Implemented and verified by the self-improving dev loop.
+    # Push only verified work. Pushing on failure would land broken code on
+    # main AND auto-close the issue via "Closes #N" in the commit body.
+    echo ""
+    echo "  ▸ Pushing to origin/main..."
+    set +e
+    git push origin main 2>&1 | tail -3
+    PUSH_EXIT=${PIPESTATUS[0]}
+    set -e
 
-Verification: $VERIFICATION_DETAILS" 2>&1 | tail -3
-      set -e
+    if [[ $PUSH_EXIT -eq 0 ]]; then
+      COMMIT_SHA=$(git rev-parse --short HEAD)
+      COMMIT_SUBJECT=$(git log -1 --format="%s")
+      COMMIT_BODY=$(git log -1 --format="%B")
+
+      # Close the issue now that its deliverable is verified and pushed.
+      # Without this the loop re-picks completed issues every iteration — issue
+      # #15 was being re-selected after its Astryx migration already landed.
+      # GitHub auto-closes when the pushed commit BODY (not just the subject,
+      # which is all %s shows) references the issue with a closing keyword.
+      if echo "$COMMIT_BODY" | grep -qiE "(closes?|closed|fixes?|fixed|resolves?|resolved) #$ISSUE_NUM\b"; then
+        echo "    ✅ Issue #$ISSUE_NUM will auto-close (commit body references it)"
+      else
+        echo "  ▸ Closing issue #$ISSUE_NUM with commit $COMMIT_SHA..."
+        gh issue close "$ISSUE_NUM" \
+          --comment "Completed in commit [$COMMIT_SHA](https://github.com/DouglasdeMoura/fitness/commit/$COMMIT_SHA): $COMMIT_SUBJECT
+
+Verification: $VERIFICATION_DETAILS
+
+Closed by the self-improving dev loop." 2>/dev/null && \
+          echo "    ✅ Issue #$ISSUE_NUM closed with commit reference" || \
+          echo "    ⚠️  Could not close issue #$ISSUE_NUM (may lack permissions)"
+      fi
+    else
+      echo "    ⚠️  Push failed — leaving issue #$ISSUE_NUM open for the next run"
     fi
   else
     echo "⚠️  VERIFICATION INCOMPLETE: $VERIFICATION_DETAILS"
@@ -382,38 +420,6 @@ Details: $VERIFICATION_DETAILS
 Run \`npm run test:unit && npm run test:e2e && npm run build\` to see failures.
 
 This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
-    fi
-  fi
-
-  # Push commits to remote after successful verification
-  echo ""
-  echo "  ▸ Pushing to origin/main..."
-  set +e
-  git push origin main 2>&1 | tail -3
-  PUSH_EXIT=$?
-  set -e
-
-  # Close the issue with a reference to the commit that fixed it
-  if [[ $PUSH_EXIT -eq 0 ]]; then
-    COMMIT_SHA=$(git rev-parse --short HEAD)
-    COMMIT_MSG=$(git log -1 --format="%s")
-    echo ""
-    echo "  ▸ Closing issue #$ISSUE_NUM with commit $COMMIT_SHA..."
-
-    # Check if the commit message already contains "Closes #N" — GitHub auto-closes on push
-    # if the commit is on the default branch. If not, close manually with a comment.
-    if echo "$COMMIT_MSG" | grep -qiE "closes? #$ISSUE_NUM|fixes? #$ISSUE_NUM"; then
-      echo "    ✅ Issue #$ISSUE_NUM will auto-close (commit message contains 'Closes #$ISSUE_NUM')"
-    else
-      # Close manually with a comment referencing the commit
-      gh issue close "$ISSUE_NUM" \
-        --comment "Completed in commit [$COMMIT_SHA](https://github.com/DouglasdeMoura/fitness/commit/$COMMIT_SHA): $COMMIT_MSG
-
-Verification: $VERIFICATION_DETAILS
-
-Closed by the self-improving dev loop." 2>/dev/null && \
-        echo "    ✅ Issue #$ISSUE_NUM closed with commit reference" || \
-        echo "    ⚠️  Could not close issue #$ISSUE_NUM (may lack permissions)"
     fi
   fi
 
