@@ -1,4 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useForm } from '@tanstack/react-form'
+import { useStore } from '@tanstack/react-store'
 import { useRef, useState } from 'react'
 import {
   Button,
@@ -25,7 +27,13 @@ import {
   type MealType,
 } from '~/lib/nutrition'
 import { runOrQueue, searchCachedFoods } from '~/lib/offline'
-type CustomFoodPayload = Omit<Food, 'id' | 'created_at' | 'source'>
+import {
+  customFoodPayload,
+  EMPTY_CUSTOM_FOOD_DRAFT,
+  isCustomFoodDraftValid,
+  type CustomFoodDraft,
+} from '~/lib/custom-food'
+import { useDebouncedValue } from '~/hooks/use-debounced-value'
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
   label,
@@ -39,101 +47,129 @@ const SERVING_UNIT_OPTIONS = [
   { label: 'Cup', value: 'cup' },
 ]
 
+// Below 2 chars the LIKE query is more noise than signal; 300 ms is short
+// enough to feel instant, long enough to skip mid-word request storms.
+const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_MIN_LENGTH = 2
+
+type FoodLogEntryValues = {
+  selectedFood: Food | null
+  servings: number | null
+  mealType: MealType
+}
+
+type FoodLogEntryForm = ReturnType<typeof useFoodLogEntryForm>
+type CustomFoodFormApi = ReturnType<typeof useCustomFoodForm>
+
 /**
  * Searches foods and collects the serving details for a new food-log entry.
+ * The search box debounces into a TanStack Query; the entry details and the
+ * custom-food form each live in their own TanStack Form instance. The only
+ * `useState` left is the custom-food-form visibility toggle.
  * @example <AddFoodCard selectedDate="2026-07-25" />
  */
 export function AddFoodCard({ selectedDate }: { selectedDate: string }) {
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null)
+  const form = useFoodLogEntryForm(selectedDate)
+  const selectedFood = useStore(form.store, (state) => state.values.selectedFood)
   return (
     <Card>
       <VStack gap={3}>
         <Heading level={2}>Add Food</Heading>
         {selectedFood ? (
-          <SelectedFoodForm
+          <SelectedFoodEntry
+            form={form}
             food={selectedFood}
-            selectedDate={selectedDate}
-            onComplete={() => setSelectedFood(null)}
+            onCancel={() => form.reset()}
           />
         ) : (
-          <FoodSearchForm onSelect={setSelectedFood} />
+          <FoodSearchForm
+            onSelect={(food) => form.setFieldValue('selectedFood', food)}
+          />
         )}
       </VStack>
     </Card>
   )
 }
 
-type SelectedFoodFormState = {
-  servings: number | null
-  mealType: MealType
-  setServings: (servings: number | null) => void
-  setMealType: (mealType: MealType) => void
-  addToLog: () => Promise<void>
-}
-
-function useSelectedFoodForm(
-  food: Food,
-  selectedDate: string,
-  onComplete: () => void,
-): SelectedFoodFormState {
+/**
+ * Entry form: holds the picked food plus the servings/meal-type fields the
+ * user adjusts before logging. Submit persists the row and resets back to the
+ * search view; Cancel resets without persisting.
+ */
+function useFoodLogEntryForm(selectedDate: string) {
   const queryClient = useQueryClient()
-  const [servings, setServings] = useState<number | null>(1)
-  const [mealType, setMealType] = useState<MealType>(() =>
-    mealTypeForHour(new Date().getHours()),
-  )
-  const addToLog = async () => {
-    const entry = buildFoodLogDraft(food, servings ?? 1, selectedDate, mealType)
-    const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
-      addFoodLogEntry({ data: entry }),
-    )
-    onComplete()
-    if (!outcome.queued) {
-      await queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] })
-    }
-  }
-  return { servings, mealType, setServings, setMealType, addToLog }
+  return useForm({
+    defaultValues: {
+      selectedFood: null,
+      servings: 1,
+      mealType: mealTypeForHour(new Date().getHours()),
+    } as FoodLogEntryValues,
+    onSubmit: async ({ value, formApi }) => {
+      if (!value.selectedFood) return
+      const entry = buildFoodLogDraft(
+        value.selectedFood,
+        value.servings ?? 1,
+        selectedDate,
+        value.mealType,
+      )
+      const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
+        addFoodLogEntry({ data: entry }),
+      )
+      formApi.reset()
+      if (!outcome.queued) {
+        await queryClient.invalidateQueries({
+          queryKey: ['food-log', selectedDate],
+        })
+      }
+    },
+  })
 }
 
-function SelectedFoodForm({
+function SelectedFoodEntry({
+  form,
   food,
-  selectedDate,
-  onComplete,
+  onCancel,
 }: {
+  form: FoodLogEntryForm
   food: Food
-  selectedDate: string
-  onComplete: () => void
+  onCancel: () => void
 }) {
-  const form = useSelectedFoodForm(food, selectedDate, onComplete)
   return (
     <VStack gap={3}>
       <FoodSelectionSummary food={food} />
-      <SelectedFoodFields form={form} />
+      <FormLayout>
+        <form.Field name="servings">
+          {(field) => (
+            <NumberInput
+              label="Servings"
+              value={field.state.value}
+              onChange={field.handleChange}
+              min={0.5}
+              step={0.5}
+              hasClear
+            />
+          )}
+        </form.Field>
+        <form.Field name="mealType">
+          {(field) => (
+            <Selector
+              label="Meal"
+              value={field.state.value}
+              options={MEAL_OPTIONS}
+              onChange={(value) => field.handleChange(value as MealType)}
+            />
+          )}
+        </form.Field>
+      </FormLayout>
       <HStack gap={2} wrap="wrap">
-        <Button label="Add to Log" variant="primary" clickAction={form.addToLog} />
-        <Button label="Cancel" clickAction={onComplete} />
+        <Button
+          label="Add to Log"
+          variant="primary"
+          clickAction={form.handleSubmit}
+        />
+        <Button label="Cancel" clickAction={onCancel} />
       </HStack>
     </VStack>
-  )
-}
-
-function SelectedFoodFields({ form }: { form: SelectedFoodFormState }) {
-  return (
-    <FormLayout>
-      <NumberInput
-        label="Servings"
-        value={form.servings}
-        onChange={form.setServings}
-        min={0.5}
-        step={0.5}
-        hasClear
-      />
-      <Selector
-        label="Meal"
-        value={form.mealType}
-        options={MEAL_OPTIONS}
-        onChange={(value) => form.setMealType(value as MealType)}
-      />
-    </FormLayout>
   )
 }
 
@@ -150,12 +186,53 @@ function FoodSelectionSummary({ food }: { food: Food }) {
   )
 }
 
-type FoodSearchState = {
-  query: string
+/**
+ * Search box whose input drives a debounced TanStack Query. Typing streams
+ * results without a "Search" button; the only useState here is the custom-food
+ * toggle in {@link CustomFoodForm}.
+ */
+function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
+  const searchForm = useForm({
+    defaultValues: { query: '' } as { query: string },
+    onSubmit: async () => {
+      // Auto-search runs on input via useQuery; submit is intentionally empty.
+    },
+  })
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const query = useStore(searchForm.store, (state) => state.values.query)
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
+  const searchState = useFoodSearchResults(debouncedQuery)
+
+  return (
+    <VStack gap={3}>
+      <searchForm.Field name="query">
+        {(field) => (
+          <TextInput
+            ref={searchInputRef}
+            label="Search foods"
+            placeholder="e.g. chicken breast, rice..."
+            value={field.state.value}
+            onChange={field.handleChange}
+            hasClear
+          />
+        )}
+      </searchForm.Field>
+      <FoodSearchResults
+        searchState={searchState}
+        onSelect={onSelect}
+        onClear={() => {
+          searchForm.reset()
+          searchInputRef.current?.focus()
+        }}
+      />
+      <CustomFoodForm onCreated={onSelect} />
+    </VStack>
+  )
+}
+
+type FoodSearchResultsState = {
   results: Food[]
   hasSearched: boolean
-  setQuery: (query: string) => void
-  search: () => Promise<void>
 }
 
 async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
@@ -167,53 +244,25 @@ async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
   }
 }
 
-function useFoodSearch(): FoodSearchState {
-  const [query, setQueryValue] = useState('')
-  const [results, setResults] = useState<Food[] | null>(null)
-  const setQuery = (nextQuery: string) => {
-    setQueryValue(nextQuery)
-    if (!nextQuery) setResults(null)
-  }
-  const search = async () => {
-    const searchQuery = query.trim()
-    if (searchQuery.length < 2) return
-    setResults(await searchFoodCatalog(searchQuery))
-  }
+/**
+ * Streams search results for a debounced query. The query is disabled below
+ * the minimum length so empty input never fires a request; `keepPreviousData`
+ * keeps the old list visible while the next page of results loads.
+ */
+function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
+  const trimmed = debouncedQuery.trim()
+  const enabled = trimmed.length >= SEARCH_MIN_LENGTH
+  const { data, isFetched } = useQuery({
+    queryKey: ['food-search', trimmed],
+    queryFn: () => searchFoodCatalog(trimmed),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+  })
   return {
-    query,
-    results: results ?? [],
-    hasSearched: results !== null,
-    setQuery,
-    search,
+    results: data ?? [],
+    hasSearched: enabled && isFetched,
   }
-}
-
-function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
-  const searchState = useFoodSearch()
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  return (
-    <VStack gap={3}>
-      <TextInput
-        ref={searchInputRef}
-        label="Search foods"
-        placeholder="e.g. chicken breast, rice..."
-        value={searchState.query}
-        onChange={searchState.setQuery}
-        onEnter={searchState.search}
-        hasClear
-      />
-      <Button label="Search" variant="primary" clickAction={searchState.search} />
-      <FoodSearchResults
-        searchState={searchState}
-        onSelect={onSelect}
-        onClear={() => {
-          searchState.setQuery('')
-          searchInputRef.current?.focus()
-        }}
-      />
-      <CustomFoodForm onCreated={onSelect} />
-    </VStack>
-  )
 }
 
 function FoodSearchResults({
@@ -221,7 +270,7 @@ function FoodSearchResults({
   onSelect,
   onClear,
 }: {
-  searchState: FoodSearchState
+  searchState: FoodSearchResultsState
   onSelect: (food: Food) => void
   onClear: () => void
 }) {
@@ -251,39 +300,10 @@ function FoodSearchResults({
   )
 }
 
-type CustomFoodDraft = {
-  name: string
-  brand: string
-  servingSize: number | null
-  servingUnit: string
-  calories: number | null
-  protein: number | null
-  carbs: number | null
-  fat: number | null
-}
-
-type UpdateCustomFoodDraft = <Key extends keyof CustomFoodDraft>(
-  key: Key,
-  value: CustomFoodDraft[Key],
-) => void
-
-type CustomFoodDraftState = {
-  draft: CustomFoodDraft
-  updateDraft: UpdateCustomFoodDraft
-  saveDraft: () => Promise<void>
-}
-
-const EMPTY_CUSTOM_FOOD: CustomFoodDraft = {
-  name: '',
-  brand: '',
-  servingSize: 100,
-  servingUnit: 'g',
-  calories: null,
-  protein: null,
-  carbs: null,
-  fat: null,
-}
-
+/**
+ * Wraps the custom-food editor behind a toggle so the long form only mounts
+ * when the user opts in. `isOpen` is the one legitimate useState in this file.
+ */
 function CustomFoodForm({ onCreated }: { onCreated: (food: Food) => void }) {
   const [isOpen, setIsOpen] = useState(false)
   if (!isOpen) {
@@ -310,143 +330,152 @@ function CustomFoodEditor({
   onCreated: (food: Food) => void
   onCancel: () => void
 }) {
-  const editor = useCustomFoodDraft(onCreated, onCancel)
+  const form = useCustomFoodForm(onCreated, onCancel)
   return (
     <VStack gap={3}>
       <Heading level={3}>New Custom Food</Heading>
-      <CustomFoodIdentity draft={editor.draft} updateDraft={editor.updateDraft} />
-      <CustomFoodServing draft={editor.draft} updateDraft={editor.updateDraft} />
-      <CustomFoodMacros draft={editor.draft} updateDraft={editor.updateDraft} />
+      <CustomFoodIdentity form={form} />
+      <CustomFoodServing form={form} />
+      <CustomFoodMacros form={form} />
       <HStack gap={2} wrap="wrap">
-        <Button label="Save Food" variant="primary" clickAction={editor.saveDraft} />
+        <form.Subscribe selector={(state) => isCustomFoodDraftValid(state.values)}>
+          {(isValid) => (
+            <Button
+              label="Save Food"
+              variant="primary"
+              clickAction={form.handleSubmit}
+              isDisabled={!isValid}
+            />
+          )}
+        </form.Subscribe>
         <Button label="Cancel" clickAction={onCancel} />
       </HStack>
     </VStack>
   )
 }
 
-function useCustomFoodDraft(
+function useCustomFoodForm(
   onCreated: (food: Food) => void,
-  onComplete: () => void,
-): CustomFoodDraftState {
-  const [draft, setDraft] = useState<CustomFoodDraft>(EMPTY_CUSTOM_FOOD)
-  const updateDraft: UpdateCustomFoodDraft = (key, value) =>
-    setDraft((current) => ({ ...current, [key]: value }))
-  const saveDraft = async () => {
-    if (!draft.name.trim() || draft.calories == null) return
-    const payload = customFoodPayload(draft)
-    const outcome = await runOrQueue('addFood', payload, () =>
-      addFood({ data: payload }),
-    )
-    onComplete()
-    if (!outcome.queued) onCreated(outcome.result)
-  }
-  return { draft, updateDraft, saveDraft }
+  onCancel: () => void,
+) {
+  return useForm({
+    defaultValues: { ...EMPTY_CUSTOM_FOOD_DRAFT } as CustomFoodDraft,
+    onSubmit: async ({ value, formApi }) => {
+      if (!isCustomFoodDraftValid(value)) return
+      const payload = customFoodPayload(value)
+      const outcome = await runOrQueue('addFood', payload, () =>
+        addFood({ data: payload }),
+      )
+      formApi.reset()
+      onCancel()
+      // Queued (offline) mutations return no row yet; the outbox replay will
+      // surface the food via the search cache invalidate elsewhere.
+      if (!outcome.queued) onCreated(outcome.result)
+    },
+  })
 }
 
-function customFoodPayload(draft: CustomFoodDraft): CustomFoodPayload {
-  return {
-    name: draft.name.trim(),
-    brand: draft.brand.trim() || null,
-    serving_size: draft.servingSize ?? 100,
-    serving_unit: draft.servingUnit,
-    calories_per_serving: draft.calories ?? 0,
-    protein_g: draft.protein ?? 0,
-    carbs_g: draft.carbs ?? 0,
-    fat_g: draft.fat ?? 0,
-    fiber_g: 0,
-    sugar_g: 0,
-    sodium_mg: 0,
-  }
-}
-
-function CustomFoodIdentity({
-  draft,
-  updateDraft,
-}: {
-  draft: CustomFoodDraft
-  updateDraft: UpdateCustomFoodDraft
-}) {
+function CustomFoodIdentity({ form }: { form: CustomFoodFormApi }) {
   return (
     <FormLayout direction="horizontal">
-      <TextInput
-        label="Name"
-        value={draft.name}
-        onChange={(value) => updateDraft('name', value)}
-        placeholder="Food name"
-        isRequired
-      />
-      <TextInput
-        label="Brand"
-        value={draft.brand}
-        onChange={(value) => updateDraft('brand', value)}
-        isOptional
-      />
+      <form.Field name="name">
+        {(field) => (
+          <TextInput
+            label="Name"
+            value={field.state.value}
+            onChange={field.handleChange}
+            placeholder="Food name"
+            isRequired
+          />
+        )}
+      </form.Field>
+      <form.Field name="brand">
+        {(field) => (
+          <TextInput
+            label="Brand"
+            value={field.state.value}
+            onChange={field.handleChange}
+            isOptional
+          />
+        )}
+      </form.Field>
     </FormLayout>
   )
 }
 
-function CustomFoodServing({
-  draft,
-  updateDraft,
-}: {
-  draft: CustomFoodDraft
-  updateDraft: UpdateCustomFoodDraft
-}) {
+function CustomFoodServing({ form }: { form: CustomFoodFormApi }) {
   return (
     <FormLayout direction="horizontal">
-      <NumberInput
-        label="Serving Size"
-        value={draft.servingSize}
-        onChange={(value) => updateDraft('servingSize', value)}
-        min={0.01}
-        step={0.01}
-        isRequired
-      />
-      <Selector
-        label="Unit"
-        value={draft.servingUnit}
-        options={SERVING_UNIT_OPTIONS}
-        onChange={(value) => updateDraft('servingUnit', value)}
-      />
+      <form.Field name="servingSize">
+        {(field) => (
+          <NumberInput
+            label="Serving Size"
+            value={field.state.value}
+            onChange={field.handleChange}
+            min={0.01}
+            step={0.01}
+            isRequired
+          />
+        )}
+      </form.Field>
+      <form.Field name="servingUnit">
+        {(field) => (
+          <Selector
+            label="Unit"
+            value={field.state.value}
+            options={SERVING_UNIT_OPTIONS}
+            onChange={(value) => field.handleChange(value)}
+          />
+        )}
+      </form.Field>
     </FormLayout>
   )
 }
 
-function CustomFoodMacros({
-  draft,
-  updateDraft,
-}: {
-  draft: CustomFoodDraft
-  updateDraft: UpdateCustomFoodDraft
-}) {
+function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
   return (
     <Grid columns={{ minWidth: 160 }} gap={2}>
-      <NumberInput
-        label="Calories per serving"
-        value={draft.calories}
-        onChange={(value) => updateDraft('calories', value)}
-        min={0}
-        isRequired
-      />
-      <NumberInput
-        label="Protein (g)"
-        value={draft.protein}
-        onChange={(value) => updateDraft('protein', value)}
-        min={0}
-      />
-      <NumberInput
-        label="Carbs (g)"
-        value={draft.carbs}
-        onChange={(value) => updateDraft('carbs', value)}
-        min={0}
-      />
-      <NumberInput
-        label="Fat (g)"
-        value={draft.fat}
-        onChange={(value) => updateDraft('fat', value)}
-        min={0}
-      />
+      <form.Field name="calories">
+        {(field) => (
+          <NumberInput
+            label="Calories per serving"
+            value={field.state.value}
+            onChange={field.handleChange}
+            min={0}
+            isRequired
+          />
+        )}
+      </form.Field>
+      <form.Field name="protein">
+        {(field) => (
+          <NumberInput
+            label="Protein (g)"
+            value={field.state.value}
+            onChange={field.handleChange}
+            min={0}
+          />
+        )}
+      </form.Field>
+      <form.Field name="carbs">
+        {(field) => (
+          <NumberInput
+            label="Carbs (g)"
+            value={field.state.value}
+            onChange={field.handleChange}
+            min={0}
+          />
+        )}
+      </form.Field>
+      <form.Field name="fat">
+        {(field) => (
+          <NumberInput
+            label="Fat (g)"
+            value={field.state.value}
+            onChange={field.handleChange}
+            min={0}
+          />
+        )}
+      </form.Field>
     </Grid>
   )
 }

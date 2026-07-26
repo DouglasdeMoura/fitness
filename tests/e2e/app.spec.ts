@@ -92,8 +92,21 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await expect(page.getByRole('heading', { name: 'Add Food' })).toBeVisible({
       timeout: 10000,
     })
-    await page.getByLabel('Search foods').fill('chicken')
-    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Search foods' }).fill('chicken')
+    // The search debounces into a TanStack Query; no Search button to click.
+    await expect(page.getByText(/Chicken/i).first()).toBeVisible({ timeout: 10000 })
+  })
+
+  test('food search streams results live as the user types', async ({ page }) => {
+    await openAppPage(page, '/nutrition')
+    const searchInput = page.getByRole('textbox', { name: 'Search foods' })
+    // Single character is below the 2-char minimum: no request fires.
+    await searchInput.fill('c')
+    await page.waitForTimeout(500)
+    expect(await page.getByText('Search results').count()).toBe(0)
+
+    // Typing past the minimum triggers the debounced query automatically.
+    await searchInput.fill('chicken')
     await expect(page.getByText(/Chicken/i).first()).toBeVisible({ timeout: 10000 })
   })
 
@@ -101,9 +114,9 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await openAppPage(page, '/nutrition')
     const searchInput = page.getByRole('textbox', { name: 'Search foods' })
     await searchInput.fill(`missing-food-${Date.now()}`)
-    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    // The debounced query resolves to an empty result set; no Search button.
     const noResults = page.getByRole('status').filter({ hasText: 'No foods found' })
-    await expect(noResults).toBeVisible()
+    await expect(noResults).toBeVisible({ timeout: 10000 })
 
     await page.getByRole('button', { name: 'Clear search', exact: true }).click()
     await expect(searchInput).toHaveValue('')
