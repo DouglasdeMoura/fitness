@@ -38,6 +38,7 @@ import {
   weightLoggedBody,
 } from '~/lib/toasts'
 import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
+import { InstallPrompt } from '~/components/InstallPrompt'
 
 export const Route = createFileRoute('/settings/')({
   head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
@@ -226,6 +227,8 @@ function SettingsPageContent() {
           />
         </VStack>
       </Card>
+
+      <InstallPrompt />
 
       <Card>
         <VStack gap={3}>

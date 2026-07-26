@@ -25,11 +25,15 @@ export const Route = createRootRoute({
       { name: 'theme-color', content: '#6741d9' },
       { name: 'description', content: 'Science-backed nutrition and workout companion' },
       { title: 'FitTrack - Nutrition & Workout Companion' },
+      // iOS standalone / home-screen install meta (PRD 12 Batch 1 / issue #48)
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      { name: 'apple-mobile-web-app-title', content: 'FitTrack' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'manifest', href: '/manifest.json' },
-      { rel: 'apple-touch-icon', href: '/icon-192.png' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
     ],
     scripts: [
       {

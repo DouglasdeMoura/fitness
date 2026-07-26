@@ -9,6 +9,7 @@
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "db:seed": "node scripts/seed.mjs",
+    "icons:build": "node scripts/build-icons.mjs",
     "dev-loop": "bash scripts/dev-loop.sh",
     "typecheck": "tsc --noEmit",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs",

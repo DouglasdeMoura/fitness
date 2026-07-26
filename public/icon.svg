@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FitTrack">
+  <!--
+    Source of truth for FitTrack PWA icons (issue #48).
+    Theme colour #6741d9 is applied as the canvas by `npm run icons:build`.
+    This SVG is only the white mark — sized to read clearly at 48px.
+  -->
+  <g fill="#ffffff">
+    <!-- Bold geometric F monogram -->
+    <rect x="128" y="112" width="72" height="288" rx="24"/>
+    <rect x="128" y="112" width="256" height="72" rx="24"/>
+    <rect x="128" y="232" width="176" height="64" rx="24"/>
+  </g>
+</svg>
