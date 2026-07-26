@@ -72,8 +72,9 @@ echo "📊 Provider Usage Status:"
 omp usage 2>/dev/null | grep -E "(account|resets|capacity)" | head -20 || echo "  (unable to fetch usage)"
 echo ""
 
-# Read current model index
-MODEL_INDEX=$(jq -r '.current_model_index' "$STATE_FILE")
+# Always start from the most powerful model. Rate limits reset over time,
+# so a model that was exhausted yesterday may work today.
+MODEL_INDEX=0
 
 for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
   echo ""
