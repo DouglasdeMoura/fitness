@@ -238,3 +238,36 @@ export function suggestWeightProgression(
     note: 'Maintain or add 1 rep before increasing weight',
   }
 }
+
+/**
+ * Descriptor for the session a user is actively training in. Carried either by
+ * in-page state (free-form "Start Workout") or derived from the ?session=N URL
+ * param. See issue #19 — replaced a useEffect that mirrored server data into
+ * useState with a value derived during render.
+ *
+ * Example: activeSessionFromUrl({ id: 5, program_id: 2, program_day_id: 7 })
+ *          // { id: 5, tempRef: 'session-5', programId: 2, programDayId: 7 }
+ */
+export type ActiveSession = {
+  id: number | null
+  tempRef: string
+  programId: number | null
+  programDayId: number | null
+}
+
+/**
+ * Project a server-loaded WorkoutSession row into the ActiveSession shape the
+ * workout page consumes. Pure so it can be unit-tested in isolation.
+ */
+export function activeSessionFromUrl(session: {
+  id: number
+  program_id: number | null
+  program_day_id: number | null
+}): ActiveSession {
+  return {
+    id: session.id,
+    tempRef: `session-${session.id}`,
+    programId: session.program_id,
+    programDayId: session.program_day_id,
+  }
+}

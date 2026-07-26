@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  activeSessionFromUrl,
   estimate1RM,
   weightFrom1RM,
   calculateVolume,
@@ -197,5 +198,33 @@ describe('Target rep parsing', () => {
 
   it('defaults to 8 reps when no digits are present', () => {
     expect(parseTargetReps('failure')).toBe(8)
+  })
+})
+
+describe('activeSessionFromUrl', () => {
+  it('maps server session fields to ActiveSession shape', () => {
+    expect(activeSessionFromUrl({
+      id: 5,
+      program_id: 2,
+      program_day_id: 7,
+    })).toEqual({
+      id: 5,
+      tempRef: 'session-5',
+      programId: 2,
+      programDayId: 7,
+    })
+  })
+
+  it('preserves null program linkage for free-form sessions', () => {
+    expect(activeSessionFromUrl({
+      id: 12,
+      program_id: null,
+      program_day_id: null,
+    })).toEqual({
+      id: 12,
+      tempRef: 'session-12',
+      programId: null,
+      programDayId: null,
+    })
   })
 })

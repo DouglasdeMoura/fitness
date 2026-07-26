@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Badge, Button, Card } from '@astryxdesign/core'
 import {
   getExercises,
@@ -9,12 +9,11 @@ import {
   createWorkoutSession,
   addWorkoutSet,
   getProgramDayTargets,
-  type ProgramDayTarget,
 } from '~/lib/api'
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
 import type { Exercise } from '~/lib/db'
-import { estimate1RM, calculateVolume } from '~/lib/workout'
+import { activeSessionFromUrl, calculateVolume, estimate1RM, type ActiveSession } from '~/lib/workout'
 
 type WorkoutSearch = {
   session?: number
@@ -44,38 +43,42 @@ function WorkoutPage() {
     queryFn: () => getWorkoutSessions({ data: { limit: 10 } }),
   })
 
-  const [activeSession, setActiveSession] = useState<{ id: number | null; tempRef: string; programDayId?: number | null; programId?: number | null } | null>(null)
-  const [programTargets, setProgramTargets] = useState<ProgramDayTarget[]>([])
+  // Tracks a free-form session the user started by clicking "Start Workout".
+  // Lives outside the URL — Start Workout creates a session in-place without
+  // navigating, so there is no ?session= param to derive from. See issue #19.
+  const [startedSession, setStartedSession] = useState<ActiveSession | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sets, setSets] = useState<Array<{ reps: number; weight: number; rpe: number }>>([])
 
-  useEffect(() => {
-    if (!sessionIdFromSearch || activeSession?.id === sessionIdFromSearch) return
+  // Replaces the prior useEffect that mirrored server data into useState (#19).
+  // The URL ?session=N flow loads the session via TanStack Query and derives
+  // `activeSession` during render — no Effect, no mirrored state.
+  const navigate = useNavigate()
+  const { data: urlSession } = useQuery({
+    queryKey: ['workout-session', sessionIdFromSearch],
+    queryFn: () => getWorkoutSession({ data: { id: sessionIdFromSearch as number } }),
+    enabled: sessionIdFromSearch !== undefined,
+  })
 
-    let cancelled = false
-    ;(async () => {
-      const loaded = await getWorkoutSession({ data: { id: sessionIdFromSearch } })
-      if (!loaded || cancelled) return
+  const activeSession = startedSession
+    ?? (sessionIdFromSearch !== undefined && urlSession
+      ? activeSessionFromUrl(urlSession.session)
+      : null)
 
-      setActiveSession({ id: loaded.session.id, tempRef: `session-${loaded.session.id}` })
-
-      if (loaded.session.program_id && loaded.session.program_day_id) {
-        const dayTargets = await getProgramDayTargets({
-          data: {
-            programId: loaded.session.program_id,
-            programDayId: loaded.session.program_day_id,
-          },
-        })
-        if (!cancelled && dayTargets) {
-          setProgramTargets(dayTargets.targets)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [sessionIdFromSearch, activeSession?.id])
+  // Program targets are derived from the active session's program/day — fetched
+  // on demand and read straight from the query cache instead of useState (#19).
+  const hasProgramDay = activeSession?.programId != null && activeSession?.programDayId != null
+  const { data: targetsResponse } = useQuery({
+    queryKey: ['program-day-targets', activeSession?.programId, activeSession?.programDayId],
+    queryFn: () => getProgramDayTargets({
+      data: {
+        programId: activeSession?.programId as number,
+        programDayId: activeSession?.programDayId as number,
+      },
+    }),
+    enabled: hasProgramDay,
+  })
+  const programTargets = targetsResponse?.targets ?? []
 
   const activeTarget = selectedExercise
     ? programTargets.find((target) => target.exercise_id === selectedExercise.id)
@@ -88,9 +91,24 @@ function WorkoutPage() {
       { name: 'Training Session', temp_ref: tempRef },
       () => createWorkoutSession({ data: { name: 'Training Session' } })
     )
-    setActiveSession({ id: outcome.queued ? null : outcome.result.id, tempRef })
-    setProgramTargets([])
+    setStartedSession({
+      id: outcome.queued ? null : outcome.result.id,
+      tempRef,
+      programId: null,
+      programDayId: null,
+    })
     setSets([])
+  }
+
+  // Finishing must also drop the ?session=N URL param — otherwise the
+  // URL-driven useQuery above would immediately re-activate the session.
+  const handleFinish = () => {
+    setStartedSession(null)
+    setSelectedExercise(null)
+    setSets([])
+    if (sessionIdFromSearch !== undefined) {
+      navigate({ to: '/workout', search: {} })
+    }
   }
 
   const handleAddSet = () => {
@@ -183,7 +201,7 @@ function WorkoutPage() {
               <div className="card-title" style={{ margin: 0 }}>Active Session</div>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => { setActiveSession(null); setSelectedExercise(null); setSets([]); setProgramTargets([]) }}
+                onClick={handleFinish}
               >
                 Finish
               </button>

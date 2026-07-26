@@ -112,6 +112,31 @@ test.describe("Training programs", () => {
     await expect(page.getByText(programName, { exact: true })).toBeVisible();
     expect(hydrationErrors).toEqual([]);
   });
+  test("derives program targets from the session URL and clears them on finish", async ({ page }) => {
+    const programName = `E2E Program Targets ${Date.now()}`;
+    await openAppPage(page, "/workout/programs");
+
+    const programsPage = page.getByRole("main");
+    await clickHydratedButton(programsPage.getByRole("button", { name: "New Program" }));
+    await programsPage.getByRole("textbox", { name: "Name" }).fill(programName);
+    await programsPage.getByRole("button", { name: "Create Program" }).click();
+
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await page.getByRole("button", { name: "Add exercise to Day A" }).click();
+    await page.getByRole("button", { name: "Save Program" }).click();
+    await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Start Day A" }).click();
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/);
+    await expect(page.getByText("Program Targets", { exact: true })).toBeVisible();
+    await expect(page.getByRole("table").filter({ hasText: "Target" }).first()).toBeVisible();
+
+    await clickHydratedButton(page.getByRole("button", { name: "Finish" }));
+    await expect(page).toHaveURL(/\/workout\/?$/);
+    await expect(page.getByText("Ready to train?", { exact: true })).toBeVisible();
+    await expect(page.getByText("Program Targets", { exact: true })).not.toBeVisible();
+  });
+
   test("starts the remaining day after an unsaved deletion", async ({ page }) => {
     const programName = `E2E Day Identity ${Date.now()}`;
     await openAppPage(page, "/workout/programs");
