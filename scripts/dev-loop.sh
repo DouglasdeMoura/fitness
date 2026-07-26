@@ -408,7 +408,12 @@ TEMPLATE_END
     echo "    ❌ Unit tests FAILED"
     VERIFICATION_PASSED=false
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:FAILED "
-    echo "$UNIT_OUTPUT" | grep -E "FAIL|×|✗" | head -5
+    # `grep -m N` rather than `grep | head -N`: head exits after N lines, grep
+    # then dies of SIGPIPE, and under `set -o pipefail` + `set -e` that 141 aborts
+    # the whole script. `|| true` covers the no-match case, which returns 1 and
+    # would abort just as fatally. This exact pattern killed the loop on the
+    # first e2e failure (exit 141) instead of letting it try the next model.
+    echo "$UNIT_OUTPUT" | grep -m 5 -E "FAIL|×|✗" || true
   fi
 
   # 2. Production build
@@ -450,7 +455,10 @@ TEMPLATE_END
       echo "    ❌ E2E FAILED"
       VERIFICATION_PASSED=false
       VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:FAILED"
-      echo "$E2E_OUTPUT" | grep -E "✘|failed|Error:" | head -8
+      # See the unit-test branch above: `grep -m N` avoids the SIGPIPE that
+      # `| head -N` causes, and `|| true` covers no-match. Both are fatal under
+      # `set -e` with pipefail.
+      echo "$E2E_OUTPUT" | grep -m 8 -E "✘|failed|Error:" || true
     fi
   else
     echo "  ▸ Skipping e2e (unit tests or build already failed)"
