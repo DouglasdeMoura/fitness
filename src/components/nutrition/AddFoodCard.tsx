@@ -19,6 +19,7 @@ import {
   TextInput,
   VStack,
 } from '@astryxdesign/core'
+import { useToast } from '@astryxdesign/core/Toast'
 import { addFood, addFoodLogEntry, searchFoods } from '~/lib/api'
 import type { Food } from '~/lib/db'
 import {
@@ -36,6 +37,7 @@ import {
 } from '~/lib/custom-food'
 import { useDebouncedValue } from '~/hooks/use-debounced-value'
 import { FOOD_SEARCH_MIN_LENGTH, isFoodSearchPending } from '~/lib/food-search'
+import { foodLoggedBody, mutationFailedBody } from '~/lib/toasts'
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
   label,
@@ -112,6 +114,7 @@ export const AddFoodCard = forwardRef<AddFoodCardHandle, { selectedDate: string 
  */
 function useFoodLogEntryForm(selectedDate: string) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   return useForm({
     defaultValues: {
       selectedFood: null,
@@ -126,14 +129,19 @@ function useFoodLogEntryForm(selectedDate: string) {
         selectedDate,
         value.mealType,
       )
-      const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
-        addFoodLogEntry({ data: entry }),
-      )
-      formApi.reset()
-      if (!outcome.queued) {
-        await queryClient.invalidateQueries({
-          queryKey: ['food-log', selectedDate],
-        })
+      try {
+        const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
+          addFoodLogEntry({ data: entry }),
+        )
+        formApi.reset()
+        toast({ body: foodLoggedBody() })
+        if (!outcome.queued) {
+          await queryClient.invalidateQueries({
+            queryKey: ['food-log', selectedDate],
+          })
+        }
+      } catch {
+        toast({ body: mutationFailedBody('Log food'), type: 'error' })
       }
     },
   })

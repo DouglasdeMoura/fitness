@@ -4,6 +4,7 @@ import { AppShell } from '@astryxdesign/core/AppShell'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { LinkProvider } from '@astryxdesign/core/Link'
 import { Theme } from '@astryxdesign/core/theme'
+import { ToastViewport } from '@astryxdesign/core/Toast'
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav'
 import { neutralTheme } from '@astryxdesign/theme-neutral'
 import { useRouterState } from '@tanstack/react-router'
@@ -40,47 +41,50 @@ export function AppChrome({ children }: { children: ReactNode }) {
   return (
     <Theme theme={neutralTheme} mode={colorMode}>
       <LinkProvider component={RouterLink}>
-        <AppShell
-          contentPadding={4}
-          height="auto"
-          topNav={
-            <TopNav
-              label="FitTrack navigation"
-              heading={<TopNavHeading heading="💪 FitTrack" headingHref="/" />}
-              startContent={
-                <>
-                  {NAV_ITEMS.map((item) => (
-                    <TopNavItem
-                      key={item.href}
-                      label={item.label}
-                      href={item.href}
-                      isSelected={isNavSelected(
-                        pathname,
-                        item.href,
-                        'exact' in item ? item.exact : false,
-                      )}
-                    />
-                  ))}
-                </>
-              }
-              endContent={
-                <IconButton
-                  label="Toggle dark mode"
-                  tooltip="Toggle dark mode"
-                  icon={<span aria-hidden>🌓</span>}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setColorMode((mode) => toggleColorMode(mode))
-                  }}
-                />
-              }
-            />
-          }
-        >
-          <OfflineStatus />
-          {children}
-        </AppShell>
+        {/* ToastViewport hosts useToast() stacks for mutation feedback (issue #24). */}
+        <ToastViewport position="bottomEnd" maxVisible={3}>
+          <AppShell
+            contentPadding={4}
+            height="auto"
+            topNav={
+              <TopNav
+                label="FitTrack navigation"
+                heading={<TopNavHeading heading="💪 FitTrack" headingHref="/" />}
+                startContent={
+                  <>
+                    {NAV_ITEMS.map((item) => (
+                      <TopNavItem
+                        key={item.href}
+                        label={item.label}
+                        href={item.href}
+                        isSelected={isNavSelected(
+                          pathname,
+                          item.href,
+                          'exact' in item ? item.exact : false,
+                        )}
+                      />
+                    ))}
+                  </>
+                }
+                endContent={
+                  <IconButton
+                    label="Toggle dark mode"
+                    tooltip="Toggle dark mode"
+                    icon={<span aria-hidden>🌓</span>}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setColorMode((mode) => toggleColorMode(mode))
+                    }}
+                  />
+                }
+              />
+            }
+          >
+            <OfflineStatus />
+            {children}
+          </AppShell>
+        </ToastViewport>
       </LinkProvider>
     </Theme>
   )

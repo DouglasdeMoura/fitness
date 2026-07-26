@@ -238,7 +238,12 @@ test.describe('Settings - Profile Configuration', () => {
     await expect(listbox.getByRole('option', { name: /Sedentary/ })).toBeVisible()
     await listbox.getByRole('option', { name: /Moderately active/ }).click()
     await page.getByRole('button', { name: 'Save Profile' }).click()
-    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible({ timeout: 10000 })
+    // Confirmation moved from button label hack to Astryx toast (issue #24).
+    await expect(
+      page.getByRole('region', { name: 'Notifications' }).getByRole('status').filter({
+        hasText: 'Profile saved',
+      }),
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('shows weight logging interface and accepts a weigh-in', async ({ page }) => {

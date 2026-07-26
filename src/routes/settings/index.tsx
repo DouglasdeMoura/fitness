@@ -16,6 +16,7 @@ import {
   TextInput,
   VStack,
 } from '@astryxdesign/core'
+import { useToast } from '@astryxdesign/core/Toast'
 import { getUser, updateUser, logBodyweight, exportData } from '~/lib/api'
 import { runOrQueue } from '~/lib/offline'
 import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition'
@@ -27,10 +28,15 @@ import {
   buildProfileUpdate,
   exportDownloadFilename,
   parseWeightKg,
-  saveProfileButtonLabel,
   todayISODate,
   toISODate,
 } from '~/lib/settings'
+import {
+  dataExportedBody,
+  mutationFailedBody,
+  profileSavedBody,
+  weightLoggedBody,
+} from '~/lib/toasts'
 import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
 
 export const Route = createFileRoute('/settings/')({
@@ -65,6 +71,7 @@ function SettingsPage() {
 }
 
 function SettingsPageContent() {
+  const toast = useToast()
   const loaderData = Route.useLoaderData()
   const { data: user } = useSuspenseQuery({
     queryKey: ['user'],
@@ -81,30 +88,46 @@ function SettingsPageContent() {
   const [goal, setGoal] = useState<GoalType>(user.goal_type as GoalType)
   const [birthDate, setBirthDate] = useState(user.birth_date || '')
   const [weight, setWeight] = useState<number | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const handleSaveProfile = async () => {
-    await updateUser({
-      data: buildProfileUpdate({
-        name,
-        heightCm,
-        sex,
-        activity,
-        goal,
-        birthDate,
-      }),
-    })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      await updateUser({
+        data: buildProfileUpdate({
+          name,
+          heightCm,
+          sex,
+          activity,
+          goal,
+          birthDate,
+        }),
+      })
+      toast({ body: profileSavedBody() })
+    } catch {
+      toast({ body: mutationFailedBody('Save profile'), type: 'error' })
+    }
   }
 
   const handleLogWeight = async () => {
     const w = parseWeightKg(weight)
     if (w == null) return
-    await runOrQueue('logBodyweight', { weight_kg: w }, () =>
-      logBodyweight({ data: { weight_kg: w } }),
-    )
-    setWeight(null)
+    try {
+      await runOrQueue('logBodyweight', { weight_kg: w }, () =>
+        logBodyweight({ data: { weight_kg: w } }),
+      )
+      toast({ body: weightLoggedBody(w) })
+      setWeight(null)
+    } catch {
+      toast({ body: mutationFailedBody('Log weight'), type: 'error' })
+    }
+  }
+
+  const handleExportData = async () => {
+    try {
+      await exportFitTrackData()
+      toast({ body: dataExportedBody() })
+    } catch {
+      toast({ body: mutationFailedBody('Export data'), type: 'error' })
+    }
   }
 
   return (
@@ -157,7 +180,7 @@ function SettingsPageContent() {
             />
           </FormLayout>
           <Button
-            label={saveProfileButtonLabel(saved)}
+            label="Save Profile"
             variant="primary"
             clickAction={handleSaveProfile}
           />
@@ -199,7 +222,7 @@ function SettingsPageContent() {
           <Button
             label="Export as JSON"
             variant="secondary"
-            clickAction={exportFitTrackData}
+            clickAction={handleExportData}
           />
         </VStack>
       </Card>

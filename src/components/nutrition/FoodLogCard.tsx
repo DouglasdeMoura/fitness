@@ -11,10 +11,17 @@ import {
   proportional,
   type TableColumn,
 } from '@astryxdesign/core'
-import { deleteFoodLogEntry } from '~/lib/api'
+import { useToast } from '@astryxdesign/core/Toast'
+import { ToastUndoButton } from '~/components/ToastUndoButton'
+import { addFoodLogEntry, deleteFoodLogEntry } from '~/lib/api'
 import type { FoodLogEntry } from '~/lib/db'
 import { MEAL_TYPE_LABELS } from '~/lib/nutrition'
 import { runOrQueue } from '~/lib/offline'
+import {
+  entryDeletedBody,
+  mutationFailedBody,
+  TOAST_DURATION_MS,
+} from '~/lib/toasts'
 
 type DeleteFoodEntry = (entry: FoodLogEntry) => Promise<void>
 
@@ -116,16 +123,65 @@ function FoodLogContent({
   )
 }
 
+/** Rebuilds the addFoodLogEntry payload from a deleted row for Undo. */
+function foodEntryRestorePayload(entry: FoodLogEntry) {
+  return {
+    food_id: entry.food_id ?? undefined,
+    custom_name: entry.custom_name ?? undefined,
+    date: entry.date,
+    meal_type: entry.meal_type,
+    servings: entry.servings,
+    calories: entry.calories,
+    protein_g: entry.protein_g,
+    carbs_g: entry.carbs_g,
+    fat_g: entry.fat_g,
+    notes: entry.notes ?? undefined,
+  }
+}
+
 function useDeleteFoodEntry(selectedDate: string): DeleteFoodEntry {
   const queryClient = useQueryClient()
+  const toast = useToast()
+
+  const invalidateFoodLog = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] })
+  }
+
   return async (entry) => {
     const foodName = foodEntryName(entry)
     if (!window.confirm(`Delete ${foodName} from today's food log?`)) return
-    const outcome = await runOrQueue('deleteFoodLogEntry', { id: entry.id }, () =>
-      deleteFoodLogEntry({ data: { id: entry.id } }),
-    )
-    if (!outcome.queued) {
-      await queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] })
+
+    try {
+      const outcome = await runOrQueue('deleteFoodLogEntry', { id: entry.id }, () =>
+        deleteFoodLogEntry({ data: { id: entry.id } }),
+      )
+      if (!outcome.queued) {
+        await invalidateFoodLog()
+      }
+
+      let dismiss = () => {}
+      dismiss = toast({
+        body: entryDeletedBody(),
+        autoHideDuration: TOAST_DURATION_MS.undo,
+        endContent: (
+          <ToastUndoButton
+            onUndo={async () => {
+              dismiss()
+              try {
+                const restore = foodEntryRestorePayload(entry)
+                await runOrQueue('addFoodLogEntry', restore, () =>
+                  addFoodLogEntry({ data: restore }),
+                )
+                await invalidateFoodLog()
+              } catch {
+                toast({ body: mutationFailedBody('Log food'), type: 'error' })
+              }
+            }}
+          />
+        ),
+      })
+    } catch {
+      toast({ body: mutationFailedBody('Delete entry'), type: 'error' })
     }
   }
 }

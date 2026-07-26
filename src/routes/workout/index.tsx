@@ -2,21 +2,38 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Suspense, useState } from 'react'
 import { Badge, Button, Card, EmptyState, Heading, VStack } from '@astryxdesign/core'
+import { useToast } from '@astryxdesign/core/Toast'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
+import { ToastUndoButton } from '~/components/ToastUndoButton'
 import {
   getExercises,
   getWorkoutSessions,
   getWorkoutSession,
   createWorkoutSession,
   addWorkoutSet,
+  deleteWorkoutSet,
   getProgramDayTargets,
 } from '~/lib/api'
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
 import type { Exercise } from '~/lib/db'
 import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
+import {
+  mutationFailedBody,
+  setDeletedBody,
+  setSavedBody,
+  TOAST_DURATION_MS,
+} from '~/lib/toasts'
 import { activeSessionFromUrl, calculateVolume, estimate1RM, type ActiveSession } from '~/lib/workout'
 import { WorkoutSkeleton } from '~/components/loading/PageSkeletons'
+
+type DraftWorkoutSet = {
+  reps: number
+  weight: number
+  rpe: number
+  /** Persisted workout_sets.id after a successful Save. */
+  id?: number
+}
 
 type WorkoutSearch = {
   session?: number
@@ -72,7 +89,8 @@ function WorkoutPageContent() {
   // navigating, so there is no ?session= param to derive from. See issue #19.
   const [startedSession, setStartedSession] = useState<ActiveSession | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
-  const [sets, setSets] = useState<Array<{ reps: number; weight: number; rpe: number }>>([])
+  const [sets, setSets] = useState<DraftWorkoutSet[]>([])
+  const toast = useToast()
 
   // Replaces the prior useEffect that mirrored server data into useState (#19).
   // The URL ?session=N flow loads the session via TanStack Query and derives
@@ -149,7 +167,7 @@ function WorkoutPageContent() {
     ])
   }
 
-  const handleSaveSet = async (set: { reps: number; weight: number; rpe: number }, index: number) => {
+  const handleSaveSet = async (set: DraftWorkoutSet, index: number) => {
     if (!activeSession || !selectedExercise) return
     const setFields = {
       exercise_id: selectedExercise.id,
@@ -159,15 +177,100 @@ function WorkoutPageContent() {
       rpe: set.rpe,
     }
 
-    const sessionId = activeSession.id
-    if (sessionId === null) {
-      await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
-      return
-    }
+    try {
+      const sessionId = activeSession.id
+      if (sessionId === null) {
+        await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
+        toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
+        return
+      }
 
-    await runOrQueue('addWorkoutSet', { ...setFields, session_id: sessionId }, () =>
-      addWorkoutSet({ data: { ...setFields, session_id: sessionId } })
-    )
+      const outcome = await runOrQueue('addWorkoutSet', { ...setFields, session_id: sessionId }, () =>
+        addWorkoutSet({ data: { ...setFields, session_id: sessionId } }),
+      )
+      if (!outcome.queued) {
+        setSets((prev) =>
+          prev.map((row, i) => (i === index ? { ...row, id: outcome.result.id } : row)),
+        )
+      }
+      toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
+    } catch {
+      toast({ body: mutationFailedBody('Save set'), type: 'error' })
+    }
+  }
+
+  const handleDeleteSet = async (index: number) => {
+    const removed = sets[index]
+    if (!removed) return
+
+    try {
+      if (removed.id != null) {
+        // Not in the offline outbox yet — fail loudly via error toast if offline.
+        await deleteWorkoutSet({ data: { id: removed.id } })
+      }
+      setSets((prev) => prev.filter((_, i) => i !== index))
+
+      let dismiss = () => {}
+      dismiss = toast({
+        body: setDeletedBody(),
+        autoHideDuration: TOAST_DURATION_MS.undo,
+        endContent: (
+          <ToastUndoButton
+            onUndo={async () => {
+              dismiss()
+              try {
+                if (removed.id != null && activeSession?.id != null && selectedExercise) {
+                  const outcome = await runOrQueue(
+                    'addWorkoutSet',
+                    {
+                      session_id: activeSession.id,
+                      exercise_id: selectedExercise.id,
+                      set_number: index + 1,
+                      reps: removed.reps,
+                      weight_kg: removed.weight,
+                      rpe: removed.rpe,
+                    },
+                    () =>
+                      addWorkoutSet({
+                        data: {
+                          session_id: activeSession.id as number,
+                          exercise_id: selectedExercise.id,
+                          set_number: index + 1,
+                          reps: removed.reps,
+                          weight_kg: removed.weight,
+                          rpe: removed.rpe,
+                        },
+                      }),
+                  )
+                  const restored: DraftWorkoutSet = !outcome.queued
+                    ? { ...removed, id: outcome.result.id }
+                    : { reps: removed.reps, weight: removed.weight, rpe: removed.rpe }
+                  setSets((prev) => {
+                    const next = [...prev]
+                    next.splice(index, 0, restored)
+                    return next
+                  })
+                  return
+                }
+                setSets((prev) => {
+                  const next = [...prev]
+                  next.splice(index, 0, {
+                    reps: removed.reps,
+                    weight: removed.weight,
+                    rpe: removed.rpe,
+                  })
+                  return next
+                })
+              } catch {
+                toast({ body: mutationFailedBody('Save set'), type: 'error' })
+              }
+            }}
+          />
+        ),
+      })
+    } catch {
+      toast({ body: mutationFailedBody('Delete set'), type: 'error' })
+    }
   }
 
   const totalVolume = sets.reduce((sum, s) => sum + calculateVolume(1, s.reps, s.weight), 0)
@@ -404,6 +507,7 @@ function WorkoutPageContent() {
                         <td>{Math.round(set.weight * set.reps)} kg</td>
                         <td>
                           <Button label={`Save set ${i + 1}`} variant="secondary" size="sm" clickAction={() => handleSaveSet(set, i)}>Save</Button>
+                          <Button label={`Delete set ${i + 1}`} variant="destructive" size="sm" clickAction={() => handleDeleteSet(i)}>Delete</Button>
                         </td>
                       </tr>
                     ))}
