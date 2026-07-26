@@ -57,6 +57,7 @@ MODELS=(
   "openai-codex/gpt-5.6-sol"            # GPT-5.6 Sol via OpenAI Codex provider
   "cursor/gpt-5.6-sol-high"             # GPT-5.6 Sol High via Cursor
   "cursor/claude-opus-5-high"           # Claude Opus 5 High via Cursor
+  "cursor/cursor-grok-4.5-high"          # Grok 4.5 High via Cursor
   "zai/glm-5.2"                         # GLM 5.2 via ZAI (most quota available)
   "cursor/kimi-k2.7-code"              # Kimi K2.7 Code via Cursor
   "cursor/composer-2.5"                # Composer 2.5 via Cursor (known working)
