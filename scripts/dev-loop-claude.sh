@@ -2,14 +2,19 @@
 #
 # FitTrack Self-Improving Dev Loop — Claude Code Edition
 #
-# Uses Claude Code CLI (anthropic) instead of Oh-My-Pi.
+# Uses Claude Code CLI (claude) instead of Oh-My-Pi.
 # Claude Code has built-in --fallback-model, so no manual model chain needed.
 #
 # Usage:
-#   bash scripts/dev-loop-claude.sh                  # Run 1 iteration
-#   bash scripts/dev-loop-claude.sh --max 5          # Run 5 iterations
+#   bash scripts/dev-loop-claude.sh                  # Run until all issues closed
+#   bash scripts/dev-loop-claude.sh --max 5          # Run up to 5 iterations
 #   bash scripts/dev-loop-claude.sh --dry-run        # Preview only
 #   bash scripts/dev-loop-claude.sh --issue 11       # Work on specific issue
+#
+# Without --max, the loop runs indefinitely until one of these:
+#   1. No open issues remain (everything is done)
+#   2. Claude Code fails (no tokens left or quota exhausted)
+#   3. The script is killed (Ctrl+C)
 #
 set -euo pipefail
 
@@ -17,10 +22,11 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
 
 LEARNINGS_FILE="$REPO_DIR/.dev-loop/learnings-claude.json"
-MAX_ITERATIONS=1
+MAX_ITERATIONS=0  # 0 = unlimited (run until done or killed)
 DRY_RUN=false
 ISSUE_NUMBER=""
 
+# Parse args
 while [[ $# -gt 0 ]]; do
   case $1 in
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
@@ -32,8 +38,9 @@ done
 
 mkdir -p "$REPO_DIR/.dev-loop"
 
+# Initialize learnings file if it doesn't exist
 if [[ ! -f "$LEARNINGS_FILE" ]]; then
-  echo '{"iterations": 0, "successful": 0, "failed": 0, "model_usage": {}, "verification_streak": 0, "verification_failures": 0}' > "$LEARNINGS_FILE"
+  echo '{"iterations": 0, "successful": 0, "failed": 0, "model_usage": {}, "common_errors": [], "verification_streak": 0, "verification_failures": 0}' > "$LEARNINGS_FILE"
 fi
 
 # ─── Claude Code configuration ─────────────────────────────────────
@@ -51,15 +58,31 @@ echo "  Primary model:  $PRIMARY_MODEL"
 echo "  Fallback:       $FALLBACK_MODELS"
 echo ""
 
-for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
+iter=0
+while true; do
+  iter=$((iter + 1))
+  if [[ $MAX_ITERATIONS -gt 0 && $iter -gt $MAX_ITERATIONS ]]; then
+    break
+  fi
   echo ""
-  echo "━━━ Iteration $iter/$MAX_ITERATIONS ━━━"
+  if [[ $MAX_ITERATIONS -gt 0 ]]; then
+    echo "━━━ Iteration $iter/$MAX_ITERATIONS ━━━"
+  else
+    echo "━━━ Iteration $iter (unlimited — Ctrl+C to stop) ━━━"
+  fi
   echo ""
 
-  # Pick issue
+  # Pick an issue to work on
   if [[ -n "$ISSUE_NUMBER" ]]; then
-    ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body 2>/dev/null || echo "")
+    ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --json number,title,body,state 2>/dev/null || echo "")
+    # gh issue view returns closed issues too — without this check the loop
+    # would re-work the same issue forever after closing it.
+    if [[ -n "$ISSUE_DATA" && $(echo "$ISSUE_DATA" | jq -r '.state') != "OPEN" ]]; then
+      echo "✅ Issue #$ISSUE_NUMBER is closed. Nothing left to do."
+      break
+    fi
   else
+    # Get the lowest-numbered open issue (work in order)
     ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
   fi
 
@@ -75,7 +98,10 @@ for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
   echo "📋 Issue #$ISSUE_NUM: $ISSUE_TITLE"
   echo ""
 
-  PROMPT=$(cat <<PROMPT_EOF
+  # Build the prompt with context
+  # Write to a temp file to avoid heredoc variable expansion issues
+  PROMPT_FILE=$(mktemp)
+  cat > "$PROMPT_FILE" <<'TEMPLATE_END'
 You are working on FitTrack, a science-backed nutrition and workout companion web app.
 
 Tech stack:
@@ -83,42 +109,69 @@ Tech stack:
 - Astryx DS (@astryxdesign/core) for ALL UI components — read AGENTS.md for the cheat sheet
 - SQLite (better-sqlite3) for persistence
 - Vitest for unit tests, Playwright for browser e2e tests
+- TypeScript throughout
+
+Current project structure:
+- src/routes/ - File-based routes (dashboard, nutrition, workout, progress, settings)
+- src/lib/ - Database layer, API server functions, nutrition/workout calculations
+- src/styles/app.css - Global styles with Astryx theme
+- prd/ - Product requirements documents
+- scripts/ - Seed data and dev tools
 
 GitHub Issue to implement:
-Title: $ISSUE_TITLE
-Number: #$ISSUE_NUM
-Description: $ISSUE_BODY
+Title: __ISSUE_TITLE__
+Number: #__ISSUE_NUM__
+Description: __ISSUE_BODY__
 
 Instructions:
 1. Read AGENTS.md for Astryx DS conventions and CLI usage
 2. Read the relevant PRD files in prd/ for context
-3. Read existing code in src/ to understand patterns
+3. Read the existing code in src/routes/__root.tsx and src/routes/index.tsx to see the Astryx pattern already established
 4. Read existing tests in tests/unit/ and tests/e2e/ for test patterns
-5. Implement the feature using ONLY Astryx DS components (no custom CSS, no <div> for layout)
-6. Write meaningful tests:
-   - Unit tests in tests/unit/ for calculation logic
-   - E2E browser tests in tests/e2e/ simulating real user interactions
-7. Run ALL tests and ensure they pass:
-   - npm run test:unit
-   - npm run test:e2e
-   - npm run build
-8. Commit your work with a conventional commit message
+5. Implement the feature using ONLY Astryx DS components (no custom CSS, no <div> for layout, no style={{}})
+6. Write meaningful tests for the feature you implement:
+   - Unit tests in tests/unit/ for any calculation logic (Vitest)
+   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)
+   - Tests must verify the feature actually works as a user would experience it
+   - Avoid useless tests - each test should verify meaningful behavior
+7. Run ALL tests and ensure they pass before committing:
+   - npm run test:unit  (Vitest)
+   - npm run build      (production build)
+8. Commit your work with a conventional commit message.
+   Include "Closes #__ISSUE_NUM__" in the commit body so GitHub links the issue.
+   Example commit body format:
+   ```
+   refactor(astryx): migrate dashboard to Card and MetadataList
 
-A feature is NOT complete until all tests pass and the build succeeds.
+   Replaced custom CSS classes with Astryx DS components.
 
-Important:
+   Closes #10
+   ```
+9. Do NOT push — the loop handles pushing after verification
+
+Important conventions:
 - Use Astryx components: Card, Button, TextInput, Table, Heading, MetadataList, etc.
 - Run "npm run astryx component <Name>" to check component props
-- No style={{}}, no custom CSS classes, no raw hex colors
 - Use createServerFn from @tanstack/react-start for API calls
 - Use createFileRoute for route definitions
-PROMPT_EOF
-)
+- Use useSuspenseQuery for data fetching
+- All calculations must be science-backed with citations in comments
+TEMPLATE_END
+
+  # Substitute placeholders with bash pattern substitution — sed breaks on
+  # multiline issue bodies ("unterminated s command") and mangles &, \ in
+  # titles. Quoted replacement keeps & literal (bash 5.2+ patsub_replacement).
+  PROMPT=$(cat "$PROMPT_FILE")
+  rm -f "$PROMPT_FILE"
+  PROMPT=${PROMPT//__ISSUE_TITLE__/"$ISSUE_TITLE"}
+  PROMPT=${PROMPT//__ISSUE_NUM__/"$ISSUE_NUM"}
+  PROMPT=${PROMPT//__ISSUE_BODY__/"$ISSUE_BODY"}
 
   if $DRY_RUN; then
     echo "[DRY RUN] Would dispatch Claude Code with model: $PRIMARY_MODEL"
     echo "[DRY RUN] Prompt length: $(echo "$PROMPT" | wc -c) chars"
-    continue
+    # continue would re-pick the same issue forever (nothing changes in dry run)
+    break
   fi
 
   echo "🤖 Dispatching Claude Code (model: $PRIMARY_MODEL, fallback: $FALLBACK_MODELS)..."
@@ -126,20 +179,56 @@ PROMPT_EOF
 
   OUTPUT_FILE=$(mktemp)
   set +e
+  # No timeout — let the model work as long as it needs. Killing a working
+  # model mid-refactor is worse than waiting. The verification step after
+  # will catch incomplete work.
+  #
+  # tee shows live output on the terminal while saving to file for error detection.
+  echo "    ⏳ Working... (live output below)"
+  echo "    ─────────────────────────────────────────────────────────"
   claude -p \
     --model "$PRIMARY_MODEL" \
     --fallback-model "$FALLBACK_MODELS" \
     --permission-mode acceptEdits \
     --add-dir "$REPO_DIR" \
     "$PROMPT" 2>&1 | tee "$OUTPUT_FILE"
-  EXIT_CODE=$?
+  # $? after a pipe is tee's exit code (always 0) — PIPESTATUS[0] is claude's.
+  EXIT_CODE=${PIPESTATUS[0]}
   set -e
+  echo "    ─────────────────────────────────────────────────────────"
 
-  SUCCESS=false
-  if [[ $EXIT_CODE -eq 0 ]]; then
+  # ─── Merge any feature branch the model may have created ─────────
+  CURRENT_BRANCH=$(git branch --show-current)
+  if [[ "$CURRENT_BRANCH" != "main" ]]; then
+    echo "    📌 Model created branch '$CURRENT_BRANCH'. Merging to main..."
+    # Guard each step: under set -e a failed checkout (dirty tree) or a
+    # merge conflict would kill the whole loop with stderr suppressed.
+    if git checkout main && git merge "$CURRENT_BRANCH" --no-edit; then
+      git branch -d "$CURRENT_BRANCH" 2>/dev/null || true
+      echo "    ✅ Merged to main"
+    else
+      git merge --abort 2>/dev/null || true
+      echo "    ⚠️  Could not merge '$CURRENT_BRANCH' to main — left as-is for manual review"
+    fi
+  fi
+
+  # Check output content for errors — claude exits 0 even on some provider
+  # errors, so look for the usual quota/auth signatures too.
+  OUTPUT_CONTENT=$(cat "$OUTPUT_FILE")
+  rm -f "$OUTPUT_FILE"
+  if echo "$OUTPUT_CONTENT" | grep -qiE "resource_exhausted|rate.limit|quota"; then
+    ERROR_TYPE="rate_limited"
+  elif echo "$OUTPUT_CONTENT" | grep -qiE "Use /login|Invalid API key|API key"; then
+    ERROR_TYPE="needs_auth"
+  elif [[ $EXIT_CODE -ne 0 ]]; then
+    ERROR_TYPE="exit_code_$EXIT_CODE"
+  else
+    ERROR_TYPE=""
+  fi
+
+  if [[ -z "$ERROR_TYPE" ]]; then
     echo ""
     echo "✅ Claude Code completed"
-    SUCCESS=true
 
     jq --arg model "$PRIMARY_MODEL" \
       --argjson iters "$(jq -r '.iterations' "$LEARNINGS_FILE")" \
@@ -148,54 +237,47 @@ PROMPT_EOF
       '.iterations = ($iters + 1) | .successful = ($succ + 1) | .model_usage[$model] = ($usage + 1)' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
   else
-    echo "⚠️  Claude Code exited with code $EXIT_CODE"
+    echo "❌ Claude Code failed ($ERROR_TYPE). Check your quota/auth."
     FAIL_COUNT=$(jq -r '.failed' "$LEARNINGS_FILE")
-    jq --argjson failed "$((FAIL_COUNT + 1))" '.failed = $failed' \
+    jq --argjson failed "$((FAIL_COUNT + 1))" \
+      --arg model "$PRIMARY_MODEL" --arg etype "$ERROR_TYPE" \
+      '.failed = $failed | .common_errors += ["Model " + $model + ": " + $etype]' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+    break
   fi
 
-  rm -f "$OUTPUT_FILE"
-
-  # ─── Verification ──────────────────────────────────────────────────
+  # ─── Verification: A feature is only "complete" if tests + build pass ───
   echo ""
-  echo "🔬 Verification: running unit tests, browser e2e tests, and build..."
+  echo "🔬 Verification: running unit tests and build..."
+  echo ""
 
   VERIFICATION_PASSED=true
   VERIFICATION_DETAILS=""
 
-  echo "  ▸ Unit tests (Vitest)..."
+  # 1. Unit tests
+  echo "  ▸ Running unit tests (Vitest)..."
+  # pipefail inside the substitution: PIPESTATUS of the inner pipeline is not
+  # visible out here, and without it $? would be tee's exit code (always 0),
+  # silently passing verification on failing tests.
   set +e
-  UNIT_OUTPUT=$(npm run test:unit 2>&1)
+  UNIT_OUTPUT=$(set -o pipefail; npm run test:unit 2>&1 | tee /dev/stderr)
   UNIT_EXIT=$?
   set -e
   if [[ $UNIT_EXIT -eq 0 ]]; then
     UNIT_COUNT=$(echo "$UNIT_OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' || echo "?")
-    echo "    ✅ $UNIT_COUNT unit tests passed"
+    echo "    ✅ Unit tests passed ($UNIT_COUNT tests)"
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:${UNIT_COUNT}passed "
   else
     echo "    ❌ Unit tests FAILED"
     VERIFICATION_PASSED=false
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}unit:FAILED "
+    echo "$UNIT_OUTPUT" | grep -E "FAIL|×|✗" | head -5
   fi
 
-  echo "  ▸ Browser e2e tests (Playwright)..."
+  # 2. Production build (skip e2e in the loop — too slow; run separately)
+  echo "  ▸ Running production build..."
   set +e
-  E2E_OUTPUT=$(npm run test:e2e 2>&1)
-  E2E_EXIT=$?
-  set -e
-  if [[ $E2E_EXIT -eq 0 ]]; then
-    E2E_COUNT=$(echo "$E2E_OUTPUT" | grep -oP '\d+(?= passed)' | tail -1 || echo "?")
-    echo "    ✅ $E2E_COUNT browser tests passed"
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:${E2E_COUNT}passed "
-  else
-    echo "    ❌ Browser tests FAILED"
-    VERIFICATION_PASSED=false
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:FAILED "
-  fi
-
-  echo "  ▸ Production build..."
-  set +e
-  BUILD_OUTPUT=$(npm run build 2>&1)
+  BUILD_OUTPUT=$(set -o pipefail; npm run build 2>&1 | tee /dev/stderr)
   BUILD_EXIT=$?
   set -e
   if [[ $BUILD_EXIT -eq 0 ]]; then
@@ -210,14 +292,74 @@ PROMPT_EOF
   echo ""
   if $VERIFICATION_PASSED; then
     echo "✅✅✅ FEATURE VERIFIED: $VERIFICATION_DETAILS"
+    echo "   Unit tests and build pass."
+
+    # Update learnings with verification success
     jq --arg details "$VERIFICATION_DETAILS" \
       '.last_verification = $details | .verification_streak = ((.verification_streak // 0) + 1)' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+
+    # Push only verified work. Pushing on failure would land broken code on
+    # main AND auto-close the issue via "Closes #N" in the commit body.
+    echo ""
+    echo "  ▸ Pushing to origin/main..."
+    set +e
+    git push origin main 2>&1 | tail -3
+    PUSH_EXIT=${PIPESTATUS[0]}
+    set -e
+
+    if [[ $PUSH_EXIT -eq 0 ]]; then
+      COMMIT_SHA=$(git rev-parse --short HEAD)
+      COMMIT_SUBJECT=$(git log -1 --format="%s")
+      COMMIT_BODY=$(git log -1 --format="%B")
+
+      # Close the issue now that its deliverable is verified and pushed.
+      # Without this the loop re-picks completed issues every iteration — issue
+      # #15 was being re-selected after its Astryx migration already landed.
+      # GitHub auto-closes when the pushed commit BODY (not just the subject,
+      # which is all %s shows) references the issue with a closing keyword.
+      if echo "$COMMIT_BODY" | grep -qiE "(closes?|closed|fixes?|fixed|resolves?|resolved) #$ISSUE_NUM\b"; then
+        echo "    ✅ Issue #$ISSUE_NUM will auto-close (commit body references it)"
+      else
+        echo "  ▸ Closing issue #$ISSUE_NUM with commit $COMMIT_SHA..."
+        gh issue close "$ISSUE_NUM" \
+          --comment "Completed in commit [$COMMIT_SHA](https://github.com/DouglasdeMoura/fitness/commit/$COMMIT_SHA): $COMMIT_SUBJECT
+
+Verification: $VERIFICATION_DETAILS
+
+Closed by the self-improving dev loop." 2>/dev/null && \
+          echo "    ✅ Issue #$ISSUE_NUM closed with commit reference" || \
+          echo "    ⚠️  Could not close issue #$ISSUE_NUM (may lack permissions)"
+      fi
+    else
+      echo "    ⚠️  Push failed — leaving issue #$ISSUE_NUM open for the next run"
+    fi
   else
     echo "⚠️  VERIFICATION INCOMPLETE: $VERIFICATION_DETAILS"
+    echo "   Feature committed but tests/build need attention."
+    echo "   Next iteration should fix failing tests or create a bug-fix issue."
+
+    # Record the verification failure for self-improvement
     jq --arg details "$VERIFICATION_DETAILS" \
       '.last_verification = $details | .verification_streak = 0 | .verification_failures = ((.verification_failures // 0) + 1)' \
       "$LEARNINGS_FILE" > "$LEARNINGS_FILE.tmp" && mv "$LEARNINGS_FILE.tmp" "$LEARNINGS_FILE"
+
+    # Create a GitHub issue for the failing tests if build or e2e failed
+    if gh issue list --state open --search "fix failing tests in:title" --json number --limit 1 2>/dev/null | jq -e '.[0]' > /dev/null 2>&1; then
+      echo "   (Bug fix issue already exists)"
+    else
+      echo "   Creating bug-fix issue..."
+      gh issue create \
+        --title "fix: failing tests after iteration (self-improvement loop)" \
+        --label "bug" \
+        --body "The dev loop detected failing tests during verification.
+
+Details: $VERIFICATION_DETAILS
+
+Run \`npm run test:unit && npm run test:e2e && npm run build\` to see failures.
+
+This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
+    fi
   fi
 
   echo ""
@@ -242,6 +384,7 @@ echo ""
 echo "  Verification:"
 echo "    Streak:    $(jq -r '.verification_streak // 0' "$LEARNINGS_FILE") consecutive passes"
 echo "    Failures:  $(jq -r '.verification_failures // 0' "$LEARNINGS_FILE") total"
+echo "    Last:      $(jq -r '.last_verification // "none"' "$LEARNINGS_FILE")"
 echo ""
 echo "Remaining open issues:"
 gh issue list --state open --limit 10 2>/dev/null | head -15 || echo "  (unable to fetch)"
