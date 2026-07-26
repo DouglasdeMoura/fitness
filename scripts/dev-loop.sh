@@ -149,7 +149,16 @@ Instructions:
 7. Run ALL tests and ensure they pass before committing:
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
-8. Commit your work with a conventional commit message
+8. Commit your work with a conventional commit message.
+   Include "Closes #{issue_number}" in the commit body so GitHub links the issue.
+   Example commit body format:
+   ```
+   refactor(astryx): migrate dashboard to Card and MetadataList
+
+   Replaced custom CSS classes with Astryx DS components.
+
+   Closes #10
+   ```
 9. Do NOT push — the loop handles pushing after verification
 
 Important conventions:
@@ -371,7 +380,32 @@ This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
   echo "  ▸ Pushing to origin/main..."
   set +e
   git push origin main 2>&1 | tail -3
+  PUSH_EXIT=$?
   set -e
+
+  # Close the issue with a reference to the commit that fixed it
+  if [[ $PUSH_EXIT -eq 0 ]]; then
+    COMMIT_SHA=$(git rev-parse --short HEAD)
+    COMMIT_MSG=$(git log -1 --format="%s")
+    echo ""
+    echo "  ▸ Closing issue #$ISSUE_NUM with commit $COMMIT_SHA..."
+
+    # Check if the commit message already contains "Closes #N" — GitHub auto-closes on push
+    # if the commit is on the default branch. If not, close manually with a comment.
+    if echo "$COMMIT_MSG" | grep -qiE "closes? #$ISSUE_NUM|fixes? #$ISSUE_NUM"; then
+      echo "    ✅ Issue #$ISSUE_NUM will auto-close (commit message contains 'Closes #$ISSUE_NUM')"
+    else
+      # Close manually with a comment referencing the commit
+      gh issue close "$ISSUE_NUM" \
+        --comment "Completed in commit [$COMMIT_SHA](https://github.com/DouglasdeMoura/fitness/commit/$COMMIT_SHA): $COMMIT_MSG
+
+Verification: $VERIFICATION_DETAILS
+
+Closed by the self-improving dev loop." 2>/dev/null && \
+        echo "    ✅ Issue #$ISSUE_NUM closed with commit reference" || \
+        echo "    ⚠️  Could not close issue #$ISSUE_NUM (may lack permissions)"
+    fi
+  fi
 
   echo ""
   echo "━━━ Iteration $iter complete ━━━"
