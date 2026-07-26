@@ -97,6 +97,19 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await expect(page.getByText(/Chicken/i).first()).toBeVisible({ timeout: 10000 })
   })
 
+  test('user can clear an unsuccessful food search', async ({ page }) => {
+    await openAppPage(page, '/nutrition')
+    await page.getByLabel('Search foods').fill(`missing-food-${Date.now()}`)
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    const noResults = page.getByRole('status').filter({ hasText: 'No foods found' })
+    await expect(noResults).toBeVisible()
+
+    await page.getByRole('button', { name: 'Clear Search foods' }).click()
+    await expect(page.getByLabel('Search foods')).toHaveValue('')
+    await expect(page.getByLabel('Search foods')).toBeFocused()
+    await expect(noResults).not.toBeVisible()
+  })
+
   test('user can create, log, and delete a custom food', async ({ page }) => {
     const foodName = `E2E Test Protein Bar ${Date.now()}`
     await openAppPage(page, '/nutrition')

@@ -158,22 +158,34 @@ type FoodSearchState = {
   search: () => Promise<void>
 }
 
+async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
+  try {
+    return await searchFoods({ data: { query: searchQuery } })
+  } catch {
+    // No network: fall back to the food database cached for offline use.
+    return searchCachedFoods(searchQuery)
+  }
+}
+
 function useFoodSearch(): FoodSearchState {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Food[]>([])
-  const [hasSearched, setHasSearched] = useState(false)
+  const [query, setQueryValue] = useState('')
+  const [results, setResults] = useState<Food[] | null>(null)
+  const setQuery = (nextQuery: string) => {
+    setQueryValue(nextQuery)
+    if (!nextQuery) setResults(null)
+  }
   const search = async () => {
     const searchQuery = query.trim()
     if (searchQuery.length < 2) return
-    try {
-      setResults(await searchFoods({ data: { query: searchQuery } }))
-    } catch {
-      // No network: fall back to the food database cached for offline use.
-      setResults(await searchCachedFoods(searchQuery))
-    }
-    setHasSearched(true)
+    setResults(await searchFoodCatalog(searchQuery))
   }
-  return { query, results, hasSearched, setQuery, search }
+  return {
+    query,
+    results: results ?? [],
+    hasSearched: results !== null,
+    setQuery,
+    search,
+  }
 }
 
 function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
