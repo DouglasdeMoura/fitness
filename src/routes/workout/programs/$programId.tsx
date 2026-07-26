@@ -15,15 +15,25 @@ import {
 } from "@astryxdesign/core";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-store";
 import {
   ProgramExerciseTable,
-  type EditableProgramDay,
   type RemoveProgramExercise,
   type UpdateProgramExercise,
 } from "~/components/workout/ProgramExerciseTable";
 import { getExercises, getProgram, saveProgram, startWorkoutFromProgram } from "~/lib/api";
 import type { PeriodizationType } from "~/lib/db";
+import {
+  buildProgramSavePayload,
+  editableExerciseFromExercise,
+  EMPTY_PROGRAM_FORM,
+  newProgramDay,
+  programFormDefaults,
+  validateProgramDays,
+  type EditableProgramDay,
+  type ProgramFormValues,
+} from "~/lib/program-form";
 import { getDupDayEmphasis } from "~/lib/workout";
 
 export const Route = createFileRoute("/workout/programs/$programId")({
@@ -35,10 +45,6 @@ const PERIODIZATION_OPTIONS = [
   { value: "linear", label: "Linear progression" },
   { value: "dup", label: "Daily undulating (DUP)" },
 ];
-
-function makeTempId() {
-  return `tmp-${Math.random().toString(36).slice(2, 9)}`;
-}
 
 function ProgramDetailPage() {
   const { programId } = Route.useParams();
@@ -53,41 +59,36 @@ function ProgramDetailPage() {
     queryKey: ["exercises"],
     queryFn: () => getExercises({ data: {} }),
   });
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [frequency, setFrequency] = useState(3);
-  const [periodizationType, setPeriodizationType] = useState<PeriodizationType>("linear");
-  const [incrementPct, setIncrementPct] = useState(2.5);
-  const [isActive, setIsActive] = useState(false);
-  const [days, setDays] = useState<EditableProgramDay[]>([]);
-  const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (!program) return;
-    setName(program.name);
-    setDescription(program.description || "");
-    setFrequency(program.frequency_per_week);
-    setPeriodizationType(program.periodization_type);
-    setIncrementPct(program.progression_increment_pct);
-    setIsActive(Boolean(program.is_active));
-    setDays(
-      program.days.map((day) => ({
-        tempId: `day-${day.id}`,
-        persistedId: day.id,
-        day_name: day.day_name,
-        sort_order: day.sort_order,
-        exercises: day.exercises.map((exercise) => ({
-          tempId: `ex-${exercise.id}`,
-          exercise_id: exercise.exercise_id,
-          target_sets: exercise.target_sets ?? 3,
-          target_reps: exercise.target_reps ?? "8-12",
-          target_rpe: exercise.target_rpe ?? 8,
-          rest_seconds: exercise.rest_seconds ?? 90,
-          sort_order: exercise.sort_order,
-        })),
-      })),
-    );
-  }, [program]);
+  // Single source of truth for every editable field. defaultValues seed from
+  // the query once; no useEffect resync — after a save the form keeps the
+  // user's values and the query cache is invalidated for other consumers.
+  const form = useForm({
+    defaultValues: (program
+      ? programFormDefaults(program)
+      : EMPTY_PROGRAM_FORM) as ProgramFormValues,
+    onSubmit: async ({ value, formApi }) => {
+      const saved = await saveProgram({ data: buildProgramSavePayload(value, id) });
+      await queryClient.invalidateQueries({ queryKey: ["program", id] });
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
+      // Re-seed from the just-persisted row so newly added days pick up their
+      // server-assigned ids (a day needs persistedId before it can be
+      // "Start"ed). This replaces the old useEffect<->useState sync — no
+      // effect needed, and it runs before isSubmitSuccessful flips to true.
+      if (saved) formApi.reset(programFormDefaults(saved));
+    },
+  });
+
+  const name = useStore(form.store, (state) => state.values.name);
+  const periodizationType = useStore(
+    form.store,
+    (state) => state.values.periodizationType,
+  );
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+  const isSubmitSuccessful = useStore(
+    form.store,
+    (state) => state.isSubmitSuccessful,
+  );
 
   if (!program) {
     return (
@@ -106,122 +107,19 @@ function ProgramDetailPage() {
     );
   }
 
-  const updateDay = (tempId: string, patch: Partial<EditableProgramDay>) => {
-    setDays((current) =>
-      current.map((day) => (day.tempId === tempId ? { ...day, ...patch } : day)),
-    );
-  };
-
-  const updateExercise: UpdateProgramExercise = (dayTempId, exerciseTempId, patch) => {
-    setDays((current) =>
-      current.map((day) =>
-        day.tempId === dayTempId
-          ? {
-              ...day,
-              exercises: day.exercises.map((exercise) =>
-                exercise.tempId === exerciseTempId ? { ...exercise, ...patch } : exercise,
-              ),
-            }
-          : day,
-      ),
-    );
-  };
-
-  const addDay = () => {
-    setDays((current) => [
-      ...current,
-      {
-        tempId: makeTempId(),
-        day_name: `Day ${String.fromCharCode(65 + current.length)}`,
-        sort_order: current.length + 1,
-        exercises: [],
-      },
-    ]);
-  };
-
-  const addExercise = (dayTempId: string) => {
-    const firstExercise = exercises[0];
-    if (!firstExercise) return;
-    setDays((current) =>
-      current.map((day) =>
-        day.tempId === dayTempId
-          ? {
-              ...day,
-              exercises: [
-                ...day.exercises,
-                {
-                  tempId: makeTempId(),
-                  exercise_id: firstExercise.id,
-                  target_sets: 3,
-                  target_reps: periodizationType === "dup" ? "5" : "8-12",
-                  target_rpe: 8,
-                  rest_seconds: 90,
-                  sort_order: day.exercises.length + 1,
-                },
-              ],
-            }
-          : day,
-      ),
-    );
-  };
-
-  const removeDay = (tempId: string) => {
-    setDays((current) =>
-      current
-        .filter((day) => day.tempId !== tempId)
-        .map((day, index) => ({ ...day, sort_order: index + 1 })),
-    );
-  };
-
-  const removeExercise: RemoveProgramExercise = (dayTempId, exerciseTempId) => {
-    setDays((current) =>
-      current.map((day) =>
-        day.tempId === dayTempId
-          ? {
-              ...day,
-              exercises: day.exercises
-                .filter((exercise) => exercise.tempId !== exerciseTempId)
-                .map((exercise, index) => ({ ...exercise, sort_order: index + 1 })),
-            }
-          : day,
-      ),
-    );
-  };
-
-  const handleSave = async () => {
-    await saveProgram({
-      data: {
-        id,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        frequency_per_week: frequency,
-        periodization_type: periodizationType,
-        progression_increment_pct: incrementPct,
-        is_active: isActive,
-        days: days.map((day, dayIndex) => ({
-          day_name: day.day_name,
-          sort_order: dayIndex + 1,
-          exercises: day.exercises.map((exercise, exerciseIndex) => ({
-            exercise_id: exercise.exercise_id,
-            target_sets: exercise.target_sets,
-            target_reps: exercise.target_reps,
-            target_rpe: exercise.target_rpe,
-            rest_seconds: exercise.rest_seconds,
-            sort_order: exerciseIndex + 1,
-          })),
-        })),
-      },
-    });
-    await queryClient.invalidateQueries({ queryKey: ["program", id] });
-    await queryClient.invalidateQueries({ queryKey: ["programs"] });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
   const handleStartDay = async (programDayId: number) => {
     const result = await startWorkoutFromProgram({ data: { programId: id, programDayId } });
     navigate({ to: "/workout", search: { session: result.sessionId } });
   };
+
+  // Replaces the old manual `saved` useState: "Saving..." while the async
+  // onSubmit runs, "Saved!" once it resolves (isSubmitSuccessful), then back to
+  // the idle label on the next edit/submit attempt.
+  const saveLabel = isSubmitting
+    ? "Saving..."
+    : isSubmitSuccessful
+      ? "Saved!"
+      : "Save Program";
 
   return (
     <VStack gap={4}>
@@ -229,123 +127,223 @@ function ProgramDetailPage() {
         <Heading level={1}>{name || "Edit Program"}</Heading>
         <HStack gap={2} wrap="wrap">
           <Button label="Back to Programs" href="/workout/programs" variant="secondary" size="sm" />
-          <Button
-            label={saved ? "Saved!" : "Save Program"}
-            variant="primary"
-            clickAction={handleSave}
-          />
+          <Button label={saveLabel} variant="primary" clickAction={form.handleSubmit} />
         </HStack>
       </HStack>
 
       <Card>
         <VStack gap={3}>
           <Heading level={2}>Program Settings</Heading>
+          {/*
+            TextInput / NumberInput / Selector / CheckboxInput / TextArea each
+            render their own Field shell (label + status). Do not wrap them in
+            an Astryx Field — the <form.Field> wrapper is TanStack Form's
+            state/validation container, not a visual one.
+          */}
           <FormLayout>
-            <TextInput label="Name" value={name} onChange={setName} />
-            <NumberInput
-              label="Frequency (days/week)"
-              value={frequency}
-              onChange={(value) => setFrequency(value ?? 3)}
-              min={1}
-              max={7}
-              step={1}
-              isIntegerOnly
-            />
-            <Selector
-              label="Periodization"
-              value={periodizationType}
-              onChange={(value) => setPeriodizationType(value as PeriodizationType)}
-              options={PERIODIZATION_OPTIONS}
-            />
+            <form.Field name="name">
+              {(field) => (
+                <TextInput
+                  label="Name"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
+            <form.Field name="frequency">
+              {(field) => (
+                <NumberInput
+                  label="Frequency (days/week)"
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value ?? 3)}
+                  min={1}
+                  max={7}
+                  step={1}
+                  isIntegerOnly
+                />
+              )}
+            </form.Field>
+            <form.Field name="periodizationType">
+              {(field) => (
+                <Selector
+                  label="Periodization"
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value as PeriodizationType)}
+                  options={PERIODIZATION_OPTIONS}
+                />
+              )}
+            </form.Field>
             {periodizationType === "linear" ? (
-              <NumberInput
-                label="Load increment (%)"
-                value={incrementPct}
-                onChange={(value) => setIncrementPct(value ?? 2.5)}
-                min={1}
-                max={10}
-                step={0.5}
-                units="%"
-              />
+              <form.Field name="incrementPct">
+                {(field) => (
+                  <NumberInput
+                    label="Load increment (%)"
+                    value={field.state.value}
+                    onChange={(value) => field.handleChange(value ?? 2.5)}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    units="%"
+                  />
+                )}
+              </form.Field>
             ) : null}
-            <CheckboxInput label="Set as active program" value={isActive} onChange={setIsActive} />
-            <TextArea label="Description" value={description} onChange={setDescription} />
+            <form.Field name="isActive">
+              {(field) => (
+                <CheckboxInput
+                  label="Set as active program"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
+            <form.Field name="description">
+              {(field) => (
+                <TextArea
+                  label="Description"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
           </FormLayout>
         </VStack>
       </Card>
 
-      {days.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No training days"
-            description="Add a training day, then assign exercises and targets."
-            headingLevel={2}
-          />
-        </Card>
-      ) : (
-        <VStack gap={3}>
-          {days.map((day, dayIndex) => {
-            const persistedId = day.persistedId;
+      <form.Field
+        name="days"
+        validators={{ onChange: ({ value }) => validateProgramDays(value) }}
+      >
+        {(daysField) => {
+          const days = daysField.state.value;
+          const updateDay = (tempId: string, patch: Partial<EditableProgramDay>) => {
+            const index = days.findIndex((day) => day.tempId === tempId);
+            if (index === -1) return;
+            daysField.replaceValue(index, { ...days[index], ...patch });
+          };
+          const updateExercise: UpdateProgramExercise = (
+            dayTempId,
+            exerciseTempId,
+            patch,
+          ) => {
+            const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
+            if (dayIndex === -1) return;
+            const day = days[dayIndex];
+            const exercises = day.exercises.map((exercise) =>
+              exercise.tempId === exerciseTempId ? { ...exercise, ...patch } : exercise,
+            );
+            daysField.replaceValue(dayIndex, { ...day, exercises });
+          };
+          const addDay = () => {
+            daysField.pushValue(newProgramDay(days.length));
+          };
+          const addExercise = (dayTempId: string) => {
+            const firstExercise = exercises[0];
+            if (!firstExercise) return;
+            const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
+            if (dayIndex === -1) return;
+            const day = days[dayIndex];
+            const nextExercise = editableExerciseFromExercise(
+              firstExercise,
+              periodizationType,
+              day.exercises.length + 1,
+            );
+            daysField.replaceValue(dayIndex, {
+              ...day,
+              exercises: [...day.exercises, nextExercise],
+            });
+          };
+          const removeDay = (tempId: string) => {
+            const index = days.findIndex((day) => day.tempId === tempId);
+            if (index !== -1) daysField.removeValue(index);
+          };
+          const removeExercise: RemoveProgramExercise = (dayTempId, exerciseTempId) => {
+            const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
+            if (dayIndex === -1) return;
+            const day = days[dayIndex];
+            const exercises = day.exercises.filter(
+              (exercise) => exercise.tempId !== exerciseTempId,
+            );
+            daysField.replaceValue(dayIndex, { ...day, exercises });
+          };
+
+          if (days.length === 0) {
             return (
-              <Card key={day.tempId}>
-                <VStack gap={3}>
-                  <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
-                    <HStack gap={2} vAlign="center" wrap="wrap">
-                      <TextInput
-                        label={`Training day ${dayIndex + 1} name`}
-                        value={day.day_name}
-                        onChange={(value) => updateDay(day.tempId, { day_name: value })}
-                      />
-                      {periodizationType === "dup" && day.exercises[0]?.target_reps ? (
-                        <Badge
-                          label={getDupDayEmphasis(day.exercises[0].target_reps)}
-                          variant="info"
-                        />
-                      ) : null}
-                    </HStack>
-                    <HStack gap={2} wrap="wrap">
-                      {persistedId ? (
-                        <Button
-                          label={`Start ${day.day_name}`}
-                          variant="primary"
-                          size="sm"
-                          clickAction={() => handleStartDay(persistedId)}
-                        />
-                      ) : null}
-                      <Button
-                        label={`Remove ${day.day_name}`}
-                        variant="destructive"
-                        size="sm"
-                        clickAction={() => removeDay(day.tempId)}
-                      >
-                        Remove Day
-                      </Button>
-                    </HStack>
-                  </HStack>
-
-                  <ProgramExerciseTable
-                    day={day}
-                    exercises={exercises}
-                    updateExercise={updateExercise}
-                    removeExercise={removeExercise}
-                  />
-
-                  <Button
-                    label={`Add exercise to ${day.day_name}`}
-                    variant="secondary"
-                    size="sm"
-                    clickAction={() => addExercise(day.tempId)}
-                  >
-                    Add Exercise
-                  </Button>
-                </VStack>
+              <Card>
+                <EmptyState
+                  title="No training days"
+                  description="Add a training day, then assign exercises and targets."
+                  headingLevel={2}
+                />
               </Card>
             );
-          })}
-        </VStack>
-      )}
+          }
 
-      <Button label="Add Training Day" variant="secondary" clickAction={addDay} />
+          return (
+            <VStack gap={3}>
+              {days.map((day, dayIndex) => {
+                const persistedId = day.persistedId;
+                return (
+                  <Card key={day.tempId}>
+                    <VStack gap={3}>
+                      <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+                        <HStack gap={2} vAlign="center" wrap="wrap">
+                          <TextInput
+                            label={`Training day ${dayIndex + 1} name`}
+                            value={day.day_name}
+                            onChange={(value) => updateDay(day.tempId, { day_name: value })}
+                          />
+                          {periodizationType === "dup" && day.exercises[0]?.target_reps ? (
+                            <Badge
+                              label={getDupDayEmphasis(day.exercises[0].target_reps)}
+                              variant="info"
+                            />
+                          ) : null}
+                        </HStack>
+                        <HStack gap={2} wrap="wrap">
+                          {persistedId ? (
+                            <Button
+                              label={`Start ${day.day_name}`}
+                              variant="primary"
+                              size="sm"
+                              clickAction={() => handleStartDay(persistedId)}
+                            />
+                          ) : null}
+                          <Button
+                            label={`Remove ${day.day_name}`}
+                            variant="destructive"
+                            size="sm"
+                            clickAction={() => removeDay(day.tempId)}
+                          >
+                            Remove Day
+                          </Button>
+                        </HStack>
+                      </HStack>
+
+                      <ProgramExerciseTable
+                        day={day}
+                        exercises={exercises}
+                        updateExercise={updateExercise}
+                        removeExercise={removeExercise}
+                      />
+
+                      <Button
+                        label={`Add exercise to ${day.day_name}`}
+                        variant="secondary"
+                        size="sm"
+                        clickAction={() => addExercise(day.tempId)}
+                      >
+                        Add Exercise
+                      </Button>
+                    </VStack>
+                  </Card>
+                );
+              })}
+              <Button label="Add Training Day" variant="secondary" clickAction={addDay} />
+            </VStack>
+          );
+        }}
+      </form.Field>
     </VStack>
   );
 }

@@ -1,0 +1,192 @@
+// Pure mappers and validators for the training-program editor form
+// (src/routes/workout/programs/$programId.tsx).
+//
+// Keeping these out of the route component lets the route focus on rendering
+// and makes the query<->form<->payload translations unit-testable without a
+// DOM. Mirrors the split already used by ~/lib/template-form and ~/lib/settings.
+
+import type {
+  ProgramDayInput,
+  ProgramDetail,
+  ProgramExerciseInput,
+} from '~/lib/api'
+import type { Exercise, PeriodizationType } from '~/lib/db'
+
+/**
+ * A program exercise as the form edits it. Extends the persisted input with a
+ * `tempId` so React + the Astryx Table have a stable key before the row is
+ * saved (saved rows reuse `ex-<id>`).
+ */
+export type EditableProgramExercise = ProgramExerciseInput & { tempId: string }
+
+/**
+ * A training day as the form edits it. Carries `persistedId` (the saved
+ * program_day_id) so a day can be started before the form is saved, plus the
+ * nested editable exercises.
+ */
+export type EditableProgramDay = Omit<ProgramDayInput, 'exercises'> & {
+  tempId: string
+  persistedId?: number
+  exercises: EditableProgramExercise[]
+}
+
+export type ProgramFormValues = {
+  name: string
+  description: string
+  frequency: number
+  periodizationType: PeriodizationType
+  incrementPct: number
+  isActive: boolean
+  days: EditableProgramDay[]
+}
+
+export type ProgramSavePayload = {
+  id: number
+  name: string
+  description?: string
+  frequency_per_week: number
+  periodization_type: PeriodizationType
+  progression_increment_pct: number
+  is_active: boolean
+  days: ProgramDayInput[]
+}
+
+/** Empty form values used while the program query is still loading. */
+export const EMPTY_PROGRAM_FORM: ProgramFormValues = {
+  name: '',
+  description: '',
+  frequency: 3,
+  periodizationType: 'linear',
+  incrementPct: 2.5,
+  isActive: false,
+  days: [],
+}
+
+/** Stable client-only id for unsaved days/exercises. */
+export function makeTempId(): string {
+  return `tmp-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/**
+ * Maps a program-detail query row into the form's default field values.
+ * Saved rows reuse `day-<id>` / `ex-<id>` temp ids so React keys survive
+ * refetches; nullable DB columns fall back to sensible defaults.
+ * @example programFormDefaults(program)
+ */
+export function programFormDefaults(program: ProgramDetail): ProgramFormValues {
+  return {
+    name: program.name,
+    description: program.description ?? '',
+    frequency: program.frequency_per_week,
+    periodizationType: program.periodization_type,
+    incrementPct: program.progression_increment_pct,
+    isActive: Boolean(program.is_active),
+    days: program.days.map((day) => ({
+      tempId: `day-${day.id}`,
+      persistedId: day.id,
+      day_name: day.day_name,
+      sort_order: day.sort_order,
+      exercises: day.exercises.map((exercise) => ({
+        tempId: `ex-${exercise.id}`,
+        exercise_id: exercise.exercise_id,
+        target_sets: exercise.target_sets ?? 3,
+        target_reps: exercise.target_reps ?? '8-12',
+        target_rpe: exercise.target_rpe ?? 8,
+        rest_seconds: exercise.rest_seconds ?? 90,
+        sort_order: exercise.sort_order,
+      })),
+    })),
+  }
+}
+
+/**
+ * Builds a fresh, unnamed training day. `dayCount` is the current number of
+ * days so the label advances "Day A", "Day B", ... (A=65) and the sort order
+ * lands at the end of the list.
+ */
+export function newProgramDay(dayCount: number): EditableProgramDay {
+  return {
+    tempId: makeTempId(),
+    day_name: `Day ${String.fromCharCode(65 + dayCount)}`,
+    sort_order: dayCount + 1,
+    exercises: [],
+  }
+}
+
+/**
+ * Maps an exercise catalog row into a new editable prescription.
+ * DUP days default to a strength rep zone (5); linear days default to the
+ * hypertrophy range (8-12). See ~/lib/workout for the periodization rationale.
+ */
+export function editableExerciseFromExercise(
+  exercise: Exercise,
+  periodizationType: PeriodizationType,
+  sortOrder: number,
+): EditableProgramExercise {
+  return {
+    tempId: makeTempId(),
+    exercise_id: exercise.id,
+    target_sets: 3,
+    target_reps: periodizationType === 'dup' ? '5' : '8-12',
+    target_rpe: 8,
+    rest_seconds: 90,
+    sort_order: sortOrder,
+  }
+}
+
+/**
+ * Maps form values into the saveProgram server-fn input. Client-only fields
+ * (`tempId`, `persistedId`) are stripped and `sort_order` is re-derived from
+ * position so deletions keep a contiguous sequence.
+ */
+export function buildProgramSavePayload(
+  values: ProgramFormValues,
+  id: number,
+): ProgramSavePayload {
+  const description = values.description.trim()
+  return {
+    id,
+    name: values.name.trim(),
+    description: description || undefined,
+    frequency_per_week: values.frequency,
+    periodization_type: values.periodizationType,
+    progression_increment_pct: values.incrementPct,
+    is_active: values.isActive,
+    days: values.days.map((day, dayIndex) => ({
+      day_name: day.day_name,
+      sort_order: dayIndex + 1,
+      exercises: day.exercises.map((exercise, exerciseIndex) => ({
+        exercise_id: exercise.exercise_id,
+        target_sets: exercise.target_sets,
+        target_reps: exercise.target_reps,
+        target_rpe: exercise.target_rpe,
+        rest_seconds: exercise.rest_seconds,
+        sort_order: exerciseIndex + 1,
+      })),
+    })),
+  }
+}
+
+/**
+ * Array validator for the days field. Caps the program at 7 days (a week has
+ * seven; frequency_per_week already constrains how many are trained) and
+ * rejects blank day names or exercises with no rep target. Returns `undefined`
+ * when valid.
+ */
+export function validateProgramDays(
+  days: EditableProgramDay[],
+): string | undefined {
+  if (days.length > 7) return 'A program can have at most 7 training days.'
+  for (const day of days) {
+    if (!day.day_name.trim()) return 'Every training day needs a name.'
+    for (const exercise of day.exercises) {
+      if (!exercise.target_sets || exercise.target_sets < 1) {
+        return `${day.day_name}: every exercise needs at least 1 set.`
+      }
+      if (!exercise.target_reps.trim()) {
+        return `${day.day_name}: every exercise needs a rep target.`
+      }
+    }
+  }
+  return undefined
+}

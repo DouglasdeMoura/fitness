@@ -8,15 +8,12 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
-import type { ProgramDayInput, ProgramExerciseInput } from "~/lib/api";
 import type { Exercise } from "~/lib/db";
+import type { EditableProgramDay, EditableProgramExercise } from "~/lib/program-form";
 
-export type EditableProgramExercise = ProgramExerciseInput & { tempId: string };
-export type EditableProgramDay = Omit<ProgramDayInput, "exercises"> & {
-  tempId: string;
-  persistedId?: number;
-  exercises: EditableProgramExercise[];
-};
+// Re-export so existing imports from this module keep working; the canonical
+// definitions live in ~/lib/program-form (single source of truth).
+export type { EditableProgramDay, EditableProgramExercise } from "~/lib/program-form";
 
 export type UpdateProgramExercise = (
   dayTempId: string,
