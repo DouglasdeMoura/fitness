@@ -114,7 +114,9 @@ while true; do
   echo ""
 
   # Build the prompt with context
-  PROMPT=$(cat <<PROMPT_EOF
+  # Write to a temp file to avoid heredoc variable expansion issues
+  PROMPT_FILE=$(mktemp)
+  cat > "$PROMPT_FILE" <<'TEMPLATE_END'
 You are working on FitTrack, a science-backed nutrition and workout companion web app.
 
 Tech stack:
@@ -131,9 +133,9 @@ Current project structure:
 - scripts/ - Seed data and dev tools
 
 GitHub Issue to implement:
-Title: $ISSUE_TITLE
-Number: #$ISSUE_NUM
-Description: $ISSUE_BODY
+Title: __ISSUE_TITLE__
+Number: #__ISSUE_NUM__
+Description: __ISSUE_BODY__
 
 Instructions:
 1. Read AGENTS.md for Astryx DS conventions and CLI usage
@@ -150,7 +152,7 @@ Instructions:
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
 8. Commit your work with a conventional commit message.
-   Include "Closes #{issue_number}" in the commit body so GitHub links the issue.
+   Include "Closes #__ISSUE_NUM__" in the commit body so GitHub links the issue.
    Example commit body format:
    ```
    refactor(astryx): migrate dashboard to Card and MetadataList
@@ -168,8 +170,16 @@ Important conventions:
 - Use createFileRoute for route definitions
 - Use useSuspenseQuery for data fetching
 - All calculations must be science-backed with citations in comments
-PROMPT_EOF
-)
+TEMPLATE_END
+
+  # Substitute placeholders (safe — no shell expansion of issue content)
+  sed -i \
+    -e "s/__ISSUE_TITLE__/${ISSUE_TITLE//\//\\/}/g" \
+    -e "s/__ISSUE_NUM__/$ISSUE_NUM/g" \
+    -e "s/__ISSUE_BODY__/${ISSUE_BODY//\//\\/}/g" \
+    "$PROMPT_FILE"
+
+  PROMPT=$(cat "$PROMPT_FILE")
 
   if $DRY_RUN; then
     echo "[DRY RUN] Would dispatch model: ${MODELS[$MODEL_INDEX]}"
