@@ -138,7 +138,7 @@ Instructions:
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
 8. Commit your work with a conventional commit message
-9. Do NOT push to remote
+9. Do NOT push — the loop handles pushing after verification
 
 Important conventions:
 - Use Astryx components: Card, Button, TextInput, Table, Heading, MetadataList, etc.
@@ -330,6 +330,13 @@ Run \`npm run test:unit && npm run test:e2e && npm run build\` to see failures.
 This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
     fi
   fi
+
+  # Push commits to remote after successful verification
+  echo ""
+  echo "  ▸ Pushing to origin/main..."
+  set +e
+  git push origin main 2>&1 | tail -3
+  set -e
 
   echo ""
   echo "━━━ Iteration $iter complete ━━━"
