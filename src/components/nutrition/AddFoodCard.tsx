@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Button,
   Card,
@@ -190,9 +190,11 @@ function useFoodSearch(): FoodSearchState {
 
 function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
   const searchState = useFoodSearch()
+  const searchInputRef = useRef<HTMLInputElement>(null)
   return (
     <VStack gap={3}>
       <TextInput
+        ref={searchInputRef}
         label="Search foods"
         placeholder="e.g. chicken breast, rice..."
         value={searchState.query}
@@ -201,7 +203,14 @@ function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
         hasClear
       />
       <Button label="Search" variant="primary" clickAction={searchState.search} />
-      <FoodSearchResults searchState={searchState} onSelect={onSelect} />
+      <FoodSearchResults
+        searchState={searchState}
+        onSelect={onSelect}
+        onClear={() => {
+          searchState.setQuery('')
+          searchInputRef.current?.focus()
+        }}
+      />
       <CustomFoodForm onCreated={onSelect} />
     </VStack>
   )
@@ -210,9 +219,11 @@ function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
 function FoodSearchResults({
   searchState,
   onSelect,
+  onClear,
 }: {
   searchState: FoodSearchState
   onSelect: (food: Food) => void
+  onClear: () => void
 }) {
   if (searchState.results.length > 0) {
     return (
@@ -233,6 +244,7 @@ function FoodSearchResults({
     <EmptyState
       title="No foods found"
       description="Try another search term or create a custom food."
+      actions={<Button label="Clear search" clickAction={onClear} />}
       headingLevel={3}
       isCompact
     />

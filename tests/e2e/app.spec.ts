@@ -99,14 +99,15 @@ test.describe('Nutrition - Food Logging Flow', () => {
 
   test('user can clear an unsuccessful food search', async ({ page }) => {
     await openAppPage(page, '/nutrition')
-    await page.getByLabel('Search foods').fill(`missing-food-${Date.now()}`)
+    const searchInput = page.getByRole('textbox', { name: 'Search foods' })
+    await searchInput.fill(`missing-food-${Date.now()}`)
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     const noResults = page.getByRole('status').filter({ hasText: 'No foods found' })
     await expect(noResults).toBeVisible()
 
-    await page.getByRole('button', { name: 'Clear Search foods' }).click()
-    await expect(page.getByLabel('Search foods')).toHaveValue('')
-    await expect(page.getByLabel('Search foods')).toBeFocused()
+    await page.getByRole('button', { name: 'Clear search', exact: true }).click()
+    await expect(searchInput).toHaveValue('')
+    await expect(searchInput).toBeFocused()
     await expect(noResults).not.toBeVisible()
   })
 
