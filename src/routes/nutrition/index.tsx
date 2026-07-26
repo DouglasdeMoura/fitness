@@ -50,7 +50,7 @@ function NutritionPage() {
   return (
     <VStack as="main" gap={4}>
       <NutritionHeader />
-      <Grid columns={{ minWidth: 320 }} gap={4}>
+      <Grid columns={{ minWidth: 320, max: 2, repeat: 'fit' }} gap={4}>
         <DailySummaryCard totals={summary.totals} targets={targets} />
         <AddFoodCard selectedDate={initial.selectedDate} />
       </Grid>
