@@ -179,6 +179,16 @@ PROMPT_EOF
     set -e
     echo "    ─────────────────────────────────────────────────────────"
 
+    # ─── Merge any feature branch the model may have created ─────────
+    CURRENT_BRANCH=$(git branch --show-current)
+    if [[ "$CURRENT_BRANCH" != "main" ]]; then
+      echo "    📌 Model created branch '$CURRENT_BRANCH'. Merging to main..."
+      git checkout main 2>/dev/null
+      git merge "$CURRENT_BRANCH" --no-edit 2>/dev/null
+      git branch -d "$CURRENT_BRANCH" 2>/dev/null
+      echo "    ✅ Merged to main"
+    fi
+
     # Check if the output contains error indicators
     # Check output content for errors
     OUTPUT_CONTENT=$(cat "$OUTPUT_FILE")
