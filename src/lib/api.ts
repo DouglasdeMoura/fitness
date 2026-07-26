@@ -345,6 +345,10 @@ export type ProgramDetail = Program & {
   }>
 }
 
+export type ProgramSummary = Program & {
+  day_count: number
+}
+
 export type ProgramDayTarget = {
   program_exercise_id: number
   exercise_id: number
@@ -395,7 +399,7 @@ export const getPrograms = createServerFn({ method: 'GET' }).handler(async () =>
      WHERE p.user_id = ?
      GROUP BY p.id
      ORDER BY p.is_active DESC, p.created_at DESC`
-  ).all(user.id) as Array<Program & { day_count: number }>
+  ).all(user.id) as ProgramSummary[]
 })
 
 export const getProgram = createServerFn({ method: 'GET' })
@@ -627,6 +631,11 @@ export type MealTemplateDetail = MealTemplate & {
     fat_g: number
     fiber_g: number
   }>
+  totals: NutritionTotals
+}
+
+export type MealTemplateSummary = MealTemplate & {
+  item_count: number
   totals: NutritionTotals
 }
 

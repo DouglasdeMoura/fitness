@@ -1,0 +1,95 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+async function openAppPage(page: Page, path: string) {
+  await page.goto(path);
+}
+
+async function clickHydratedButton(button: Locator) {
+  await expect(button).toBeVisible();
+  await expect
+    .poll(() =>
+      button.evaluate((element) =>
+        Object.getOwnPropertyNames(element).some((property) =>
+          property.startsWith("__reactProps$"),
+        ),
+      ),
+    )
+    .toBe(true);
+  await button.click();
+}
+
+async function chooseOption(page: Page, label: string, option: string) {
+  await page.getByRole("combobox", { name: label }).click();
+  await page.getByRole("option", { name: option }).click();
+}
+
+test.describe("Meal templates and weekly planning", () => {
+  test("creates a meal template, previews macros, and assigns it to the week", async ({ page }) => {
+    const templateName = `E2E Dinner ${Date.now()}`;
+    await openAppPage(page, "/nutrition/templates");
+
+    const templatesPage = page.getByRole("main");
+    await expect(
+      templatesPage.getByRole("heading", { name: "Meal Templates", exact: true }),
+    ).toBeVisible();
+    await clickHydratedButton(templatesPage.getByRole("button", { name: "New Template" }));
+    await templatesPage.getByRole("textbox", { name: "Name" }).fill(templateName);
+    await chooseOption(page, "Default meal", "Dinner");
+    await templatesPage.getByRole("button", { name: "Create & Edit Foods" }).click();
+
+    await expect(page).toHaveURL(/\/nutrition\/templates\/\d+$/);
+    await page.getByRole("textbox", { name: "Search foods" }).fill("Chicken Breast");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Add Chicken Breast \(raw\)/ })
+      .first()
+      .click();
+    await page.getByRole("spinbutton", { name: "Servings for Chicken Breast (raw)" }).fill("2");
+    await expect(page.getByText("330 kcal", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save Template" }).click();
+    await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Back to templates" }).click();
+    await page.getByRole("link", { name: "Weekly Planner" }).click();
+    await expect(page.getByRole("heading", { name: "Weekly Meal Plan" })).toBeVisible();
+
+    const firstDay = page.getByRole("row").nth(1);
+    const mealSelector = firstDay.getByRole("combobox").first();
+    await mealSelector.click();
+    await page.getByRole("option", { name: templateName }).click();
+    await expect(firstDay.getByText("330 kcal", { exact: true })).toHaveCount(2);
+    await expect(firstDay.getByRole("progressbar")).toBeVisible();
+  });
+});
+
+test.describe("Training programs", () => {
+  test("creates and configures a DUP training program", async ({ page }) => {
+    const programName = `E2E DUP Program ${Date.now()}`;
+    await openAppPage(page, "/workout/programs");
+
+    const programsPage = page.getByRole("main");
+    await expect(programsPage.getByRole("heading", { name: "Training Programs" })).toBeVisible();
+    await clickHydratedButton(programsPage.getByRole("button", { name: "New Program" }));
+    await programsPage.getByRole("textbox", { name: "Name" }).fill(programName);
+    await chooseOption(page, "Periodization", "Daily undulating (DUP)");
+    await programsPage.getByRole("button", { name: "Create Program" }).click();
+
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await expect(page.getByRole("heading", { name: programName })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Periodization" })).toHaveText(
+      "Daily undulating (DUP)",
+    );
+    await page.getByRole("button", { name: "Add exercise to Day A" }).click();
+    await expect(page.getByRole("table", { name: "Day A exercises" })).toBeVisible();
+    await expect(page.getByText("strength", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Add exercise to Day A" }).click();
+    await expect(
+      page.getByRole("spinbutton", { name: /Sets for .+, row 1 of Day A/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("spinbutton", { name: /Sets for .+, row 2 of Day A/ }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Save Program" }).click();
+    await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
+  });
+});
