@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import {
   Button,
   Card,
@@ -31,9 +31,15 @@ import {
   todayISODate,
   toISODate,
 } from '~/lib/settings'
+import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
 
 export const Route = createFileRoute('/settings/')({
   head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
+  loader: async () => {
+    const user = await getUser()
+    return { user }
+  },
+  pendingComponent: SettingsSkeleton,
   component: SettingsPage,
 })
 
@@ -51,9 +57,19 @@ async function exportFitTrackData(): Promise<void> {
 }
 
 function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsSkeleton />}>
+      <SettingsPageContent />
+    </Suspense>
+  )
+}
+
+function SettingsPageContent() {
+  const loaderData = Route.useLoaderData()
   const { data: user } = useSuspenseQuery({
     queryKey: ['user'],
     queryFn: () => getUser(),
+    initialData: loaderData.user,
   })
 
   const [name, setName] = useState(user.name)

@@ -14,6 +14,7 @@ import {
   ListItem,
   NumberInput,
   Selector,
+  Spinner,
   Text,
   TextInput,
   VStack,
@@ -34,6 +35,7 @@ import {
   type CustomFoodDraft,
 } from '~/lib/custom-food'
 import { useDebouncedValue } from '~/hooks/use-debounced-value'
+import { FOOD_SEARCH_MIN_LENGTH, isFoodSearchPending } from '~/lib/food-search'
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
   label,
@@ -50,7 +52,7 @@ const SERVING_UNIT_OPTIONS = [
 // Below 2 chars the LIKE query is more noise than signal; 300 ms is short
 // enough to feel instant, long enough to skip mid-word request storms.
 const SEARCH_DEBOUNCE_MS = 300
-const SEARCH_MIN_LENGTH = 2
+const SEARCH_MIN_LENGTH = FOOD_SEARCH_MIN_LENGTH
 
 type FoodLogEntryValues = {
   selectedFood: Food | null
@@ -222,19 +224,31 @@ function FoodSearchForm({
   const query = useStore(searchForm.store, (state) => state.values.query)
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
   const searchState = useFoodSearchResults(debouncedQuery)
+  const trimmedQuery = query.trim()
+  const searchPending = isFoodSearchPending(
+    trimmedQuery,
+    debouncedQuery.trim(),
+    searchState.isFetching,
+    SEARCH_MIN_LENGTH,
+  )
 
   return (
     <VStack gap={3}>
       <searchForm.Field name="query">
         {(field) => (
-          <TextInput
-            ref={searchInputRef}
-            label="Search foods"
-            placeholder="e.g. chicken breast, rice..."
-            value={field.state.value}
-            onChange={field.handleChange}
-            hasClear
-          />
+          <HStack gap={2} vAlign="end">
+            <TextInput
+              ref={searchInputRef}
+              label="Search foods"
+              placeholder="e.g. chicken breast, rice..."
+              value={field.state.value}
+              onChange={field.handleChange}
+              hasClear
+            />
+            {searchPending ? (
+              <Spinner size="sm" aria-label="Searching foods" />
+            ) : null}
+          </HStack>
         )}
       </searchForm.Field>
       <FoodSearchResults
@@ -254,6 +268,7 @@ function FoodSearchForm({
 type FoodSearchResultsState = {
   results: Food[]
   hasSearched: boolean
+  isFetching: boolean
 }
 
 async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
@@ -273,7 +288,7 @@ async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
 function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
   const trimmed = debouncedQuery.trim()
   const enabled = trimmed.length >= SEARCH_MIN_LENGTH
-  const { data, isFetched } = useQuery({
+  const { data, isFetched, isFetching } = useQuery({
     queryKey: ['food-search', trimmed],
     queryFn: () => searchFoodCatalog(trimmed),
     enabled,
@@ -283,6 +298,7 @@ function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
   return {
     results: data ?? [],
     hasSearched: enabled && isFetched,
+    isFetching,
   }
 }
 

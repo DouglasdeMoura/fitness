@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -19,16 +20,26 @@ import {
   macroProgress,
   type MacroTone,
 } from '~/lib/dashboard'
+import { DashboardSkeleton } from '~/components/loading/PageSkeletons'
 
 export const Route = createFileRoute('/')({
   head: () => ({ meta: [{ title: 'Dashboard - FitTrack' }] }),
   loader: async () => {
     return getDashboardStats()
   },
+  pendingComponent: DashboardSkeleton,
   component: DashboardPage,
 })
 
 function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardPageContent />
+    </Suspense>
+  )
+}
+
+function DashboardPageContent() {
   const initialData = Route.useLoaderData()
   const { data: stats } = useSuspenseQuery({
     queryKey: ['dashboard'],

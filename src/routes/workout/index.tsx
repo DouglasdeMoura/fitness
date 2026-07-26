@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Badge, Button, Card, EmptyState, Heading, VStack } from '@astryxdesign/core'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
 import {
@@ -16,6 +16,7 @@ import { makeTempRef } from '~/lib/sync'
 import type { Exercise } from '~/lib/db'
 import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
 import { activeSessionFromUrl, calculateVolume, estimate1RM, type ActiveSession } from '~/lib/workout'
+import { WorkoutSkeleton } from '~/components/loading/PageSkeletons'
 
 type WorkoutSearch = {
   session?: number
@@ -38,10 +39,19 @@ export const Route = createFileRoute('/workout/')({
     const sessions = await getWorkoutSessions({ data: { date: selectedDate, limit: 10 } })
     return { selectedDate, sessions }
   },
+  pendingComponent: WorkoutSkeleton,
   component: WorkoutPage,
 })
 
 function WorkoutPage() {
+  return (
+    <Suspense fallback={<WorkoutSkeleton />}>
+      <WorkoutPageContent />
+    </Suspense>
+  )
+}
+
+function WorkoutPageContent() {
   const { session: sessionIdFromSearch, date: dateFromSearch } = Route.useSearch()
   const loaderData = Route.useLoaderData()
   const selectedDate = resolveSelectedDate(dateFromSearch)
@@ -193,7 +203,7 @@ function WorkoutPage() {
               Start a free-form session or follow a structured training program
             </p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button variant="primary" onClick={handleStartWorkout}>Start Workout</Button>
+              <Button label="Start Workout" variant="primary" clickAction={handleStartWorkout} />
               <Link to="/workout/programs" className="btn btn-secondary">Browse Programs</Link>
             </div>
           </Card>
@@ -393,9 +403,7 @@ function WorkoutPage() {
                         </td>
                         <td>{Math.round(set.weight * set.reps)} kg</td>
                         <td>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleSaveSet(set, i)}>
-                            Save
-                          </button>
+                          <Button label={`Save set ${i + 1}`} variant="secondary" size="sm" clickAction={() => handleSaveSet(set, i)}>Save</Button>
                         </td>
                       </tr>
                     ))}

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -35,34 +36,58 @@ import {
   weightTrend,
   workoutsPerWeek,
 } from '~/lib/progress'
+import { ProgressSkeleton } from '~/components/loading/PageSkeletons'
 
 /** 90-day window the progress page analyses (matches the data fetch limit). */
 const PROGRESS_WINDOW_DAYS = 90
 
 export const Route = createFileRoute('/progress/')({
   head: () => ({ meta: [{ title: 'Progress - FitTrack' }] }),
+  loader: async () => {
+    const [bodyLogs, sessions, weeklyVolume, weeklyNutrition] = await Promise.all([
+      getBodyLogs({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+      getWorkoutSessions({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+      getWeeklyVolume(),
+      getWeeklyNutrition(),
+    ])
+    return { bodyLogs, sessions, weeklyVolume, weeklyNutrition }
+  },
+  pendingComponent: ProgressSkeleton,
   component: ProgressPage,
 })
 
 function ProgressPage() {
+  return (
+    <Suspense fallback={<ProgressSkeleton />}>
+      <ProgressPageContent />
+    </Suspense>
+  )
+}
+
+function ProgressPageContent() {
+  const loaderData = Route.useLoaderData()
   const { data: bodyLogs } = useSuspenseQuery({
     queryKey: ['body-logs'],
     queryFn: () => getBodyLogs({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+    initialData: loaderData.bodyLogs,
   })
 
   const { data: sessions } = useSuspenseQuery({
     queryKey: ['workout-sessions-progress'],
     queryFn: () => getWorkoutSessions({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+    initialData: loaderData.sessions,
   })
 
   const { data: weeklyVolume } = useSuspenseQuery({
     queryKey: ['weekly-volume'],
     queryFn: () => getWeeklyVolume(),
+    initialData: loaderData.weeklyVolume,
   })
 
   const { data: weeklyNutrition } = useSuspenseQuery({
     queryKey: ['weekly-nutrition'],
     queryFn: () => getWeeklyNutrition(),
+    initialData: loaderData.weeklyNutrition,
   })
 
   return (

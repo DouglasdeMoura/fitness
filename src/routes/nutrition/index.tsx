@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { Suspense, useRef } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -27,6 +27,7 @@ import {
   resolveSelectedDate,
   type NutritionTotals,
 } from '~/lib/nutrition'
+import { NutritionSkeleton } from '~/components/loading/PageSkeletons'
 
 type NutritionSearch = {
   date?: string
@@ -46,10 +47,19 @@ export const Route = createFileRoute('/nutrition/')({
     return { selectedDate, summary, targets }
   },
   head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
+  pendingComponent: NutritionSkeleton,
   component: NutritionPage,
 })
 
 function NutritionPage() {
+  return (
+    <Suspense fallback={<NutritionSkeleton />}>
+      <NutritionPageContent />
+    </Suspense>
+  )
+}
+
+function NutritionPageContent() {
   const { date: dateFromSearch } = Route.useSearch()
   const loaderData = Route.useLoaderData()
   const selectedDate = resolveSelectedDate(dateFromSearch)
