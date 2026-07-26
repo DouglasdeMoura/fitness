@@ -14,6 +14,7 @@ import type { Exercise } from "~/lib/db";
 export type EditableProgramExercise = ProgramExerciseInput & { tempId: string };
 export type EditableProgramDay = Omit<ProgramDayInput, "exercises"> & {
   tempId: string;
+  persistedId?: number;
   exercises: EditableProgramExercise[];
 };
 

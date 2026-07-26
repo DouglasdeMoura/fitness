@@ -57,7 +57,8 @@ test.describe("Meal templates and weekly planning", () => {
     const mealSelector = firstDay.getByRole("combobox").first();
     await mealSelector.click();
     await page.getByRole("option", { name: templateName }).click();
-    await expect(firstDay.getByText("330 kcal", { exact: true })).toHaveCount(2);
+    await expect(mealSelector).toHaveText(templateName);
+    await expect(firstDay.getByRole("cell").nth(1)).toContainText("330 kcal");
     await expect(firstDay.getByRole("progressbar")).toBeVisible();
   });
 });
@@ -92,4 +93,29 @@ test.describe("Training programs", () => {
     await page.getByRole("button", { name: "Save Program" }).click();
     await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
   });
+  test("starts the remaining day after an unsaved deletion", async ({ page }) => {
+    const programName = `E2E Day Identity ${Date.now()}`;
+    await openAppPage(page, "/workout/programs");
+
+    const programsPage = page.getByRole("main");
+    await clickHydratedButton(programsPage.getByRole("button", { name: "New Program" }));
+    await programsPage.getByRole("textbox", { name: "Name" }).fill(programName);
+    await programsPage.getByRole("button", { name: "Create Program" }).click();
+
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await page.getByRole("button", { name: "Add Training Day" }).click();
+    await page.getByRole("button", { name: "Save Program" }).click();
+    await expect(page.getByRole("button", { name: "Start Day B" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Remove Day A" }).click();
+    await page.getByRole("button", { name: "Start Day B" }).click();
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/);
+
+    await openAppPage(page, "/workout");
+    const recentSessions = page.getByRole("table").first();
+    await expect(recentSessions.getByRole("row").nth(1).getByRole("cell").nth(1)).toHaveText(
+      "Day B",
+    );
+  });
+
 });

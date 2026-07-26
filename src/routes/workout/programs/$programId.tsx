@@ -73,6 +73,7 @@ function ProgramDetailPage() {
     setDays(
       program.days.map((day) => ({
         tempId: `day-${day.id}`,
+        persistedId: day.id,
         day_name: day.day_name,
         sort_order: day.sort_order,
         exercises: day.exercises.map((exercise) => ({
@@ -284,7 +285,7 @@ function ProgramDetailPage() {
       ) : (
         <VStack gap={3}>
           {days.map((day, dayIndex) => {
-            const savedDay = program.days[dayIndex];
+            const persistedId = day.persistedId;
             return (
               <Card key={day.tempId}>
                 <VStack gap={3}>
@@ -303,12 +304,12 @@ function ProgramDetailPage() {
                       ) : null}
                     </HStack>
                     <HStack gap={2} wrap="wrap">
-                      {savedDay ? (
+                      {persistedId ? (
                         <Button
                           label={`Start ${day.day_name}`}
                           variant="primary"
                           size="sm"
-                          clickAction={() => handleStartDay(savedDay.id)}
+                          clickAction={() => handleStartDay(persistedId)}
                         />
                       ) : null}
                       <Button
