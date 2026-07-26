@@ -1,7 +1,17 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 
+async function openAppPage(page: Page, path: string) {
+  await page.goto(path)
+  await page.waitForLoadState('networkidle')
+}
+async function reloadAppPage(page: Page) {
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+}
+
+
 async function waitForAppReady(page: Page) {
-  await page.goto('/')
+  await openAppPage(page, '/')
   await expect(page.getByRole('navigation', { name: 'FitTrack navigation' })).toBeVisible({
     timeout: 15000,
   })
@@ -74,38 +84,45 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await waitForAppReady(page)
     await nav(page).getByRole('link', { name: 'Nutrition' }).click()
     await expect(page).toHaveURL(/\/nutrition/)
-    await expect(page.locator('.card-title:has-text("Daily Summary")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Daily Summary' })).toBeVisible()
   })
 
   test('user can search for foods in the database', async ({ page }) => {
-    await page.goto('/nutrition')
-    await expect(page.locator('.card-title:has-text("Add Food")')).toBeVisible({ timeout: 10000 })
-    const searchInput = page.locator('input[placeholder*="chicken"]')
-    await searchInput.waitFor({ state: 'visible', timeout: 10000 })
-    await searchInput.fill('chicken')
-    await page.locator('button:has-text("Search")').click()
-    await expect(page.locator('div >> text=/Chicken/i').first()).toBeVisible({ timeout: 10000 })
+    await openAppPage(page, '/nutrition')
+    await expect(page.getByRole('heading', { name: 'Add Food' })).toBeVisible({
+      timeout: 10000,
+    })
+    await page.getByLabel('Search foods').fill('chicken')
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(page.getByText(/Chicken/i).first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('user can create a custom food', async ({ page }) => {
-    await page.goto('/nutrition')
-    await expect(page.locator('.card-title:has-text("Add Food")')).toBeVisible({ timeout: 10000 })
-    await page.locator('button:has-text("Create Custom Food")').click()
-    await expect(page.locator('input[placeholder="Food name"]')).toBeVisible({ timeout: 5000 })
-    await page.locator('input[placeholder="Food name"]').fill('E2E Test Protein Bar')
-    const numberInputs = page.locator('.card input[type="number"]')
-    await numberInputs.nth(0).fill('50')
-    await numberInputs.nth(1).fill('220')
-    await page.locator('button:has-text("Save Food")').click()
-    await expect(page.locator('text=E2E Test Protein Bar')).toBeVisible({ timeout: 10000 })
+  test('user can create, log, and delete a custom food', async ({ page }) => {
+    const foodName = `E2E Test Protein Bar ${Date.now()}`
+    await openAppPage(page, '/nutrition')
+    await page.getByRole('button', { name: 'Create Custom Food' }).click()
+    await page.getByLabel('Name').fill(foodName)
+    await page.getByLabel('Calories per serving').fill('220')
+    await page.getByLabel('Protein (g)').fill('20')
+    await page.getByRole('button', { name: 'Save Food' }).click()
+    await expect(page.getByText(foodName)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Add to Log' }).click()
+    const foodRow = page.getByRole('row').filter({ hasText: foodName })
+    await expect(foodRow).toBeVisible({ timeout: 10000 })
+    page.once('dialog', (dialog) => dialog.accept())
+    await foodRow.getByRole('button', { name: `Delete ${foodName}` }).click()
+    await expect(foodRow).not.toBeVisible()
   })
 
-  test('empty food log shows helpful message or entries', async ({ page }) => {
-    await page.goto('/nutrition')
-    await expect(page.locator('.card-title:has-text("Today\'s Food Log")')).toBeVisible({ timeout: 10000 })
-    const hasEntries = await page.locator('table tbody tr').count()
-    const hasEmptyState = await page.locator('text=No food logged').count()
-    expect(hasEntries > 0 || hasEmptyState > 0).toBeTruthy()
+  test('food log shows a table or a helpful empty state', async ({ page }) => {
+    await openAppPage(page, '/nutrition')
+    await expect(page.getByRole('heading', { name: "Today's Food Log" })).toBeVisible({
+      timeout: 10000,
+    })
+    const hasTable = await page.getByRole('table', { name: "Today's food log" }).count()
+    const hasEmptyState = await page.getByRole('status').filter({ hasText: 'No food logged' }).count()
+    expect(hasTable > 0 || hasEmptyState > 0).toBeTruthy()
   })
 })
 
@@ -117,13 +134,13 @@ test.describe('Workout - Session Logging Flow', () => {
   })
 
   test('shows start workout prompt when no active session', async ({ page }) => {
-    await page.goto('/workout')
+    await openAppPage(page, '/workout')
     await expect(page.locator('text=Ready to train')).toBeVisible({ timeout: 10000 })
     await expect(page.locator('button:has-text("Start Workout")')).toBeVisible()
   })
 
   test('user can start a workout session and see exercise selection', async ({ page }) => {
-    await page.goto('/workout')
+    await openAppPage(page, '/workout')
     // May already have active session from previous test run
     const startBtn = page.locator('button:has-text("Start Workout")')
     const finishBtn = page.locator('button:has-text("Finish")')
@@ -139,7 +156,7 @@ test.describe('Workout - Session Logging Flow', () => {
   })
 
   test('selecting an exercise shows set logging interface', async ({ page }) => {
-    await page.goto('/workout')
+    await openAppPage(page, '/workout')
     const startBtn = page.locator('button:has-text("Start Workout")')
     const finishBtn = page.locator('button:has-text("Finish")')
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -168,14 +185,16 @@ test.describe('Settings - Profile Configuration', () => {
   })
 
   test('displays all BMR-relevant input fields', async ({ page }) => {
-    await page.goto('/settings')
-    await expect(page.getByLabel('Height (cm)')).toBeVisible({ timeout: 10000 })
+    await openAppPage(page, '/settings')
+    await expect(page.getByLabel('Height (cm)', { exact: true })).toBeVisible({
+      timeout: 10000,
+    })
     await expect(page.getByRole('combobox', { name: /Sex/ })).toBeVisible()
-    await expect(page.getByLabel('Birth Date')).toBeVisible()
+    await expect(page.getByLabel('Birth Date', { exact: true })).toBeVisible()
   })
 
   test('displays goal options with science-based descriptions', async ({ page }) => {
-    await page.goto('/settings')
+    await openAppPage(page, '/settings')
     const goal = page.getByRole('combobox', { name: 'Primary Goal' })
     await expect(goal).toBeVisible({ timeout: 10000 })
     await goal.click()
@@ -186,7 +205,7 @@ test.describe('Settings - Profile Configuration', () => {
   })
 
   test('user can change activity level and save profile', async ({ page }) => {
-    await page.goto('/settings')
+    await openAppPage(page, '/settings')
     const activity = page.getByRole('combobox', { name: 'Activity Level' })
     await expect(activity).toBeVisible({ timeout: 10000 })
     await activity.click()
@@ -198,11 +217,11 @@ test.describe('Settings - Profile Configuration', () => {
   })
 
   test('shows weight logging interface and accepts a weigh-in', async ({ page }) => {
-    await page.goto('/settings')
+    await openAppPage(page, '/settings')
     await expect(page.getByRole('heading', { name: "Log Today's Weight" })).toBeVisible({
       timeout: 10000,
     })
-    const weight = page.getByLabel('Weight in kg')
+    const weight = page.getByLabel('Weight in kg', { exact: true })
     await expect(weight).toBeVisible()
     await weight.fill('75.5')
     await page.getByRole('button', { name: 'Log' }).click()
@@ -210,7 +229,7 @@ test.describe('Settings - Profile Configuration', () => {
   })
 
   test('shows science references in About section', async ({ page }) => {
-    await page.goto('/settings')
+    await openAppPage(page, '/settings')
     await expect(page.getByRole('heading', { name: 'About' })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText(/Mifflin-St Jeor/)).toBeVisible()
     await expect(page.getByText(/Morton/)).toBeVisible()
@@ -218,7 +237,7 @@ test.describe('Settings - Profile Configuration', () => {
   })
 
   test('user can export data as JSON', async ({ page }) => {
-    await page.goto('/settings')
+    await openAppPage(page, '/settings')
     await expect(page.getByRole('heading', { name: 'Export Data' })).toBeVisible({
       timeout: 10000,
     })
@@ -237,18 +256,18 @@ test.describe('Progress - Analytics View', () => {
   })
 
   test('shows weekly volume analysis section with Schoenfeld reference', async ({ page }) => {
-    await page.goto('/progress')
+    await openAppPage(page, '/progress')
     await expect(page.locator('.card-title:has-text("Weekly Volume")')).toBeVisible({ timeout: 10000 })
     await expect(page.locator('text=Schoenfeld')).toBeVisible()
   })
 
   test('shows weekly nutrition summary section', async ({ page }) => {
-    await page.goto('/progress')
+    await openAppPage(page, '/progress')
     await expect(page.locator('.card-title:has-text("Weekly Nutrition")')).toBeVisible({ timeout: 10000 })
   })
 
   test('shows weight history section', async ({ page }) => {
-    await page.goto('/progress')
+    await openAppPage(page, '/progress')
     await expect(page.locator('.card-title:has-text("Weight History")')).toBeVisible({ timeout: 10000 })
   })
 })
@@ -274,7 +293,7 @@ test.describe('Navigation - Cross-page Flow', () => {
   })
 
   test('brand logo links back to dashboard', async ({ page }) => {
-    await page.goto('/nutrition')
+    await openAppPage(page, '/nutrition')
     await page.getByRole('link', { name: /FitTrack/ }).click()
     await expect(page).toHaveURL(/\/$/)
   })
@@ -287,12 +306,12 @@ test.describe('Dark Mode Toggle', () => {
   })
 
   test('clicking toggle changes theme attribute via Astryx Theme', async ({ page }) => {
-    await page.goto('/')
+    await openAppPage(page, '/')
     await page.evaluate(() => {
       localStorage.setItem('fittrack-theme', 'light')
       document.documentElement.setAttribute('data-theme', 'light')
     })
-    await page.reload()
+    await reloadAppPage(page)
     await expect(page.getByRole('button', { name: 'Toggle dark mode' })).toBeVisible({
       timeout: 15000,
     })
@@ -307,12 +326,12 @@ test.describe('Dark Mode Toggle', () => {
   })
 
   test('persists dark mode across reload', async ({ page }) => {
-    await page.goto('/')
+    await openAppPage(page, '/')
     await page.evaluate(() => {
       localStorage.setItem('fittrack-theme', 'light')
       document.documentElement.setAttribute('data-theme', 'light')
     })
-    await page.reload()
+    await reloadAppPage(page)
     await expect(page.getByRole('button', { name: 'Toggle dark mode' })).toBeVisible({
       timeout: 15000,
     })
@@ -322,7 +341,7 @@ test.describe('Dark Mode Toggle', () => {
       .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
       .toBe('dark')
 
-    await page.reload()
+    await reloadAppPage(page)
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
       .toBe('dark')

@@ -5,6 +5,8 @@ import {
   calculateMacroTargets,
   calculateAge,
   ACTIVITY_MULTIPLIERS,
+  mealTypeForHour,
+  buildFoodLogDraft,
 } from '~/lib/nutrition'
 
 describe('BMR - Mifflin-St Jeor Equation', () => {
@@ -140,5 +142,56 @@ describe('Age calculation', () => {
   it('handles future-adjacent dates correctly', () => {
     const age = calculateAge('2000-01-01')
     expect(age).toBeGreaterThan(20)
+  })
+})
+
+describe('Meal type auto-detection', () => {
+  it.each([
+    [0, 'breakfast'],
+    [10, 'breakfast'],
+    [11, 'lunch'],
+    [14, 'lunch'],
+    [15, 'dinner'],
+    [20, 'dinner'],
+    [21, 'snack'],
+    [23, 'snack'],
+  ] as const)('maps hour %i to %s', (hour, expectedMealType) => {
+    expect(mealTypeForHour(hour)).toBe(expectedMealType)
+  })
+
+  it.each([-1, 24, 2.5, Number.NaN])('rejects invalid hour %s', (hour) => {
+    expect(() => mealTypeForHour(hour)).toThrow(
+      `Invalid hour ${String(hour)}; expected an integer from 0 through 23`,
+    )
+  })
+})
+
+describe('Food log draft', () => {
+  it('scales the selected food macros by the requested servings', () => {
+    const draft = buildFoodLogDraft(
+      {
+        id: 42,
+        name: 'Greek Yogurt',
+        calories_per_serving: 120,
+        protein_g: 18,
+        carbs_g: 8,
+        fat_g: 0,
+      },
+      1.5,
+      '2026-07-25',
+      'breakfast',
+    )
+
+    expect(draft).toEqual({
+      food_id: 42,
+      custom_name: 'Greek Yogurt',
+      date: '2026-07-25',
+      meal_type: 'breakfast',
+      servings: 1.5,
+      calories: 180,
+      protein_g: 27,
+      carbs_g: 12,
+      fat_g: 0,
+    })
   })
 })

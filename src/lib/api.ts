@@ -13,6 +13,7 @@ import {
   emptyTotals,
   type ActivityLevel,
   type GoalType,
+  type MacroTargets,
   type NutritionTotals,
 } from './nutrition'
 import { resolveProgramTargets } from './workout'
@@ -96,8 +97,15 @@ export const getLatestBodyweight = createServerFn({ method: 'GET' }).handler(asy
 })
 
 // --- Calculated Targets ---
+export type DailyTargets = MacroTargets & {
+  weightKg: number
+  bmr: number
+  tdee: number
+  age: number
+}
 
-export const getDailyTargets = createServerFn({ method: 'GET' }).handler(async () => {
+
+export const getDailyTargets = createServerFn({ method: 'GET' }).handler(async (): Promise<DailyTargets> => {
   const db = getDb()
   const user = await ensureDefaultUser()
   const bw = await getLatestBodyweight()

@@ -12,18 +12,30 @@ Sweep the codebase file-by-file and eliminate every `useState` and `useEffect` t
 
 ## Key Anti-Patterns to Fix
 
-### 1. State that mirrors server data (most common in this codebase)
+### 1. State that mirrors server data — use TanStack Form
+
+The project uses `@tanstack/react-form` for all form state management.
+Forms should NOT use individual `useState` calls for fields. Instead:
 
 ```tsx
-// 🔴 Avoid: local state duplicates server data
+import { useForm } from '@tanstack/react-form'
+
+// 🔴 Avoid: 8 separate useState for form fields
 const [name, setName] = useState(user.name)
 const [heightCm, setHeightCm] = useState(user.height_cm)
+const [saved, setSaved] = useState(false)
 
-// ✅ Better: use the query data directly, or use TanStack Query mutations
-// If the form needs local "draft" state, use a single object, not 7 separate useStates
+// ✅ Use TanStack Form
+const form = useForm({
+  defaultValues: { name: user.name, heightCm: user.height_cm, ... },
+  onSubmit: async ({ value }) => {
+    await updateUser({ data: value })
+  },
+})
+// form.state.isSubmitting replaces manual "saved"/"loading" state
 ```
 
-**Worst offender:** `src/routes/settings/index.tsx` has 8 separate `useState` calls for form fields that all derive from a single `user` query.
+**Worst offender:** `src/routes/settings/index.tsx` has 8 separate `useState` calls.
 
 ### 2. State for derived/calculated values
 
@@ -60,10 +72,11 @@ useEffect(() => { setName(user.name) }, [user])
 ## Batches
 
 ### Batch 1: Settings page (`src/routes/settings/index.tsx`) — 8 useState
-Replace 8 separate field states with either:
-- A single `formState` object managed by one `useReducer` or `useState`
-- TanStack Query mutations (preferred — gives `isPending`, `isSuccess` for free)
-- Remove `saved` state, use mutation status instead
+Replace ALL form state with `@tanstack/react-form`'s `useForm` hook:
+- Single `useForm` call with `defaultValues` from the `user` query
+- `form.state.isSubmitting` replaces manual `saved` state
+- `form.handleSubmit` calls the `updateUser` server function
+- No `useState` for any form field
 
 ### Batch 2: Workout page (`src/routes/workout/index.tsx`) — 5 useState + 1 useEffect
 - `activeSession`: keep (legitimate UI state for current workout)
@@ -73,19 +86,25 @@ Replace 8 separate field states with either:
 - `useEffect` syncing program targets: replace with derived value
 
 ### Batch 3: Program detail (`src/routes/workout/programs/$programId.tsx`) — 9 useState + 1 useEffect
-Same pattern as settings: many form fields mirroring server data. Consolidate into single form state or use TanStack Query mutations.
+Replace ALL form state with `@tanstack/react-form`:
+- Single `useForm` with `defaultValues` from the program query
+- Remove the `useEffect` that syncs query data to local state — TanStack Form handles this via `defaultValues` + `form.reset()` on data change
+- `form.state.isSubmitting` replaces `saved` state
 
 ### Batch 4: Template detail (`src/routes/nutrition/templates/$templateId.tsx`) — 9 useState + 1 useEffect
-Same as program detail.
+Replace ALL form state with `@tanstack/react-form`:
+- Single `useForm` with `defaultValues` from the template query
+- Remove the `useEffect` syncing query data to local state
+- `form.state.isSubmitting` replaces `saved` state
 
 ### Batch 5: AddFoodCard (`src/components/nutrition/AddFoodCard.tsx`) — 9 useState
 - `query`, `results`, `hasSearched`: replace with TanStack Query `useQuery` for search
-- `selectedFood`, `servings`, `mealType`: consolidate into single draft state
+- `selectedFood`, `servings`, `mealType`: consolidate into a single `@tanstack/react-form` instance for the food log entry
 - `isOpen`: keep (legitimate UI toggle)
-- `draft` (custom food): keep or consolidate
+- `draft` (custom food): use a `@tanstack/react-form` instance for the custom food creation form
 
 ### Batch 6: Remaining files (programs/index, templates/index, planning, AppChrome, OfflineStatus)
-- `showCreate`, `name`, `description` patterns: consolidate
+- `showCreate`, `name`, `description`, `frequency`, `periodizationType` patterns: replace create forms with `@tanstack/react-form`
 - AppChrome: `colorMode`/`themeReady` Effects are legitimate (syncing localStorage)
 - OfflineStatus: Effects are legitimate (browser API sync)
 

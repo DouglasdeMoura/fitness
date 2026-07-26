@@ -158,12 +158,45 @@ export const MEAL_TYPE_LABELS: Record<MealType, string> = {
   snack: 'Snack',
 }
 
+/**
+ * Infers the default meal from a local clock hour for faster food logging.
+ * @example mealTypeForHour(12) // 'lunch'
+ */
+export function mealTypeForHour(hour: number): MealType {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new RangeError(
+      `Invalid hour ${String(hour)}; expected an integer from 0 through 23`,
+    )
+  }
+  if (hour < 11) return 'breakfast'
+  if (hour < 15) return 'lunch'
+  if (hour < 21) return 'dinner'
+  return 'snack'
+}
+
 export type FoodMacrosInput = {
   calories_per_serving: number
   protein_g: number
   carbs_g: number
   fat_g: number
   fiber_g?: number
+}
+
+export type FoodLoggable = FoodMacrosInput & {
+  id: number
+  name: string
+}
+
+export type FoodLogDraft = {
+  food_id: number
+  custom_name: string
+  date: string
+  meal_type: MealType
+  servings: number
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
 }
 
 /**
@@ -178,6 +211,30 @@ export function calculateFoodMacros(food: FoodMacrosInput, servings: number): Nu
     carbs_g: food.carbs_g * servings,
     fat_g: food.fat_g * servings,
     fiber_g: (food.fiber_g ?? 0) * servings,
+  }
+}
+
+/**
+ * Builds the persisted food-log payload from per-serving label values.
+ * @example buildFoodLogDraft(food, 2, '2026-07-25', 'lunch')
+ */
+export function buildFoodLogDraft(
+  food: FoodLoggable,
+  servings: number,
+  date: string,
+  mealType: MealType,
+): FoodLogDraft {
+  const macros = calculateFoodMacros(food, servings)
+  return {
+    food_id: food.id,
+    custom_name: food.name,
+    date,
+    meal_type: mealType,
+    servings,
+    calories: macros.calories,
+    protein_g: macros.protein_g,
+    carbs_g: macros.carbs_g,
+    fat_g: macros.fat_g,
   }
 }
 

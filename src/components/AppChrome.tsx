@@ -70,7 +70,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
                   icon={<span aria-hidden>🌓</span>}
                   variant="ghost"
                   size="sm"
-                  clickAction={() => {
+                  onClick={() => {
                     setColorMode((mode) => toggleColorMode(mode))
                   }}
                 />
