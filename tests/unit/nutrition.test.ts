@@ -10,6 +10,9 @@ import {
   calculateFoodMacros,
   sumNutritionTotals,
   addDays,
+  parseSearchDate,
+  resolveSelectedDate,
+  formatDisplayDate,
 } from '~/lib/nutrition'
 
 describe('BMR - Mifflin-St Jeor Equation', () => {
@@ -283,5 +286,26 @@ describe('Date arithmetic (ISO, DST-safe at noon)', () => {
 
   it('supports negative offsets into the previous month', () => {
     expect(addDays('2026-07-01', -1)).toBe('2026-06-30')
+  })
+})
+
+describe('Date search param helpers', () => {
+  it('accepts valid ISO dates and rejects malformed values', () => {
+    expect(parseSearchDate('2026-07-25')).toBe('2026-07-25')
+    expect(parseSearchDate('2026-02-30')).toBeUndefined()
+    expect(parseSearchDate('07-25-2026')).toBeUndefined()
+    expect(parseSearchDate(undefined)).toBeUndefined()
+  })
+
+  it('resolves selected date from search and clamps future days to today', () => {
+    const today = resolveSelectedDate(undefined)
+    expect(resolveSelectedDate('2026-07-25')).toBe('2026-07-25')
+    expect(resolveSelectedDate('2099-01-01')).toBe(today)
+    expect(resolveSelectedDate('not-a-date')).toBe(today)
+  })
+
+  it('formats display dates for the navigation bar', () => {
+    expect(formatDisplayDate('2026-07-25')).toContain('Jul')
+    expect(formatDisplayDate('2026-07-25')).toContain('2026')
   })
 })

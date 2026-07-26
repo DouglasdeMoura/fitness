@@ -260,3 +260,41 @@ export function addDays(dateStr: string, days: number): string {
 export function formatWeekday(dateStr: string): string {
   return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short' })
 }
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Validates a `?date=` search param (YYYY-MM-DD). Rejects malformed and
+ * impossible calendar dates so URL tampering cannot crash date pickers.
+ */
+export function parseSearchDate(raw: string | undefined): string | undefined {
+  if (!raw || !ISO_DATE_RE.test(raw)) return undefined
+  const [year, month, day] = raw.split('-').map(Number)
+  if (month < 1 || month > 12 || day < 1 || day > 31) return undefined
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return undefined
+  }
+  return raw
+}
+
+/** Selected day for nutrition/workout views; clamps future dates to today. */
+export function resolveSelectedDate(dateFromSearch: string | undefined): string {
+  const parsed = parseSearchDate(dateFromSearch)
+  if (!parsed) return todayString()
+  const today = todayString()
+  return parsed > today ? today : parsed
+}
+
+export function formatDisplayDate(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}

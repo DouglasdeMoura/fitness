@@ -251,11 +251,16 @@ export const getExercises = createServerFn({ method: 'GET' })
 // --- Workouts ---
 
 export const getWorkoutSessions = createServerFn({ method: 'GET' })
-  .validator((data: { limit?: number } | undefined) => data ?? {})
+  .validator((data: { limit?: number; date?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
     const db = getDb()
     const user = await ensureDefaultUser()
     const limit = ctx.data?.limit || 30
+    if (ctx.data?.date) {
+      return db.prepare(
+        'SELECT * FROM workout_sessions WHERE user_id = ? AND date = ? ORDER BY date DESC'
+      ).all(user.id, ctx.data.date) as WorkoutSession[]
+    }
     return db.prepare(
       'SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY date DESC LIMIT ?'
     ).all(user.id, limit) as WorkoutSession[]

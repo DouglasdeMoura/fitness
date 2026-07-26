@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Badge, Button, Card } from '@astryxdesign/core'
+import { DateNavigationBar } from '~/components/DateNavigationBar'
 import {
   getExercises,
   getWorkoutSessions,
@@ -13,10 +14,12 @@ import {
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
 import type { Exercise } from '~/lib/db'
+import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
 import { activeSessionFromUrl, calculateVolume, estimate1RM, type ActiveSession } from '~/lib/workout'
 
 type WorkoutSearch = {
   session?: number
+  date?: string
 }
 
 export const Route = createFileRoute('/workout/')({
@@ -27,20 +30,31 @@ export const Route = createFileRoute('/workout/')({
       : typeof search.session === 'string' && search.session
         ? parseInt(search.session, 10)
         : undefined,
+    date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
   }),
+  loaderDeps: ({ search: { date } }) => ({ date }),
+  loader: async ({ deps }) => {
+    const selectedDate = resolveSelectedDate(deps.date)
+    const sessions = await getWorkoutSessions({ data: { date: selectedDate, limit: 10 } })
+    return { selectedDate, sessions }
+  },
   component: WorkoutPage,
 })
 
 function WorkoutPage() {
-  const { session: sessionIdFromSearch } = Route.useSearch()
+  const { session: sessionIdFromSearch, date: dateFromSearch } = Route.useSearch()
+  const loaderData = Route.useLoaderData()
+  const selectedDate = resolveSelectedDate(dateFromSearch)
+
   const { data: exercises } = useSuspenseQuery({
     queryKey: ['exercises'],
     queryFn: () => getExercises({ data: {} }),
   })
 
   const { data: sessions } = useSuspenseQuery({
-    queryKey: ['workout-sessions'],
-    queryFn: () => getWorkoutSessions({ data: { limit: 10 } }),
+    queryKey: ['workout-sessions', selectedDate],
+    queryFn: () => getWorkoutSessions({ data: { date: selectedDate, limit: 10 } }),
+    initialData: loaderData.selectedDate === selectedDate ? loaderData.sessions : undefined,
   })
 
   // Tracks a free-form session the user started by clicking "Start Workout".
@@ -89,7 +103,7 @@ function WorkoutPage() {
     const outcome = await runOrQueue(
       'createWorkoutSession',
       { name: 'Training Session', temp_ref: tempRef },
-      () => createWorkoutSession({ data: { name: 'Training Session' } })
+      () => createWorkoutSession({ data: { name: 'Training Session', date: selectedDate } })
     )
     setStartedSession({
       id: outcome.queued ? null : outcome.result.id,
@@ -107,7 +121,7 @@ function WorkoutPage() {
     setSelectedExercise(null)
     setSets([])
     if (sessionIdFromSearch !== undefined) {
-      navigate({ to: '/workout', search: {} })
+      navigate({ to: '/workout', search: (prev) => ({ date: prev.date }) })
     }
   }
 
@@ -157,6 +171,18 @@ function WorkoutPage() {
         <h1 className="section-title">Workout</h1>
         <Link to="/workout/programs" className="btn btn-secondary btn-sm">Training Programs</Link>
       </div>
+
+      <DateNavigationBar
+        selectedDate={selectedDate}
+        onDateChange={(nextDate) => {
+          navigate({
+            search: (prev) => ({
+              ...prev,
+              date: nextDate,
+            }),
+          })
+        }}
+      />
 
       {!activeSession ? (
         <>
