@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Badge, Button, Card } from '@astryxdesign/core'
+import { Badge, Button, Card, EmptyState, Heading, VStack } from '@astryxdesign/core'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
 import {
   getExercises,
@@ -198,11 +198,25 @@ function WorkoutPage() {
             </div>
           </Card>
 
-          <div className="card">
-            <div className="card-title">Recent Sessions</div>
-            {sessions.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)' }}>No workouts logged yet.</p>
-            ) : (
+          <Card>
+            <VStack gap={3}>
+              <Heading level={2}>Recent Sessions</Heading>
+              {sessions.length === 0 ? (
+                <EmptyState
+                  icon={<span aria-hidden>🏋️</span>}
+                  title="No workouts yet"
+                  description="Start a free-form session or follow a structured training program."
+                  actions={
+                    <Button
+                      label="Start your first workout"
+                      variant="primary"
+                      clickAction={handleStartWorkout}
+                    />
+                  }
+                  headingLevel={3}
+                  isCompact
+                />
+              ) : (
               <table>
                 <thead>
                   <tr><th>Date</th><th>Name</th><th></th></tr>
@@ -217,8 +231,9 @@ function WorkoutPage() {
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
+              )}
+            </VStack>
+          </Card>
         </>
       ) : (
         <>

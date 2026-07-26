@@ -196,8 +196,16 @@ function MealTemplatesPage() {
       {templates.length === 0 ? (
         <Card>
           <EmptyState
-            title="No meal templates yet"
+            icon={<span aria-hidden>📝</span>}
+            title="No meal templates"
             description="Create a reusable meal to start building your weekly plan."
+            actions={
+              <Button
+                label="Create a template"
+                variant="primary"
+                clickAction={() => setShowCreate(true)}
+              />
+            }
             headingLevel={2}
           />
         </Card>

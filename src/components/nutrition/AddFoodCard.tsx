@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
 import { useStore } from '@tanstack/react-store'
-import { useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import {
   Button,
   Card,
@@ -61,35 +61,47 @@ type FoodLogEntryValues = {
 type FoodLogEntryForm = ReturnType<typeof useFoodLogEntryForm>
 type CustomFoodFormApi = ReturnType<typeof useCustomFoodForm>
 
+export type AddFoodCardHandle = {
+  focusSearch: () => void
+}
+
 /**
  * Searches foods and collects the serving details for a new food-log entry.
  * The search box debounces into a TanStack Query; the entry details and the
  * custom-food form each live in their own TanStack Form instance. The only
  * `useState` left is the custom-food-form visibility toggle.
- * @example <AddFoodCard selectedDate="2026-07-25" />
+ * @example <AddFoodCard ref={addFoodRef} selectedDate="2026-07-25" />
  */
-export function AddFoodCard({ selectedDate }: { selectedDate: string }) {
-  const form = useFoodLogEntryForm(selectedDate)
-  const selectedFood = useStore(form.store, (state) => state.values.selectedFood)
-  return (
-    <Card>
-      <VStack gap={3}>
-        <Heading level={2}>Add Food</Heading>
-        {selectedFood ? (
-          <SelectedFoodEntry
-            form={form}
-            food={selectedFood}
-            onCancel={() => form.reset()}
-          />
-        ) : (
-          <FoodSearchForm
-            onSelect={(food) => form.setFieldValue('selectedFood', food)}
-          />
-        )}
-      </VStack>
-    </Card>
-  )
-}
+export const AddFoodCard = forwardRef<AddFoodCardHandle, { selectedDate: string }>(
+  function AddFoodCard({ selectedDate }, ref) {
+    const form = useFoodLogEntryForm(selectedDate)
+    const selectedFood = useStore(form.store, (state) => state.values.selectedFood)
+    const searchFocusRef = useRef<() => void>(() => {})
+    useImperativeHandle(ref, () => ({
+      focusSearch: () => searchFocusRef.current(),
+    }))
+
+    return (
+      <Card>
+        <VStack gap={3}>
+          <Heading level={2}>Add Food</Heading>
+          {selectedFood ? (
+            <SelectedFoodEntry
+              form={form}
+              food={selectedFood}
+              onCancel={() => form.reset()}
+            />
+          ) : (
+            <FoodSearchForm
+              onSelect={(food) => form.setFieldValue('selectedFood', food)}
+              searchFocusRef={searchFocusRef}
+            />
+          )}
+        </VStack>
+      </Card>
+    )
+  },
+)
 
 /**
  * Entry form: holds the picked food plus the servings/meal-type fields the
@@ -191,7 +203,13 @@ function FoodSelectionSummary({ food }: { food: Food }) {
  * results without a "Search" button; the only useState here is the custom-food
  * toggle in {@link CustomFoodForm}.
  */
-function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
+function FoodSearchForm({
+  onSelect,
+  searchFocusRef,
+}: {
+  onSelect: (food: Food) => void
+  searchFocusRef: MutableRefObject<() => void>
+}) {
   const searchForm = useForm({
     defaultValues: { query: '' } as { query: string },
     onSubmit: async () => {
@@ -199,6 +217,8 @@ function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
     },
   })
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [customFoodOpen, setCustomFoodOpen] = useState(false)
+  searchFocusRef.current = () => searchInputRef.current?.focus()
   const query = useStore(searchForm.store, (state) => state.values.query)
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
   const searchState = useFoodSearchResults(debouncedQuery)
@@ -220,12 +240,13 @@ function FoodSearchForm({ onSelect }: { onSelect: (food: Food) => void }) {
       <FoodSearchResults
         searchState={searchState}
         onSelect={onSelect}
-        onClear={() => {
-          searchForm.reset()
-          searchInputRef.current?.focus()
-        }}
+        onCreateCustomFood={() => setCustomFoodOpen(true)}
       />
-      <CustomFoodForm onCreated={onSelect} />
+      <CustomFoodForm
+        onCreated={onSelect}
+        isOpen={customFoodOpen}
+        onOpenChange={setCustomFoodOpen}
+      />
     </VStack>
   )
 }
@@ -268,11 +289,11 @@ function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
 function FoodSearchResults({
   searchState,
   onSelect,
-  onClear,
+  onCreateCustomFood,
 }: {
   searchState: FoodSearchResultsState
   onSelect: (food: Food) => void
-  onClear: () => void
+  onCreateCustomFood: () => void
 }) {
   if (searchState.results.length > 0) {
     return (
@@ -291,9 +312,12 @@ function FoodSearchResults({
   if (!searchState.hasSearched) return null
   return (
     <EmptyState
+      icon={<span aria-hidden>🔍</span>}
       title="No foods found"
-      description="Try another search term or create a custom food."
-      actions={<Button label="Clear search" clickAction={onClear} />}
+      description="Try a different search or create a custom food."
+      actions={
+        <Button label="Create a custom food" variant="primary" clickAction={onCreateCustomFood} />
+      }
       headingLevel={3}
       isCompact
     />
@@ -304,21 +328,34 @@ function FoodSearchResults({
  * Wraps the custom-food editor behind a toggle so the long form only mounts
  * when the user opts in. `isOpen` is the one legitimate useState in this file.
  */
-function CustomFoodForm({ onCreated }: { onCreated: (food: Food) => void }) {
-  const [isOpen, setIsOpen] = useState(false)
+function CustomFoodForm({
+  onCreated,
+  isOpen: controlledOpen,
+  onOpenChange,
+}: {
+  onCreated: (food: Food) => void
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = controlledOpen ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   if (!isOpen) {
     return (
       <Button
         label="Create Custom Food"
         size="sm"
-        clickAction={() => setIsOpen(true)}
+        clickAction={() => setOpen(true)}
       />
     )
   }
   return (
     <CustomFoodEditor
-      onCreated={onCreated}
-      onCancel={() => setIsOpen(false)}
+      onCreated={(food) => {
+        onCreated(food)
+        setOpen(false)
+      }}
+      onCancel={() => setOpen(false)}
     />
   )
 }

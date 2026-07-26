@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -13,7 +14,7 @@ import {
   VStack,
 } from '@astryxdesign/core'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
-import { AddFoodCard } from '~/components/nutrition/AddFoodCard'
+import { AddFoodCard, type AddFoodCardHandle } from '~/components/nutrition/AddFoodCard'
 import { FoodLogCard } from '~/components/nutrition/FoodLogCard'
 import {
   getDailyTargets,
@@ -53,6 +54,7 @@ function NutritionPage() {
   const loaderData = Route.useLoaderData()
   const selectedDate = resolveSelectedDate(dateFromSearch)
   const navigate = useNavigate({ from: Route.fullPath })
+  const addFoodRef = useRef<AddFoodCardHandle>(null)
 
   const { data: summary } = useSuspenseQuery({
     queryKey: ['food-log', selectedDate],
@@ -82,9 +84,13 @@ function NutritionPage() {
       />
       <Grid columns={{ minWidth: 320, max: 2, repeat: 'fit' }} gap={4}>
         <DailySummaryCard totals={summary.totals} targets={targets} />
-        <AddFoodCard selectedDate={selectedDate} />
+        <AddFoodCard ref={addFoodRef} selectedDate={selectedDate} />
       </Grid>
-      <FoodLogCard entries={summary.entries} selectedDate={selectedDate} />
+      <FoodLogCard
+        entries={summary.entries}
+        selectedDate={selectedDate}
+        onAddMeal={() => addFoodRef.current?.focusSearch()}
+      />
     </VStack>
   )
 }

@@ -248,8 +248,16 @@ function ProgramsPage() {
       {programs.length === 0 ? (
         <Card>
           <EmptyState
-            title="No programs yet"
+            icon={<span aria-hidden>📋</span>}
+            title="No training programs"
             description="Create your first training program to structure your workouts."
+            actions={
+              <Button
+                label="Create a program"
+                variant="primary"
+                clickAction={() => setShowCreate(true)}
+              />
+            }
             headingLevel={2}
           />
         </Card>

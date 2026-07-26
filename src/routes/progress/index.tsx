@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   Grid,
@@ -142,7 +143,10 @@ function WeightHistoryCard({ bodyLogs }: { bodyLogs: BodyLog[] }) {
             isCompact
             icon={<span aria-hidden>⚖️</span>}
             title="No weight logs yet"
-            description="Log your weight in Settings to start tracking."
+            description="Log your weight in Settings to start tracking trends."
+            actions={
+              <Button label="Log your weight" variant="primary" href="/settings" />
+            }
           />
         ) : (
           <VStack gap={4}>

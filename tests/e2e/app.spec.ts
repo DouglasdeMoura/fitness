@@ -110,7 +110,7 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await expect(page.getByText(/Chicken/i).first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('user can clear an unsuccessful food search', async ({ page }) => {
+  test('user can open custom food form from an unsuccessful food search', async ({ page }) => {
     await openAppPage(page, '/nutrition')
     const searchInput = page.getByRole('textbox', { name: 'Search foods' })
     await searchInput.fill(`missing-food-${Date.now()}`)
@@ -118,10 +118,8 @@ test.describe('Nutrition - Food Logging Flow', () => {
     const noResults = page.getByRole('status').filter({ hasText: 'No foods found' })
     await expect(noResults).toBeVisible({ timeout: 10000 })
 
-    await page.getByRole('button', { name: 'Clear search', exact: true }).click()
-    await expect(searchInput).toHaveValue('')
-    await expect(searchInput).toBeFocused()
-    await expect(noResults).not.toBeVisible()
+    await page.getByRole('button', { name: 'Create a custom food', exact: true }).click()
+    await expect(page.getByLabel('Name')).toBeVisible()
   })
 
   test('user can create, log, and delete a custom food', async ({ page }) => {

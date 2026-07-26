@@ -57,21 +57,23 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogEntry>[] = [
 
 /**
  * Displays today's persisted food entries or guidance for the first entry.
- * @example <FoodLogCard entries={entries} selectedDate="2026-07-25" />
+ * @example <FoodLogCard entries={entries} selectedDate="2026-07-25" onAddMeal={focusSearch} />
  */
 export function FoodLogCard({
   entries,
   selectedDate,
+  onAddMeal,
 }: {
   entries: FoodLogEntry[]
   selectedDate: string
+  onAddMeal?: () => void
 }) {
   const deleteEntry = useDeleteFoodEntry(selectedDate)
   return (
     <Card>
       <VStack gap={3}>
         <Heading level={2}>Today&apos;s Food Log</Heading>
-        <FoodLogContent entries={entries} onDelete={deleteEntry} />
+        <FoodLogContent entries={entries} onDelete={deleteEntry} onAddMeal={onAddMeal} />
       </VStack>
     </Card>
   )
@@ -80,15 +82,23 @@ export function FoodLogCard({
 function FoodLogContent({
   entries,
   onDelete,
+  onAddMeal,
 }: {
   entries: FoodLogEntry[]
   onDelete: DeleteFoodEntry
+  onAddMeal?: () => void
 }) {
   if (entries.length === 0) {
     return (
       <EmptyState
+        icon={<span aria-hidden>🍽️</span>}
         title="No food logged yet"
         description="Search above to add your first meal today."
+        actions={
+          onAddMeal ? (
+            <Button label="Add your first meal" variant="primary" clickAction={onAddMeal} />
+          ) : undefined
+        }
         headingLevel={3}
         isCompact
       />
