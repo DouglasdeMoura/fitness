@@ -163,15 +163,20 @@ PROMPT_EOF
 
     # Run omp with this model
     # Capture output to check for connect errors (omp exits 0 even on provider errors)
-    # Disable set -e for this block since omp/timeout may return non-zero
+    # Disable set -e for this block since omp may return non-zero
     OUTPUT_FILE=$(mktemp)
     set +e
     # No timeout — let the model work as long as it needs. omp has its own
     # internal timeouts. Killing a working model mid-refactor is worse than
     # waiting. The verification step after will catch incomplete work.
-    omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" > "$OUTPUT_FILE" 2>&1
-    EXIT_CODE=$?
+    #
+    # tee shows live output on the terminal while saving to file for error detection.
+    echo "    ⏳ Working... (live output below)"
+    echo "    ─────────────────────────────────────────────────────────"
+    omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" 2>&1 | tee "$OUTPUT_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
     set -e
+    echo "    ─────────────────────────────────────────────────────────"
 
     # Check if the output contains error indicators
     # Check output content for errors
@@ -259,8 +264,8 @@ PROMPT_EOF
   # 1. Unit tests
   echo "  ▸ Running unit tests (Vitest)..."
   set +e
-  UNIT_OUTPUT=$(npm run test:unit 2>&1)
-  UNIT_EXIT=$?
+  UNIT_OUTPUT=$(npm run test:unit 2>&1 | tee /dev/stderr)
+  UNIT_EXIT=${PIPESTATUS[0]}
   set -e
   if [[ $UNIT_EXIT -eq 0 ]]; then
     UNIT_COUNT=$(echo "$UNIT_OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' || echo "?")
@@ -276,8 +281,8 @@ PROMPT_EOF
   # 2. Production build (skip e2e in the loop — too slow; run separately)
   echo "  ▸ Running production build..."
   set +e
-  BUILD_OUTPUT=$(npm run build 2>&1)
-  BUILD_EXIT=$?
+  BUILD_OUTPUT=$(npm run build 2>&1 | tee /dev/stderr)
+  BUILD_EXIT=${PIPESTATUS[0]}
   set -e
   if [[ $BUILD_EXIT -eq 0 ]]; then
     echo "    ✅ Build succeeded"
