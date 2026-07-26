@@ -155,3 +155,66 @@ test.describe('Install affordance in Settings (issue #48)', () => {
     await context.close()
   })
 })
+
+const APP_SHELL_ROUTES = ['/', '/nutrition', '/workout', '/progress', '/settings'] as const
+
+async function registerServiceWorker(page: Page): Promise<void> {
+  const registered = await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) return false
+    const registration = await navigator.serviceWorker.register('/sw.js')
+    await navigator.serviceWorker.ready
+    return Boolean(registration.active ?? registration.installing ?? registration.waiting)
+  })
+  expect(registered).toBe(true)
+}
+
+test.describe('Service worker and offline shell (issue #49)', () => {
+  test('service worker registers on first visit', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await registerServiceWorker(page)
+  })
+
+  test('manifest and icon assets resolve after service worker install', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await registerServiceWorker(page)
+
+    const manifestResponse = await request.get('/manifest.json')
+    expect(manifestResponse.status()).toBe(200)
+
+    const manifest = await manifestResponse.json()
+    for (const icon of manifest.icons as Array<{ src: string }>) {
+      expect((await request.get(icon.src)).status(), icon.src).toBe(200)
+    }
+  })
+
+  test('app shell routes load with the network offline after caching', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await registerServiceWorker(page)
+
+    for (const route of APP_SHELL_ROUTES) {
+      await page.goto(route)
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByRole('navigation', { name: 'FitTrack navigation' })).toBeVisible({
+        timeout: 15000,
+      })
+    }
+
+    await context.setOffline(true)
+
+    for (const route of APP_SHELL_ROUTES) {
+      await page.goto(route)
+      await expect(page.getByRole('navigation', { name: 'FitTrack navigation' })).toBeVisible({
+        timeout: 15000,
+      })
+    }
+  })
+})

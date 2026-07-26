@@ -3,6 +3,29 @@
 @import '@astryxdesign/theme-neutral/theme.css';
 
 @layer base {
+
+  /* WCAG 2.5.5 / Apple HIG — 44px minimum touch targets on phones (issue #49). */
+  :root {
+    --app-touch-target-min: var(--spacing-11);
+    /* WCAG 2.2 SC 1.4.3 — 4.5:1 on surface-neutral (#f1f1f1). */
+    --color-text-secondary: #525252;
+    --color-icon-secondary: #525252;
+  }
+
+  @media (max-width: 480px) {
+    button,
+    a[href],
+    input:not([type='hidden']),
+    select {
+      min-height: var(--app-touch-target-min);
+    }
+
+    button,
+    a[href] {
+      min-width: var(--app-touch-target-min);
+    }
+  }
+
   :root {
     --app-max-width: 1200px;
     --app-header-height: 64px;

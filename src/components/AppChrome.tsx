@@ -6,7 +6,7 @@ import { LinkProvider } from '@astryxdesign/core/Link'
 import { Theme } from '@astryxdesign/core/theme'
 import { ToastViewport } from '@astryxdesign/core/Toast'
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav'
-import { neutralTheme } from '@astryxdesign/theme-neutral'
+import { fittrackTheme } from '~/lib/fittrack-theme'
 import { useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { OfflineStatus } from '~/components/OfflineStatus'
@@ -39,7 +39,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   }, [colorMode, themeReady])
 
   return (
-    <Theme theme={neutralTheme} mode={colorMode}>
+    <Theme theme={fittrackTheme} mode={colorMode}>
       <LinkProvider component={RouterLink}>
         {/* ToastViewport hosts useToast() stacks for mutation feedback (issue #24). */}
         <ToastViewport position="bottomEnd" maxVisible={3}>
@@ -72,7 +72,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
                     tooltip="Toggle dark mode"
                     icon={<span aria-hidden>🌓</span>}
                     variant="ghost"
-                    size="sm"
+                    size="lg"
                     onClick={() => {
                       setColorMode((mode) => toggleColorMode(mode))
                     }}
