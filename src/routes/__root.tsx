@@ -8,14 +8,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppChrome } from '~/components/AppChrome'
 import appCss from '~/styles/app.css?url'
 
-const queryClient = new QueryClient({
+const QUERY_CLIENT_OPTIONS = {
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60,
       refetchOnWindowFocus: false,
     },
   },
-})
+} as const
 
 export const Route = createRootRoute({
   head: () => ({
@@ -47,6 +47,7 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const [queryClient] = React.useState(() => new QueryClient(QUERY_CLIENT_OPTIONS))
   return (
     <html lang="en">
       <head>

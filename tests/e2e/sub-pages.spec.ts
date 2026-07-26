@@ -93,6 +93,25 @@ test.describe("Training programs", () => {
     await page.getByRole("button", { name: "Save Program" }).click();
     await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
   });
+  test("hydrates updated program lists without stale server data", async ({ page }) => {
+    const programName = `E2E Hydration Program ${Date.now()}`;
+    await openAppPage(page, "/workout/programs");
+    await clickHydratedButton(page.getByRole("button", { name: "New Program" }));
+    await page.getByRole("textbox", { name: "Name" }).fill(programName);
+    await page.getByRole("button", { name: "Create Program" }).click();
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+
+    const hydrationErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      if (error.message.includes("server rendered text didn't match")) {
+        hydrationErrors.push(error.message);
+      }
+    });
+    await openAppPage(page, "/workout/programs");
+
+    await expect(page.getByText(programName, { exact: true })).toBeVisible();
+    expect(hydrationErrors).toEqual([]);
+  });
   test("starts the remaining day after an unsaved deletion", async ({ page }) => {
     const programName = `E2E Day Identity ${Date.now()}`;
     await openAppPage(page, "/workout/programs");
