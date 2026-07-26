@@ -107,10 +107,15 @@ Files: `src/lib/api.ts`, `src/routes/nutrition/templates/index.tsx`,
 **Goal**: never let "I don't know the exact food" become "I didn't log."
 
 - A "Quick add" action per meal: calories required, protein/carbs/fat optional.
-- Writes a `food_log` row with a null `food_id` and a user-supplied label, so
+- Writes a `food_log` row with a null `food_id` and a user-supplied name, so
   quick entries still count toward daily totals and macro progress.
-- Requires a nullable `food_id` and a `label` column on `food_log` — see the
-  migration note below.
+- **No schema change is needed.** `food_log.food_id` is already nullable and
+  `food_log.custom_name` already exists for exactly this purpose — both are
+  already threaded through `db.ts`, `sync.ts`, `nutrition.ts`, and the insert in
+  `api.ts`. The server write path is done; the remaining work is UI.
+- The real risk is on the **read** side: any query that inner-joins `foods` will
+  silently drop null-`food_id` rows, undercounting the user's calories. Audit
+  those paths and cover them with a unit test.
 - Display quick entries in the log with a distinguishing `Badge` so they are
   visibly less precise than database foods.
 
@@ -146,17 +151,21 @@ Files: `src/lib/db.ts`, `src/lib/api.ts`,
 ## Data Model Changes
 
 ```sql
--- Batch 4: quick-add entries have no catalogue food
-ALTER TABLE food_log ADD COLUMN label TEXT;          -- user label for quick adds
--- food_log.food_id must become nullable
+-- Batch 1: recency and frequency queries
+CREATE INDEX idx_food_log_user_date ON food_log(user_id, date DESC);
 
 -- Batch 5: barcode lookup
 ALTER TABLE foods ADD COLUMN barcode TEXT;
 CREATE INDEX idx_foods_barcode ON foods(barcode);
 
--- Batch 1: recency and frequency queries
-CREATE INDEX idx_food_log_user_date ON food_log(user_id, date DESC);
+-- Batch 4: NOTHING REQUIRED. food_log.food_id is already nullable and
+-- food_log.custom_name already exists. Adding a `label` column would
+-- duplicate custom_name.
 ```
+
+Note for any future nullability change: SQLite cannot alter a column's
+constraints with `ALTER COLUMN` — it requires the full create-copy-drop-rename
+table rebuild. Prefer reusing existing nullable columns over rebuilding.
 
 Sequencing note: PRD 07 migrates the data layer to Drizzle (issues #37–#41). If
 those land first, express these changes as Drizzle schema edits plus generated

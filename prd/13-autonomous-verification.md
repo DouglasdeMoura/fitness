@@ -61,6 +61,26 @@ inherit the obligation to state criteria in those terms.
 
 ---
 
+### 4. A run that did nothing was indistinguishable from a run that succeeded
+
+Nothing captured `HEAD` before dispatching the model, so an iteration producing
+no commit — rate-limited mid-run, crashed, or simply declined — left a clean
+tree. Unit tests, build, and e2e all pass on a clean tree, `git push` exits 0
+with nothing to push, and the close step read `git log -1`, which is the
+*previous* commit. The issue was then closed and credited to unrelated work.
+
+Two classification bugs compounded it: output containing `Error:` was treated as
+evidence of success, and the whole transcript was scanned for `quota` and
+`rate limit`, so a model that merely *wrote* those words while implementing a
+push service was misclassified as rate-limited and skipped for the session.
+
+Fixed: `HEAD_BEFORE` is captured before dispatch; a run with no commit and no
+worktree change classifies as `no_changes` and falls through to the next model;
+the close step requires a new commit from that iteration; provider-error patterns
+match error *shapes* (`429`, `quota exceeded`) in the last 20 lines only.
+
+---
+
 ## Batch 1: Run the Full Suite in the Loop
 
 **Goal**: verification means what it claims.

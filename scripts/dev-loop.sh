@@ -238,6 +238,15 @@ TEMPLATE_END
     MODEL="${MODELS[$i]}"
     echo "🤖 Trying model: $MODEL (index $i)"
 
+    # Remember where we started so we can prove the model actually did
+    # something. Without this, a model that produces nothing (rate-limited
+    # mid-run, crashed, or simply declined) leaves a clean tree — unit tests,
+    # build, and e2e all still pass, verification reports success, `git push`
+    # exits 0 with nothing to push, and the issue gets closed and credited to
+    # whatever commit happened to be HEAD already. An unattended run could
+    # close a whole queue of issues having implemented none of them.
+    HEAD_BEFORE=$(git rev-parse HEAD)
+
     # Run omp with this model
     # Capture output to check for connect errors (omp exits 0 even on provider errors)
     # Disable set -e for this block since omp may return non-zero
@@ -270,29 +279,43 @@ TEMPLATE_END
       fi
     fi
 
-    # Check if the output contains error indicators
-    # Check output content for errors
-    OUTPUT_CONTENT=$(cat "$OUTPUT_FILE")
-    if echo "$OUTPUT_CONTENT" | grep -qiE "resource_exhausted|rate.limit|quota"; then
+    # ─── Classify the run ────────────────────────────────────────────
+    #
+    # Provider errors are matched against the LAST FEW LINES, and against
+    # error-shaped patterns rather than bare keywords.
+    #
+    # Scanning the whole transcript for "quota" or "rate limit" misfires on a
+    # model that merely *wrote* those words — implementing a push service or an
+    # API client would classify a perfectly good run as rate-limited and then
+    # permanently skip that model for the rest of the session. Requiring the
+    # word to appear alongside an exceeded/exhausted/429 context keeps a model
+    # that summarises "added rate limit handling" from tripping it.
+    OUTPUT_TAIL=$(tail -20 "$OUTPUT_FILE")
+    HEAD_AFTER=$(git rev-parse HEAD)
+    WORKTREE_DIRTY=$(git status --porcelain)
+
+    if echo "$OUTPUT_TAIL" | grep -qiE "resource_exhausted|429|rate.?limit(ed)?([^a-z]+[a-z]+){0,3}[^a-z]+(exceed|reach|hit|error)|(exceed|exhaust)[a-z]*([^a-z]+[a-z]+){0,3}[^a-z]+quota|quota([^a-z]+[a-z]+){0,3}[^a-z]+(exceed|exhaust)"; then
       ERROR_TYPE="rate_limited"
-    elif echo "$OUTPUT_CONTENT" | grep -qiE "invalid_argument|bad.request"; then
+    elif echo "$OUTPUT_TAIL" | grep -qiE "invalid_argument|bad.request|\b400\b"; then
       ERROR_TYPE="invalid_argument"
-    elif echo "$OUTPUT_CONTENT" | grep -qiE "Use /login|API key"; then
+    elif echo "$OUTPUT_TAIL" | grep -qiE "Use /login|API key (not|is) |unauthoriz|\b401\b"; then
       ERROR_TYPE="needs_auth"
+    elif [[ "$HEAD_BEFORE" == "$HEAD_AFTER" && -z "$WORKTREE_DIRTY" ]]; then
+      # Nothing committed and nothing even edited. Whatever the exit code or the
+      # transcript claimed, there is no work here to verify — fall through to
+      # the next model rather than "verifying" an unchanged tree and closing the
+      # issue off the back of it.
+      ERROR_TYPE="no_changes"
     elif [[ $EXIT_CODE -eq 124 ]]; then
-      # Timeout - check if there's useful output despite timeout
-      if echo "$OUTPUT_CONTENT" | grep -qiE "feat\(|fix\(|refactor\(|commit|add"; then
-        ERROR_TYPE=""  # Model made progress, treat as success
-      else
-        ERROR_TYPE="timeout"
-      fi
+      ERROR_TYPE="timeout"
     elif [[ $EXIT_CODE -ne 0 ]]; then
-      # Non-zero exit but check if output has useful content
-      if echo "$OUTPUT_CONTENT" | grep -qiE "feat\(|fix\(|refactor\(|Error:|error:"; then
-        ERROR_TYPE=""  # Model produced output, treat as success
-      else
-        ERROR_TYPE="exit_code_$EXIT_CODE"
-      fi
+      # HEAD moved or files changed, so real work exists despite the non-zero
+      # exit. Let verification judge whether it is any good.
+      #
+      # This previously treated output containing "Error:" as evidence of
+      # success, so a model that crashed with an error message was recorded as
+      # a successful iteration.
+      ERROR_TYPE=""
     else
       ERROR_TYPE=""
     fi
@@ -438,7 +461,16 @@ TEMPLATE_END
     PUSH_EXIT=${PIPESTATUS[0]}
     set -e
 
-    if [[ $PUSH_EXIT -eq 0 ]]; then
+    # An iteration may verify clean while having produced no commit — the model
+    # edited files without committing, or committed nothing at all. Closing the
+    # issue here would credit it to whatever commit was already HEAD. Require a
+    # new commit from THIS iteration before touching the issue.
+    if [[ "$(git rev-parse HEAD)" == "$HEAD_BEFORE" ]]; then
+      echo "    ⚠️  No new commit this iteration — leaving issue #$ISSUE_NUM open"
+      if [[ -n "$(git status --porcelain)" ]]; then
+        echo "       Uncommitted changes are present; the next iteration will see them."
+      fi
+    elif [[ $PUSH_EXIT -eq 0 ]]; then
       COMMIT_SHA=$(git rev-parse --short HEAD)
       COMMIT_SUBJECT=$(git log -1 --format="%s")
       COMMIT_BODY=$(git log -1 --format="%B")

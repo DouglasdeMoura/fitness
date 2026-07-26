@@ -105,8 +105,13 @@ bookmark, and it depends on PRD 12's install correctness landing first.
   - Workout reminder on user-chosen days
   - Weekly review ready
 - All default to **off**. The user opts in per type.
-- Delivery for scheduled types needs a server-side scheduler; use the
-  `@platformatic/job-queue` dependency already named in PRD 00's stack table.
+- Delivery for scheduled types needs a server-side scheduler. **This does not
+  exist yet and is split into its own issue.** `@platformatic/job-queue` is named
+  in PRD 00's stack table but is not installed, and recurring delivery needs a
+  long-running process — whether one exists depends on the deployment target,
+  which is not yet decided. See "Scheduling: undecided" below.
+- Only user-triggered notifications (the test notification, and the rest timer
+  from PRD 10 Batch 2) are buildable without that decision.
 - Prune subscriptions on a `410 Gone` response from the push service.
 - iOS note: Web Push requires the PWA to be installed to the home screen
   (iOS 16.4+). Detect and explain rather than silently failing — if
@@ -154,9 +159,30 @@ CREATE TABLE notification_preferences (
 );
 ```
 
-Depends on `users` existing per-user, which is PRD 08 / issues #42–#44.
-Sequencing rule from PRD 09 applies: if Drizzle (PRD 07) lands first, express as
-schema edits.
+Scheduled delivery additionally needs a `notification_deliveries` table with a
+unique key on `(user_id, type, slot)` — without it an overlapping or retried
+scheduler run delivers the same reminder twice, which is the fastest way to get
+notifications permanently disabled by the user.
+
+Depends on `users` existing per-user, which is PRD 08 / issues #42–#44. Until
+those land, use the existing `ensureDefaultUser()` pattern; #44 carries it
+forward. Sequencing rule from PRD 09 applies: if Drizzle (PRD 07) lands first,
+express as schema edits.
+
+## Scheduling: undecided
+
+Recurring delivery needs a runtime this project does not have. The options and
+their trade-offs are recorded in the scheduled-delivery issue, and the chosen
+one must be written back into this PRD as part of that change. Summary:
+
+| Option | Fits when | Cost |
+|---|---|---|
+| In-process interval in the Nitro server | one always-on instance | trivial; breaks on scale-to-zero, double-fires with >1 instance |
+| `@platformatic/job-queue` on the SQLite DB | always-on, want retries | one dependency; matches the stack table |
+| External cron → authenticated endpoint | serverless or unknown hosting | needs a shared secret and an idempotency guard |
+
+Default to the external cron endpoint while the deployment target is unknown: it
+works everywhere, and an in-process timer can call the same endpoint later.
 
 ## Acceptance Criteria
 
