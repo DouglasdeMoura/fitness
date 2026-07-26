@@ -51,7 +51,7 @@ test.describe('Date navigation on nutrition and workout pages', () => {
     await openAppPage(page, `/workout?date=${EMPTY_HISTORY_DATE}`)
     await expect(page.getByRole('heading', { name: 'Workout', exact: true })).toBeVisible()
     await expect(page).toHaveURL(new RegExp(`date=${EMPTY_HISTORY_DATE.replace(/-/g, '\\-')}`))
-    await expect(page.getByText('No workouts logged yet.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No workouts yet', exact: true })).toBeVisible()
 
     await openAppPage(page, `/workout?date=${today}`)
     const todayRows = page.locator('table tbody tr')
@@ -61,7 +61,7 @@ test.describe('Date navigation on nutrition and workout pages', () => {
     }
 
     await openAppPage(page, `/workout?date=${EMPTY_HISTORY_DATE}`)
-    await expect(page.getByText('No workouts logged yet.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No workouts yet', exact: true })).toBeVisible()
 
     await clickHydratedButton(page.getByRole('button', { name: 'Today' }))
     await expect(page).toHaveURL(new RegExp(`date=${today.replace(/-/g, '\\-')}`))

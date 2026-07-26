@@ -331,7 +331,9 @@ test.describe('Progress - Analytics View', () => {
     await exerciseSelect.selectOption({ index: 1 })
     await page.getByRole('button', { name: 'Add Set' }).click()
     // Default weight/reps are pre-filled; persist the set so it counts toward volume.
-    await page.getByRole('button', { name: 'Save', exact: true }).first().click()
+    // The save button's accessible name comes from its Astryx `label` prop, which
+    // is indexed per set ("Save set 1"), not the "Save" text content.
+    await page.getByRole('button', { name: /^Save set \d+$/ }).first().click()
     await page.waitForTimeout(500)
 
     await openAppPage(page, '/progress')

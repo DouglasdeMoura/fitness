@@ -104,12 +104,22 @@ while true; do
       break
     fi
   else
-    # Get the lowest-numbered open issue (work in order).
+    # Pick the next issue to work on (PRD 13 Batch 5).
+    #
     # The limit must exceed the open-issue count: gh returns newest-first, so
     # sort_by(.number) only sees the fetched window. At --limit 20 with 26 open
     # issues the window was #26..#47, making #13/#16/#18/#23 permanently
     # unreachable — the loop could never pick them.
-    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 500 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
+    OPEN_ISSUES=$(gh issue list --state open --json number,title,body,labels --limit 500 2>/dev/null)
+
+    # Issue number encodes creation order, which has no relationship to value —
+    # so newly-filed high-value work would queue behind every historical
+    # refactor. Prefer 'priority'-labelled issues, then fall back to the
+    # lowest-numbered issue overall. Ordering stays deterministic either way.
+    ISSUE_DATA=$(echo "$OPEN_ISSUES" | jq -r '
+      [.[] | select(any(.labels[]?; .name == "priority"))] as $p
+      | (if ($p | length) > 0 then $p else . end)
+      | sort_by(.number) | .[0] // empty')
   fi
 
   if [[ -z "$ISSUE_DATA" ]]; then
@@ -162,6 +172,8 @@ Instructions:
 7. Run ALL tests and ensure they pass before committing:
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
+   - npm run test:e2e   (Playwright — the loop now verifies this too, so a
+                         failure here blocks the push and leaves the issue open)
 8. Commit your work with a conventional commit message.
    Include "Closes #__ISSUE_NUM__" in the commit body so GitHub links the issue.
    Example commit body format:
@@ -181,6 +193,27 @@ Important conventions:
 - Use createFileRoute for route definitions
 - Use useSuspenseQuery for data fetching
 - All calculations must be science-backed with citations in comments
+
+Mobile and accessibility requirements (PRD 12, PRD 13):
+- The primary device is a PHONE, installed as a PWA on the home screen.
+  Desktop is secondary. Verify your work at 390px viewport width.
+- No horizontal page scroll at 390px on any route. Wide tables scroll inside
+  their own container, never the document.
+- Every interactive element must be at least 44x44px (WCAG 2.5.5).
+- Zero critical or serious axe violations, in BOTH light and dark themes.
+- Use inputmode="decimal" for weight fields and inputmode="numeric" for reps.
+- Respect prefers-reduced-motion: no transitions when it is set.
+- Apply safe-area insets to fixed/sticky elements — the app sets
+  viewport-fit=cover, so content can otherwise sit under the notch.
+
+There is no human reviewing this work. Design requirements are enforced by
+tests, not by inspection:
+- No raw hex colours, no style={{}}, no layout <div>, no className in routes
+  or components. Use Astryx component props or token-backed utilities.
+- If a requirement in the issue is subjective ("premium", "calm", "hero
+  numbers"), implement it AND add a test asserting the measurable version of
+  it (computed font-size ratio, computed gap, contrast ratio). State in the
+  commit body which assertion covers which criterion.
 TEMPLATE_END
 
   # Substitute placeholders with bash pattern substitution — sed breaks on
@@ -340,7 +373,7 @@ TEMPLATE_END
     echo "$UNIT_OUTPUT" | grep -E "FAIL|×|✗" | head -5
   fi
 
-  # 2. Production build (skip e2e in the loop — too slow; run separately)
+  # 2. Production build
   echo "  ▸ Running production build..."
   set +e
   BUILD_OUTPUT=$(set -o pipefail; npm run build 2>&1 | tee /dev/stderr)
@@ -348,11 +381,42 @@ TEMPLATE_END
   set -e
   if [[ $BUILD_EXIT -eq 0 ]]; then
     echo "    ✅ Build succeeded"
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:passed"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:passed "
   else
     echo "    ❌ Build FAILED"
     VERIFICATION_PASSED=false
-    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:FAILED"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:FAILED "
+  fi
+
+  # 3. Browser e2e suite (PRD 13 Batch 1).
+  #
+  # This was previously skipped as "too slow", which left the Playwright specs
+  # the loop writes completely unexecuted — no interaction, mobile, or a11y
+  # regression could be caught before pushing to main. The rationale did not
+  # hold: the model call above has no timeout by design and runs for minutes,
+  # so the suite is rounding error against it.
+  #
+  # Only run when unit tests and build already passed — e2e against a broken
+  # build produces noise, not signal.
+  if $VERIFICATION_PASSED; then
+    echo "  ▸ Running browser e2e suite (Playwright)..."
+    set +e
+    E2E_OUTPUT=$(set -o pipefail; npm run test:e2e 2>&1 | tee /dev/stderr)
+    E2E_EXIT=$?
+    set -e
+    if [[ $E2E_EXIT -eq 0 ]]; then
+      E2E_COUNT=$(echo "$E2E_OUTPUT" | grep -oP '\K\d+(?= passed)' | tail -1 || echo "?")
+      echo "    ✅ E2E passed ($E2E_COUNT tests)"
+      VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:${E2E_COUNT}passed"
+    else
+      echo "    ❌ E2E FAILED"
+      VERIFICATION_PASSED=false
+      VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:FAILED"
+      echo "$E2E_OUTPUT" | grep -E "✘|failed|Error:" | head -8
+    fi
+  else
+    echo "  ▸ Skipping e2e (unit tests or build already failed)"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:skipped"
   fi
 
   echo ""

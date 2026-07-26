@@ -15,9 +15,30 @@ Individuals focused on performance and physique improvement who want:
 ## Core Principles
 
 1. **Science-first** - Every formula has a citation. No bro-science.
-2. **Privacy** - All data stored locally in SQLite. No cloud, no tracking.
-3. **Installable** - Works as a PWA, installable on any device.
-4. **Simple UX** - Fast food logging, effortless workout tracking.
+2. **Your data, not ours** - Server-side SQLite, per-user accounts, no
+   third-party analytics or trackers, no data sale, full export at any time.
+   Self-hostable as a single file database.
+3. **Installable** - A PWA installed to the phone home screen is the primary way
+   the app is used. Desktop is secondary.
+4. **Fast to log** - Logging a repeated meal or set must cost no more than two
+   taps. Adherence is the outcome that matters, and friction is what destroys it.
+
+### Note on principle 2
+
+This principle previously read *"All data stored locally in SQLite. No cloud, no
+tracking."* That was incompatible with the accounts, hosted deployment, and
+marketing site introduced in PRD 08 — a hosted multi-user web app cannot claim
+data never leaves the device.
+
+The architecture is settled as: **a hosted web app, a server-side SQLite
+database, per-user accounts via Better Auth, installed on the phone as a PWA.**
+Principle 2 is restated above to describe that honestly. The privacy commitment
+is real but narrower than "no cloud": no trackers, no third-party analytics, no
+data sale, full export, and a single-file database anyone can self-host.
+
+Offline still works — `src/lib/offline.ts` keeps a cached data bundle and an
+outbox of typed mutations with idempotency keys — but offline capability is not
+the same claim as local-only storage.
 
 ## Tech Stack
 
@@ -40,27 +61,56 @@ Individuals focused on performance and physique improvement who want:
 - [x] PWA manifest
 
 ### Phase 2: Enhanced Features
-- [ ] Meal planning and recipes
-- [ ] Training programs with periodization
-- [ ] Volume analysis per muscle group
-- [ ] Weekly/monthly nutrition reports
-- [ ] Custom food creation
-- [ ] Barcode scanner integration (camera API)
+- [x] Meal planning and recipes
+- [x] Training programs with periodization
+- [x] Volume analysis per muscle group
+- [x] Weekly/monthly nutrition reports
+- [x] Custom food creation
+- [ ] Barcode scanner integration (camera API) — PRD 09 Batch 5
 
-### Phase 3: Advanced
-- [ ] AI-powered meal suggestions
-- [ ] Auto-regulated training (RPE-based progression)
+### Phase 3: Make It Fast and Sticky (current priority)
+
+The MVP tracks everything and returns nobody. This phase is the product work
+that was missing from the roadmap: reduce logging cost, close the training loop,
+and give the user a reason to come back.
+
+- [ ] Logging velocity — recent/frequent foods, copy yesterday, one-tap
+      templates, quick add, barcode — **PRD 09**
+- [ ] Training loop — last-time context on free-form sets, rest timer, PR
+      detection, session summary — **PRD 10**
+- [ ] Consistency and retention — adherence tracking, weekly review, Web Push
+      notifications — **PRD 11**
+- [ ] Mobile and PWA hardening — installable icons, safe areas, gym-grade touch
+      targets, mobile + a11y test infrastructure — **PRD 12**
+- [ ] Autonomous verification harness — e2e in the loop, design gates as tests,
+      priority-ordered issue selection — **PRD 13**
+
+### Phase 4: Advanced
+- [ ] Auto-regulated training (extend RPE progression to full autoregulation)
 - [ ] Sleep and recovery tracking
 - [ ] Supplements log
-- [ ] Export/import data (CSV/JSON)
-- [ ] Multi-user support
+- [ ] AI-powered meal suggestions
+- [x] Export data (JSON)
+- [ ] Import data (CSV/JSON)
 
-### Phase 4: Polish
+### Phase 5: Polish
 - [x] Offline-first service worker
-- [ ] Push notifications (meal reminders)
-- [ ] Dark mode toggle
+- [x] Dark mode
 - [ ] Internationalization
-- [ ] Comprehensive test suite
+- [ ] Comprehensive test suite (mobile + a11y coverage via PRD 12/13)
+
+## Working Method
+
+Every issue is implemented, verified, and closed by `scripts/dev-loop.sh` with no
+human in the path. This has a direct consequence for how requirements are
+written:
+
+> **A requirement must be expressed as a measurable assertion.** If a criterion
+> cannot be checked by a test, it is rewritten until it can, or dropped.
+
+Subjective goals ("premium", "calm", "numbers are heroes") are translated into
+computed-style and source-scan gates. PRD 13 builds that harness and PRD 12
+Batch 4 supplies the mobile and accessibility coverage it needs.
 
 ## Science References
 

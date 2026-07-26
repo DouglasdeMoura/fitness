@@ -256,13 +256,17 @@ export const getWorkoutSessions = createServerFn({ method: 'GET' })
     const db = getDb()
     const user = await ensureDefaultUser()
     const limit = ctx.data?.limit || 30
+    // `date` is a day string, so every session logged today compares equal and
+    // SQLite is free to return them in any order — the recent-sessions list
+    // could show this morning's workout above the one just finished. The id
+    // tiebreaker makes "most recent first" actually true within a day.
     if (ctx.data?.date) {
       return db.prepare(
-        'SELECT * FROM workout_sessions WHERE user_id = ? AND date = ? ORDER BY date DESC'
+        'SELECT * FROM workout_sessions WHERE user_id = ? AND date = ? ORDER BY date DESC, id DESC'
       ).all(user.id, ctx.data.date) as WorkoutSession[]
     }
     return db.prepare(
-      'SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY date DESC LIMIT ?'
+      'SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?'
     ).all(user.id, limit) as WorkoutSession[]
   })
 
