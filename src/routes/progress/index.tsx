@@ -91,7 +91,7 @@ function ProgressPageContent() {
   })
 
   return (
-    <VStack as="main" gap={4}>
+    <VStack as="main" gap={6}>
       <Heading level={1}>Progress</Heading>
       <ProgressStatCards
         bodyLogs={bodyLogs}
@@ -120,7 +120,7 @@ function ProgressStatCards({
       <Card>
         <VStack gap={1}>
           <Text type="label">Weight Trend</Text>
-          <Text size="2xl" weight="bold" hasTabularNumbers>
+          <Text size="4xl" weight="bold" hasTabularNumbers>
             {trend ? `${trend.last.toFixed(1)} kg` : '—'}
           </Text>
           {changeTone && trend && (
@@ -135,7 +135,7 @@ function ProgressStatCards({
       <Card>
         <VStack gap={1}>
           <Text type="label">Workouts (90d)</Text>
-          <Text size="2xl" weight="bold" hasTabularNumbers>
+          <Text size="4xl" weight="bold" hasTabularNumbers>
             {workoutCount}
           </Text>
         </VStack>
@@ -144,7 +144,7 @@ function ProgressStatCards({
       <Card>
         <VStack gap={1}>
           <Text type="label">Avg per Week</Text>
-          <Text size="2xl" weight="bold" hasTabularNumbers>
+          <Text size="4xl" weight="bold" hasTabularNumbers>
             {perWeek.toFixed(1)}
           </Text>
         </VStack>

@@ -87,7 +87,7 @@ function NutritionPageContent() {
   }
 
   return (
-    <VStack as="main" gap={4}>
+    <VStack as="main" gap={6}>
       <NutritionHeader
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
@@ -139,7 +139,7 @@ function DailySummaryCard({
       <VStack gap={3}>
         <Heading level={2}>Daily Summary</Heading>
         <HStack gap={1} vAlign="end">
-          <Text size="3xl" weight="bold" hasTabularNumbers>
+          <Text size="4xl" weight="bold" hasTabularNumbers>
             {Math.round(totals.calories)}
           </Text>
           <Text type="supporting">/ {targets.calories} kcal</Text>

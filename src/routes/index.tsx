@@ -58,7 +58,7 @@ function DashboardPageContent() {
   const calorieState = macroProgress(consumed.calories, targets.calories, 'accent')
 
   return (
-    <VStack as="main" gap={4}>
+    <VStack as="main" gap={6}>
       <VStack gap={1}>
         <Heading level={1}>Dashboard</Heading>
         <Text type="supporting">{today}</Text>
@@ -69,7 +69,7 @@ function DashboardPageContent() {
           <VStack gap={3}>
             <Text type="label">Today&apos;s Calories</Text>
             <HStack gap={1} vAlign="baseline">
-              <Text size="3xl" weight="bold">
+              <Text size="4xl" weight="bold">
                 {Math.round(consumed.calories)}
               </Text>
               <Text type="supporting">

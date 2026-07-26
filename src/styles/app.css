@@ -377,4 +377,17 @@
     margin: 6px 0;
   }
 
+
+  /* Respect prefers-reduced-motion (PRD 12 / issue #50 design gate). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0s !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
 }

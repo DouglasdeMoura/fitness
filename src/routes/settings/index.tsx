@@ -132,7 +132,7 @@ function SettingsPageContent() {
   }
 
   return (
-    <VStack as="main" gap={4}>
+    <VStack as="main" gap={6}>
       <Heading level={1}>Settings</Heading>
 
       <Card>
