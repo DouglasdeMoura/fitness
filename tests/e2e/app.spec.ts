@@ -263,26 +263,70 @@ test.describe('Settings - Profile Configuration', () => {
 })
 
 test.describe('Progress - Analytics View', () => {
-  test('user can navigate to progress page', async ({ page }) => {
+  test('user can navigate to progress page and see its heading', async ({ page }) => {
     await waitForAppReady(page)
     await nav(page).getByRole('link', { name: 'Progress' }).click()
     await expect(page).toHaveURL(/\/progress/)
+    await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible()
   })
 
-  test('shows weekly volume analysis section with Schoenfeld reference', async ({ page }) => {
+  test('renders the three summary stat cards from migrated Card components', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.locator('.card-title:has-text("Weekly Volume")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('text=Schoenfeld')).toBeVisible()
+    await expect(page.getByText('Weight Trend', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Workouts (90d)', { exact: true })).toBeVisible()
+    await expect(page.getByText('Avg per Week', { exact: true })).toBeVisible()
+  })
+
+  test('shows weight history section with either the chart or empty guidance', async ({ page }) => {
+    await openAppPage(page, '/progress')
+    await expect(page.getByRole('heading', { name: 'Weight History' })).toBeVisible({ timeout: 10000 })
+    // No body logs on a fresh database -> EmptyState guidance; otherwise the SVG renders.
+    const empty = page.getByText('No weight logs yet')
+    const chart = page.getByRole('img', { name: 'Weight trend line chart' })
+    await expect(empty.or(chart).first()).toBeVisible()
+  })
+
+  test('shows weekly volume analysis section with the Schoenfeld reference', async ({ page }) => {
+    await openAppPage(page, '/progress')
+    await expect(page.getByRole('heading', { name: /Weekly Volume/ })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Schoenfeld/)).toBeVisible()
   })
 
   test('shows weekly nutrition summary section', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.locator('.card-title:has-text("Weekly Nutrition")')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /Weekly Nutrition/ })).toBeVisible({ timeout: 10000 })
   })
 
-  test('shows weight history section', async ({ page }) => {
+  test('logged workout volume renders as a ProgressBar on the progress page', async ({ page }) => {
+    // Drive the (still custom-CSS) workout UI to log one set, mirroring the
+    // Workout suite's resilient flow. The saved set lands inside the 7-day
+    // window getWeeklyVolume reads, so it must surface as a ProgressBar here.
+    await openAppPage(page, '/workout')
+    const finishBtn = page.locator('button:has-text("Finish")')
+    if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await finishBtn.click()
+      await page.waitForTimeout(500)
+    }
+    const startBtn = page.locator('button:has-text("Start Workout")')
+    if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await startBtn.click()
+    }
+    await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible({ timeout: 10000 })
+
+    const exerciseSelect = page.locator('select').first()
+    const optionCount = await exerciseSelect.locator('option').count()
+    test.skip(optionCount <= 1, 'no exercisable option available to log a set')
+
+    await exerciseSelect.selectOption({ index: 1 })
+    await page.getByRole('button', { name: 'Add Set' }).click()
+    // Default weight/reps are pre-filled; persist the set so it counts toward volume.
+    await page.getByRole('button', { name: 'Save', exact: true }).first().click()
+    await page.waitForTimeout(500)
+
     await openAppPage(page, '/progress')
-    await expect(page.locator('.card-title:has-text("Weight History")')).toBeVisible({ timeout: 10000 })
+    await expect(
+      page.getByRole('progressbar', { name: /weekly volume/i }),
+    ).toBeVisible({ timeout: 10000 })
   })
 })
 
