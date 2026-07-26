@@ -7,12 +7,15 @@
 # on them, learns from each iteration, and improves prompts over time.
 #
 # Usage:
-#   npm run dev-loop                  # Run one iteration
-#   npm run dev-loop -- --max 5       # Run up to 5 iterations
-#   npm run dev-loop -- --dry-run     # Show what would be done
+#   npm run dev-loop                        # Run until all issues closed
+#   npm run dev-loop -- --max 5             # Run up to 5 iterations
+#   npm run dev-loop -- --dry-run           # Show what would be done
+#   npm run dev-loop -- --issue 11          # Work on specific issue
 #
-# Models are tried in order from most powerful to least powerful.
-# When a model hits its rate limit, the script falls back to the next.
+# Without --max, the loop runs indefinitely until one of these:
+#   1. No open issues remain (everything is done)
+#   2. All models fail (no tokens left or quota exhausted)
+#   3. The script is killed (Ctrl+C)
 #
 set -euo pipefail
 
@@ -21,7 +24,7 @@ cd "$REPO_DIR"
 
 LEARNINGS_FILE="$REPO_DIR/.dev-loop/learnings.json"
 STATE_FILE="$REPO_DIR/.dev-loop/state.json"
-MAX_ITERATIONS=1
+MAX_ITERATIONS=0  # 0 = unlimited (run until done or killed)
 DRY_RUN=false
 ISSUE_NUMBER=""
 
@@ -76,9 +79,18 @@ echo ""
 # so a model that was exhausted yesterday may work today.
 MODEL_INDEX=0
 
-for ((iter=1; iter<=MAX_ITERATIONS; iter++)); do
+iter=0
+while true; do
+  iter=$((iter + 1))
+  if [[ $MAX_ITERATIONS -gt 0 && $iter -gt $MAX_ITERATIONS ]]; then
+    break
+  fi
   echo ""
-  echo "━━━ Iteration $iter/$MAX_ITERATIONS ━━━"
+  if [[ $MAX_ITERATIONS -gt 0 ]]; then
+    echo "━━━ Iteration $iter/$MAX_ITERATIONS ━━━"
+  else
+    echo "━━━ Iteration $iter (unlimited — Ctrl+C to stop) ━━━"
+  fi
   echo ""
 
   # Pick an issue to work on
