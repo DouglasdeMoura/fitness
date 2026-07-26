@@ -104,8 +104,12 @@ while true; do
       break
     fi
   else
-    # Get the lowest-numbered open issue (work in order)
-    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 20 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
+    # Get the lowest-numbered open issue (work in order).
+    # The limit must exceed the open-issue count: gh returns newest-first, so
+    # sort_by(.number) only sees the fetched window. At --limit 20 with 26 open
+    # issues the window was #26..#47, making #13/#16/#18/#23 permanently
+    # unreachable — the loop could never pick them.
+    ISSUE_DATA=$(gh issue list --state open --json number,title,body --limit 500 2>/dev/null | jq -r 'sort_by(.number) | .[0] // empty')
   fi
 
   if [[ -z "$ISSUE_DATA" ]]; then
