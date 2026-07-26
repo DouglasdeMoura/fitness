@@ -131,6 +131,21 @@ while true; do
   ISSUE_TITLE=$(echo "$ISSUE_DATA" | jq -r '.title')
   ISSUE_BODY=$(echo "$ISSUE_DATA" | jq -r '.body // "No description"')
 
+  # Re-check the issue is still open immediately before spending a model call on
+  # it. The list query can be stale — GitHub's auto-close lags a push by minutes,
+  # so an issue completed moments ago still appears open. Dispatching against it
+  # wastes a model call, and because a correct model then changes nothing, each
+  # no-op counts as a failure and the exhausted chain breaks the entire loop.
+  # Skipping costs one cheap API call per iteration.
+  FRESH_STATE=$(gh issue view "$ISSUE_NUM" --json state -q .state 2>/dev/null || echo "")
+  if [[ "$FRESH_STATE" != "OPEN" && -n "$FRESH_STATE" ]]; then
+    # Back off before re-querying: the list can stay stale for a few minutes, and
+    # skipping without a pause would hot-spin on the API until it catches up.
+    echo "⏭️  Issue #$ISSUE_NUM is $FRESH_STATE (list was stale) — skipping"
+    sleep 5
+    continue
+  fi
+
   echo "📋 Issue #$ISSUE_NUM: $ISSUE_TITLE"
   echo ""
 
@@ -478,11 +493,38 @@ TEMPLATE_END
       # Close the issue now that its deliverable is verified and pushed.
       # Without this the loop re-picks completed issues every iteration — issue
       # #15 was being re-selected after its Astryx migration already landed.
+      #
       # GitHub auto-closes when the pushed commit BODY (not just the subject,
-      # which is all %s shows) references the issue with a closing keyword.
+      # which is all %s shows) references the issue with a closing keyword — but
+      # that is ASYNCHRONOUS and lags the push. #24 was pushed at 21:08:18 and
+      # GitHub did not close it until 21:10:58, a 2m40s gap. The next iteration
+      # queried open issues inside that window, re-picked the issue it had just
+      # finished, and burned most of the model chain on it: every model correctly
+      # declined to change anything, each no-op counted as a failure, and the
+      # chain exhausting would have broken the whole loop.
+      #
+      # So never trust auto-close. Wait for it briefly, then close explicitly if
+      # GitHub has not caught up. Closing an already-closed issue is a no-op.
       if echo "$COMMIT_BODY" | grep -qiE "(closes?|closed|fixes?|fixed|resolves?|resolved) #$ISSUE_NUM\b"; then
-        echo "    ✅ Issue #$ISSUE_NUM will auto-close (commit body references it)"
+        echo -n "  ▸ Commit references #$ISSUE_NUM; waiting for GitHub auto-close"
+        ISSUE_STATE=""
+        for _ in $(seq 1 10); do
+          ISSUE_STATE=$(gh issue view "$ISSUE_NUM" --json state -q .state 2>/dev/null || echo "")
+          [[ "$ISSUE_STATE" == "CLOSED" ]] && break
+          echo -n "."
+          sleep 3
+        done
+        echo ""
+        if [[ "$ISSUE_STATE" == "CLOSED" ]]; then
+          echo "    ✅ Issue #$ISSUE_NUM auto-closed"
+        else
+          echo "    ⚠️  Auto-close has not landed after 30s — closing explicitly"
+        fi
       else
+        ISSUE_STATE="OPEN"
+      fi
+
+      if [[ "$ISSUE_STATE" != "CLOSED" ]]; then
         echo "  ▸ Closing issue #$ISSUE_NUM with commit $COMMIT_SHA..."
         gh issue close "$ISSUE_NUM" \
           --comment "Completed in commit [$COMMIT_SHA](https://github.com/DouglasdeMoura/fitness/commit/$COMMIT_SHA): $COMMIT_SUBJECT
