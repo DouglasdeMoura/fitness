@@ -21,6 +21,7 @@ import {
   getWeeklyVolume,
   getWeeklyNutrition,
   type MuscleVolume,
+  type WeeklyNutritionReport,
 } from '~/lib/api'
 import type { BodyLog } from '~/lib/db'
 import {
@@ -277,10 +278,7 @@ function VolumeRow({ volume }: { volume: MuscleVolume }) {
 function WeeklyNutritionCard({
   weekly,
 }: {
-  weekly: {
-    daily: unknown[]
-    avg: { calories: number; protein_g: number; carbs_g: number; fat_g: number }
-  }
+  weekly: WeeklyNutritionReport
 }) {
   const hasData = weekly.daily.length > 0
   return (

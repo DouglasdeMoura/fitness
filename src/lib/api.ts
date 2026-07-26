@@ -936,7 +936,22 @@ export const getWeeklyVolume = createServerFn({ method: 'GET' }).handler(async (
 
 // --- Weekly Nutrition Reports ---
 
-export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(async () => {
+export type WeeklyNutritionDay = {
+  date: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  entries: number
+}
+
+export type WeeklyNutritionReport = {
+  daily: WeeklyNutritionDay[]
+  totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number; days: number }
+  avg: { calories: number; protein_g: number; carbs_g: number; fat_g: number }
+}
+
+export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(async (): Promise<WeeklyNutritionReport> => {
   const db = getDb()
   const user = await ensureDefaultUser()
 
@@ -951,14 +966,7 @@ export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(asyn
      WHERE user_id = ? AND date >= date('now', '-7 days')
      GROUP BY date
      ORDER BY date DESC`
-  ).all(user.id) as Array<{
-    date: string
-    calories: number
-    protein_g: number
-    carbs_g: number
-    fat_g: number
-    entries: number
-  }>
+  ).all(user.id) as WeeklyNutritionDay[]
 
   const totals = rows.reduce(
     (acc, r) => ({
