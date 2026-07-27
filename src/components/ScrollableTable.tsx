@@ -9,7 +9,7 @@ type ScrollableTableProps = {
 
 /**
  * Keeps wide tables scrollable inside their own region at phone widths (issue #53).
- * Scroll styling lives in app.css — StyleX runtime create() is not compiled here.
+ * Uses nested Section regions with data attributes for mobile overflow (issue #53).
  * @example <ScrollableTable scrollLabel="food-log"><Table ... /></ScrollableTable>
  */
 export function ScrollableTable({ scrollLabel, children }: ScrollableTableProps) {

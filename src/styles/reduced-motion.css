@@ -1,0 +1,11 @@
+/* Global reduced-motion reset (PRD 12 / issue #50). Loaded from __root.tsx — not app.css (issue #16). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
