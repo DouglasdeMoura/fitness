@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getStoredTheme, isNavSelected } from '~/lib/app-chrome'
+import { getStoredTheme, isNavSelected, isWorkoutRoute, navValueFromPath } from '~/lib/app-chrome'
+
+const NAV_ITEMS = [
+  { href: '/' },
+  { href: '/nutrition' },
+  { href: '/workout' },
+  { href: '/progress' },
+  { href: '/settings' },
+] as const
 
 describe('isNavSelected', () => {
   it('selects Dashboard only on the exact home path', () => {
@@ -18,6 +26,25 @@ describe('isNavSelected', () => {
   it('does not treat sibling prefixes as selected', () => {
     expect(isNavSelected('/workout-extra', '/workout')).toBe(false)
     expect(isNavSelected('/progress', '/workout')).toBe(false)
+  })
+})
+
+describe('navValueFromPath', () => {
+  it('maps nested routes to their primary section', () => {
+    expect(navValueFromPath('/nutrition/templates', NAV_ITEMS)).toBe('/nutrition')
+    expect(navValueFromPath('/workout/programs', NAV_ITEMS)).toBe('/workout')
+  })
+
+  it('defaults unknown paths to dashboard', () => {
+    expect(navValueFromPath('/unknown', NAV_ITEMS)).toBe('/')
+  })
+})
+
+describe('isWorkoutRoute', () => {
+  it('matches workout index and nested workout pages', () => {
+    expect(isWorkoutRoute('/workout')).toBe(true)
+    expect(isWorkoutRoute('/workout/programs')).toBe(true)
+    expect(isWorkoutRoute('/nutrition')).toBe(false)
   })
 })
 

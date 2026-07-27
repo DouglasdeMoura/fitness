@@ -13,3 +13,22 @@ export function isNavSelected(pathname: string, href: string, exact?: boolean): 
   if (exact) return pathname === href
   return pathname === href || pathname.startsWith(`${href}/`)
 }
+
+/** TabList value for the active primary route (issue #52 mobile bottom nav). */
+export function navValueFromPath(
+  pathname: string,
+  items: ReadonlyArray<{ href: string }>,
+): string {
+  if (pathname === '/') return '/'
+  const match = items.find(
+    (item) =>
+      item.href !== '/' &&
+      (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+  )
+  return match?.href ?? '/'
+}
+
+/** Workout routes reserve space for the PRD 10 Batch 2 rest timer. */
+export function isWorkoutRoute(pathname: string): boolean {
+  return pathname === '/workout' || pathname.startsWith('/workout/')
+}

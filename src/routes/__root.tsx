@@ -57,7 +57,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body data-viewport-fit="cover">
         <QueryClientProvider client={queryClient}>
           <AppChrome>{children}</AppChrome>
           <Scripts />

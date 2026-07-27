@@ -28,7 +28,7 @@ export default defineConfig({
       // Mobile navigation specs belong with the bottom-nav change itself.
       name: 'pixel-7',
       use: { ...devices['Pixel 7'] },
-      testMatch: /(mobile-layout|a11y|pwa-install)\.spec\.ts/,
+      testMatch: /(mobile-layout|mobile-nav|a11y|pwa-install)\.spec\.ts/,
     },
     // No iphone-14 / WebKit project: Playwright's WebKit build cannot run on
     // this host. The binary installs, but launching it needs libicu74 and
