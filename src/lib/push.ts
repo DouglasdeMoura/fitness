@@ -8,6 +8,7 @@
 
 import type Database from 'better-sqlite3'
 import { isIosDevice } from './pwa-install'
+import type { NotificationType } from './notification-preferences'
 
 // --- Types ---
 
@@ -330,6 +331,93 @@ export async function unsubscribeBrowserPush(): Promise<string | null> {
   await subscription.unsubscribe()
   return endpoint
 }
+
+
+// --- Scheduled reminder delivery (issue #67) ---
+
+export type ScheduledNotificationType = Exclude<NotificationType, 'rest_timer'>
+
+export const SCHEDULED_NOTIFICATION_TYPES: ScheduledNotificationType[] = [
+  'meal_reminder',
+  'workout_reminder',
+  'weekly_review',
+]
+
+export const MEAL_REMINDER_PAYLOAD: PushPayload = {
+  title: 'Meal reminder',
+  body: 'Log what you ate to keep your nutrition streak going.',
+  tag: 'fittrack-meal-reminder',
+  url: '/nutrition',
+}
+
+export const WORKOUT_REMINDER_PAYLOAD: PushPayload = {
+  title: 'Workout reminder',
+  body: 'Time to train — open FitTrack to start your session.',
+  tag: 'fittrack-workout-reminder',
+  url: '/workout',
+}
+
+export const WEEKLY_REVIEW_PAYLOAD: PushPayload = {
+  title: 'Weekly review ready',
+  body: 'See how last week went — adherence, volume, and PRs.',
+  tag: 'fittrack-weekly-review',
+  url: '/review',
+}
+
+/** Push body for a scheduled reminder type. */
+export function reminderPayloadForType(type: ScheduledNotificationType): PushPayload {
+  switch (type) {
+    case 'meal_reminder':
+      return MEAL_REMINDER_PAYLOAD
+    case 'workout_reminder':
+      return WORKOUT_REMINDER_PAYLOAD
+    case 'weekly_review':
+      return WEEKLY_REVIEW_PAYLOAD
+    default: {
+      const exhaustive: never = type
+      throw new Error(`Unknown scheduled notification type: ${exhaustive}`)
+    }
+  }
+}
+
+/**
+ * Stable idempotency key for the current schedule minute.
+ * @example notificationSlotForNow(new Date('2026-01-05T12:00:00')) // '2026-01-05:12:00'
+ */
+export function notificationSlotForNow(now: Date): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}:${hours}:${minutes}`
+}
+
+/**
+ * Claim a delivery slot before sending. Returns false when another run already claimed it.
+ */
+export function tryClaimNotificationDelivery(
+  db: Database.Database,
+  userId: number,
+  type: ScheduledNotificationType,
+  slot: string,
+): boolean {
+  const deliveredAt = new Date().toISOString()
+  const result = db
+    .prepare(
+      `INSERT INTO notification_deliveries (user_id, type, slot, delivered_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, type, slot) DO NOTHING`,
+    )
+    .run(userId, type, slot, deliveredAt)
+  return result.changes > 0
+}
+
+export function listUserIds(db: Database.Database): number[] {
+  const rows = db.prepare('SELECT id FROM users ORDER BY id').all() as Array<{ id: number }>
+  return rows.map((row) => row.id)
+}
+
 
 // --- Reminder preferences (issue #66) ---
 

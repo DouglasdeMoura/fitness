@@ -60,6 +60,17 @@ function runMigrations(db: Database.Database) {
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id, id DESC)',
   )
+
+  // Scheduled push delivery idempotency (issue #67).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notification_deliveries (
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      type TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      delivered_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, type, slot)
+    )
+  `)
 }
 
 export function getDb(): Database.Database {
@@ -259,4 +270,12 @@ export type NotificationPreferencesRow = {
   weekly_review_time: string | null
   quiet_start: string | null
   quiet_end: string | null
+}
+
+/** One successful scheduled reminder send per user/type/slot (issue #67). */
+export type NotificationDeliveryRow = {
+  user_id: number
+  type: string
+  slot: string
+  delivered_at: string
 }

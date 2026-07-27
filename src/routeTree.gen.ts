@@ -15,6 +15,7 @@ import { Route as ProgressIndexRouteImport } from './routes/progress/index'
 import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
+import { Route as ApiCronNotificationsRouteImport } from './routes/api/cron/notifications'
 import { Route as NutritionPlanningIndexRouteImport } from './routes/nutrition/planning/index'
 import { Route as NutritionTemplatesIndexRouteImport } from './routes/nutrition/templates/index'
 import { Route as NutritionTemplatesTemplateIdRouteImport } from './routes/nutrition/templates/$templateId'
@@ -49,6 +50,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
 const WorkoutIndexRoute = WorkoutIndexRouteImport.update({
   id: '/workout/',
   path: '/workout/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronNotificationsRoute = ApiCronNotificationsRouteImport.update({
+  id: '/api/cron/notifications',
+  path: '/api/cron/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutritionPlanningIndexRoute = NutritionPlanningIndexRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
   '/nutrition/planning/': typeof NutritionPlanningIndexRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workout': typeof WorkoutIndexRoute
+  '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
   '/nutrition/planning': typeof NutritionPlanningIndexRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
   '/nutrition/planning/': typeof NutritionPlanningIndexRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/review/'
     | '/settings/'
     | '/workout/'
+    | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
     | '/nutrition/planning/'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/workout'
+    | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
     | '/nutrition/planning'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/review/'
     | '/settings/'
     | '/workout/'
+    | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
     | '/nutrition/planning/'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   ReviewIndexRoute: typeof ReviewIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
+  ApiCronNotificationsRoute: typeof ApiCronNotificationsRoute
   NutritionTemplatesTemplateIdRoute: typeof NutritionTemplatesTemplateIdRoute
   WorkoutProgramsProgramIdRoute: typeof WorkoutProgramsProgramIdRoute
   NutritionPlanningIndexRoute: typeof NutritionPlanningIndexRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkoutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/notifications': {
+      id: '/api/cron/notifications'
+      path: '/api/cron/notifications'
+      fullPath: '/api/cron/notifications'
+      preLoaderRoute: typeof ApiCronNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/nutrition/planning/': {
       id: '/nutrition/planning/'
       path: '/nutrition/planning'
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewIndexRoute: ReviewIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
+  ApiCronNotificationsRoute: ApiCronNotificationsRoute,
   NutritionTemplatesTemplateIdRoute: NutritionTemplatesTemplateIdRoute,
   WorkoutProgramsProgramIdRoute: WorkoutProgramsProgramIdRoute,
   NutritionPlanningIndexRoute: NutritionPlanningIndexRoute,

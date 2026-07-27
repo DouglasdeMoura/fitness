@@ -231,3 +231,12 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   quiet_start TEXT,
   quiet_end TEXT
 );
+
+-- Idempotent scheduled reminder delivery (issue #67 / PRD 11 Batch 3)
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  type TEXT NOT NULL,
+  slot TEXT NOT NULL,
+  delivered_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, type, slot)
+);

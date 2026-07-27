@@ -27,7 +27,7 @@ class WebPushNotificationClient implements PushNotificationClient {
   }
 }
 
-const webPushClient = new WebPushNotificationClient()
+export const webPushClient = new WebPushNotificationClient()
 
 export async function deliverPushToUser(
   db: import('better-sqlite3').Database,

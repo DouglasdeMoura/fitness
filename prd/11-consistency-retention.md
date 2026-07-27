@@ -169,20 +169,29 @@ those land, use the existing `ensureDefaultUser()` pattern; #44 carries it
 forward. Sequencing rule from PRD 09 applies: if Drizzle (PRD 07) lands first,
 express as schema edits.
 
-## Scheduling: undecided
+## Scheduling: external cron endpoint (issue #67)
 
-Recurring delivery needs a runtime this project does not have. The options and
-their trade-offs are recorded in the scheduled-delivery issue, and the chosen
-one must be written back into this PRD as part of that change. Summary:
+**Decision:** external cron hitting an authenticated HTTP endpoint (`POST
+/api/cron/notifications`).
+
+**Rationale:** deployment target is not fixed yet. An external cron trigger
+works on always-on Nitro, serverless, and scale-to-zero hosts without a
+long-running in-process timer or an extra job-queue dependency. The same handler
+powers delivery; an always-on instance can later call the endpoint on an
+interval instead of relying on an outside scheduler.
 
 | Option | Fits when | Cost |
 |---|---|---|
 | In-process interval in the Nitro server | one always-on instance | trivial; breaks on scale-to-zero, double-fires with >1 instance |
 | `@platformatic/job-queue` on the SQLite DB | always-on, want retries | one dependency; matches the stack table |
-| External cron → authenticated endpoint | serverless or unknown hosting | needs a shared secret and an idempotency guard |
+| **External cron → authenticated endpoint (chosen)** | serverless or unknown hosting | `SCHEDULER_SECRET` env var + `notification_deliveries` idempotency table |
 
-Default to the external cron endpoint while the deployment target is unknown: it
-works everywhere, and an in-process timer can call the same endpoint later.
+**Implementation notes:**
+
+- Cron sends `Authorization: Bearer <SCHEDULER_SECRET>` (or `X-Scheduler-Secret`).
+- `notification_deliveries` unique key on `(user_id, type, slot)` prevents double
+  sends when cron overlaps or retries.
+- Delivery delegates to `shouldDeliver(now, prefs, type)` from issue #66.
 
 ## Acceptance Criteria
 
