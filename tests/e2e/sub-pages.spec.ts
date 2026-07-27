@@ -132,6 +132,9 @@ test.describe("Training programs", () => {
     await expect(page.getByRole("table").filter({ hasText: "Target" }).first()).toBeVisible();
 
     await clickHydratedButton(page.getByRole("button", { name: "Finish" }));
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+&summary=true/);
+    await expect(page.getByRole("heading", { name: "Session Summary" })).toBeVisible();
+    await clickHydratedButton(page.getByRole("button", { name: "Done" }));
     await expect(page).toHaveURL(/\/workout\/?$/);
     await expect(page.getByText("Ready to train?", { exact: true })).toBeVisible();
     await expect(page.getByText("Program Targets", { exact: true })).not.toBeVisible();

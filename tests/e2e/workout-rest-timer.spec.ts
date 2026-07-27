@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { findReducedMotionOffenders } from './design-gate-helpers'
 import {
+  finishActiveSessionIfNeeded,
   installDeterministicClock,
   routeWithStableQuery,
 } from './test-helpers'
@@ -8,15 +9,6 @@ import {
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
 const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i
 
-async function finishActiveSessionIfNeeded(page: Page) {
-  const finish = page.getByRole('button', { name: 'Finish workout' })
-  if (await finish.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await finish.click()
-    await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible({
-      timeout: 10000,
-    })
-  }
-}
 
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page)

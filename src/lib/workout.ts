@@ -4,6 +4,8 @@
 // - Schoenfeld BJ et al. "Dose-response relationship between weekly resistance training volume and muscle hypertrophy." J Strength Cond Res. 2017
 // - Radaelli R et al. "Dose-response of 1, 3, and 5 sets of resistance exercise on elbow flexors." Eur J Appl Physiol. 2023
 
+import { formatDisplayInteger } from './format-number'
+
 export type MuscleGroup =
   | 'chest'
   | 'back'
@@ -313,6 +315,7 @@ export type ActiveSession = {
   tempRef: string
   programId: number | null
   programDayId: number | null
+  startedAt: string
 }
 
 /**
@@ -323,11 +326,121 @@ export function activeSessionFromUrl(session: {
   id: number
   program_id: number | null
   program_day_id: number | null
+  created_at: string
 }): ActiveSession {
   return {
     id: session.id,
     tempRef: `session-${session.id}`,
     programId: session.program_id,
     programDayId: session.program_day_id,
+    startedAt: session.created_at,
   }
+}
+
+export type SessionVolumeSet = {
+  reps: number | null
+  weight_kg: number | null
+  exercise_id: number
+}
+
+export type SessionVolumeStats = {
+  totalVolume: number
+  setCount: number
+  exerciseCount: number
+}
+
+/**
+ * Aggregate session volume metrics from logged sets.
+ * Volume = sets × reps × weight (Schoenfeld et al. 2017).
+ */
+export function computeSessionVolumeStats(sets: SessionVolumeSet[]): SessionVolumeStats {
+  const validSets = sets.filter((set) => set.reps != null && set.weight_kg != null)
+  const exerciseIds = new Set(validSets.map((set) => set.exercise_id))
+  const totalVolume = validSets.reduce(
+    (sum, set) => sum + calculateVolume(1, set.reps as number, set.weight_kg as number),
+    0,
+  )
+
+  return {
+    totalVolume: Math.round(totalVolume),
+    setCount: validSets.length,
+    exerciseCount: exerciseIds.size,
+  }
+}
+
+export type SessionVolumeComparison = {
+  percentChange: number | null
+  direction: 'more' | 'less' | 'same' | 'first'
+}
+
+/**
+ * Compare current session volume to the previous same-named session.
+ * Returns null percentChange when there is no prior session to compare.
+ */
+export function compareSessionVolumes(
+  current: Pick<SessionVolumeStats, 'totalVolume'>,
+  previous: Pick<SessionVolumeStats, 'totalVolume'> | null,
+): SessionVolumeComparison {
+  if (!previous || previous.totalVolume <= 0) {
+    return { percentChange: null, direction: 'first' }
+  }
+
+  const diff = current.totalVolume - previous.totalVolume
+  const percentChange = Math.round((diff / previous.totalVolume) * 100)
+
+  if (percentChange === 0) {
+    return { percentChange: 0, direction: 'same' }
+  }
+
+  return {
+    percentChange: Math.abs(percentChange),
+    direction: diff > 0 ? 'more' : 'less',
+  }
+}
+
+/** Lowercase session label for comparison copy ("last chest day"). */
+export function sessionComparisonLabel(name: string | null | undefined): string {
+  const trimmed = (name ?? 'workout').trim()
+  return trimmed.length > 0 ? trimmed.toLowerCase() : 'workout'
+}
+
+/**
+ * One-line volume comparison for the session summary (issue #62).
+ * @example formatSessionVolumeComparison(1240, 'Chest Day', { percentChange: 8, direction: 'more' })
+ *          // '1,240 kg total — 8% more than last chest day.'
+ */
+export function formatSessionVolumeComparison(
+  totalVolume: number,
+  sessionName: string | null | undefined,
+  comparison: SessionVolumeComparison,
+): string {
+  const formattedVolume = formatDisplayInteger(totalVolume)
+  const label = sessionComparisonLabel(sessionName)
+
+  if (comparison.direction === 'first') {
+    return `${formattedVolume} kg total — your first ${label}.`
+  }
+
+  if (comparison.direction === 'same') {
+    return `${formattedVolume} kg total — same volume as last ${label}.`
+  }
+
+  return `${formattedVolume} kg total — ${comparison.percentChange}% ${comparison.direction} than last ${label}.`
+}
+
+const MS_PER_MINUTE = 60_000
+
+/**
+ * Elapsed whole minutes between session start and finish timestamps.
+ * Minimum of 1 minute so zero-length sessions still display duration.
+ */
+export function durationMinutesBetween(startedAtIso: string, finishedAtIso: string): number {
+  const startedMs = Date.parse(startedAtIso)
+  const finishedMs = Date.parse(finishedAtIso)
+  if (!Number.isFinite(startedMs) || !Number.isFinite(finishedMs)) {
+    return 1
+  }
+
+  const elapsed = Math.max(0, finishedMs - startedMs)
+  return Math.max(1, Math.round(elapsed / MS_PER_MINUTE))
 }

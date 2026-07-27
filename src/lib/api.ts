@@ -24,7 +24,14 @@ import {
   deleteFoodLogEntriesInDb,
 } from './food-log-copy'
 import { logMealTemplateInDb } from './meal-template-log'
-import { resolveProgramTargets } from './workout'
+import {
+  compareSessionVolumes,
+  computeSessionVolumeStats,
+  durationMinutesBetween,
+  formatSessionVolumeComparison,
+  resolveProgramTargets,
+} from './workout'
+import { recordKindsBySetId, type ExerciseSetSnapshot } from './records'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
 // --- Ensure default user exists ---
@@ -465,6 +472,161 @@ export const deleteWorkoutSet = createServerFn({ method: 'POST' })
     const db = getDb()
     db.prepare('DELETE FROM workout_sets WHERE id = ?').run(ctx.data.id)
     return { success: true }
+  })
+
+export type WorkoutSessionSummary = {
+  sessionId: number
+  name: string
+  date: string
+  totalVolume: number
+  setCount: number
+  exerciseCount: number
+  durationMinutes: number | null
+  personalRecordCount: number
+  comparisonSentence: string
+}
+
+type SessionSetRow = {
+  id: number
+  exercise_id: number
+  reps: number | null
+  weight_kg: number | null
+}
+
+function loadSessionSets(db: ReturnType<typeof getDb>, sessionId: number): SessionSetRow[] {
+  return db
+    .prepare(
+      `SELECT id, exercise_id, reps, weight_kg
+       FROM workout_sets
+       WHERE session_id = ?
+       ORDER BY exercise_id, set_number`,
+    )
+    .all(sessionId) as SessionSetRow[]
+}
+
+function loadExerciseHistory(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  exerciseId: number,
+): ExerciseSetSnapshot[] {
+  return db
+    .prepare(
+      `SELECT ws.id, ws.session_id, ws.weight_kg, ws.reps
+       FROM workout_sets ws
+       JOIN workout_sessions wse ON ws.session_id = wse.id
+       WHERE wse.user_id = ? AND ws.exercise_id = ?
+         AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
+       ORDER BY wse.date ASC, ws.id ASC`,
+    )
+    .all(userId, exerciseId) as ExerciseSetSnapshot[]
+}
+
+function countSessionPersonalRecords(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  sets: SessionSetRow[],
+): number {
+  const exerciseIds = [...new Set(sets.map((set) => set.exercise_id))]
+  let prSetCount = 0
+
+  for (const exerciseId of exerciseIds) {
+    const chronological = loadExerciseHistory(db, userId, exerciseId)
+    const kindsBySetId = recordKindsBySetId(chronological)
+    for (const set of sets) {
+      if (set.exercise_id !== exerciseId) continue
+      if ((kindsBySetId.get(set.id) ?? []).length > 0) {
+        prSetCount += 1
+      }
+    }
+  }
+
+  return prSetCount
+}
+
+function findPreviousNamedSession(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  session: WorkoutSession,
+): WorkoutSession | null {
+  const sessionName = session.name ?? 'Workout'
+  return (
+    (db
+      .prepare(
+        `SELECT * FROM workout_sessions
+         WHERE user_id = ? AND name = ? AND id < ?
+         ORDER BY date DESC, id DESC
+         LIMIT 1`,
+      )
+      .get(userId, sessionName, session.id) as WorkoutSession | undefined) ?? null
+  )
+}
+
+function buildWorkoutSessionSummary(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  session: WorkoutSession,
+): WorkoutSessionSummary {
+  const sets = loadSessionSets(db, session.id)
+  const stats = computeSessionVolumeStats(sets)
+  const previousSession = findPreviousNamedSession(db, userId, session)
+  const previousStats = previousSession
+    ? computeSessionVolumeStats(loadSessionSets(db, previousSession.id))
+    : null
+  const comparison = compareSessionVolumes(stats, previousStats)
+
+  return {
+    sessionId: session.id,
+    name: session.name ?? 'Workout',
+    date: session.date,
+    totalVolume: stats.totalVolume,
+    setCount: stats.setCount,
+    exerciseCount: stats.exerciseCount,
+    durationMinutes: session.duration_minutes,
+    personalRecordCount: countSessionPersonalRecords(db, userId, sets),
+    comparisonSentence: formatSessionVolumeComparison(stats.totalVolume, session.name, comparison),
+  }
+}
+
+
+export const finishWorkoutSession = createServerFn({ method: 'POST' })
+  .validator((data: { id: number; finishedAt?: string }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const session = db
+      .prepare('SELECT * FROM workout_sessions WHERE id = ? AND user_id = ?')
+      .get(ctx.data.id, user.id) as WorkoutSession | undefined
+
+    if (!session) {
+      throw new Error(`finishWorkoutSession: session id ${ctx.data.id} not found for user ${user.id}`)
+    }
+
+    const finishedAt = ctx.data.finishedAt ?? new Date().toISOString()
+    const durationMinutes = durationMinutesBetween(session.created_at, finishedAt)
+
+    db.prepare('UPDATE workout_sessions SET duration_minutes = ? WHERE id = ?').run(
+      durationMinutes,
+      session.id,
+    )
+
+    const updated = { ...session, duration_minutes: durationMinutes }
+    return buildWorkoutSessionSummary(db, user.id, updated)
+  })
+
+export const getWorkoutSessionSummary = createServerFn({ method: 'GET' })
+  .validator((data: { id: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const session = db
+      .prepare('SELECT * FROM workout_sessions WHERE id = ? AND user_id = ?')
+      .get(ctx.data.id, user.id) as WorkoutSession | undefined
+
+    if (!session) {
+      return null
+    }
+
+    return buildWorkoutSessionSummary(db, user.id, session)
   })
 
 export type LastPerformanceResult = {

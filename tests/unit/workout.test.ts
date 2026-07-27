@@ -11,6 +11,10 @@ import {
   suggestWeightProgression,
   formatLastPerformanceLine,
   formatRelativeDaysAgo,
+  compareSessionVolumes,
+  computeSessionVolumeStats,
+  durationMinutesBetween,
+  formatSessionVolumeComparison,
   VOLUME_GUIDELINES,
   getDupDayEmphasis,
   parseTargetReps,
@@ -239,11 +243,13 @@ describe('activeSessionFromUrl', () => {
       id: 5,
       program_id: 2,
       program_day_id: 7,
+      created_at: '2020-01-01T10:00:00.000Z',
     })).toEqual({
       id: 5,
       tempRef: 'session-5',
       programId: 2,
       programDayId: 7,
+      startedAt: '2020-01-01T10:00:00.000Z',
     })
   })
 
@@ -252,11 +258,69 @@ describe('activeSessionFromUrl', () => {
       id: 12,
       program_id: null,
       program_day_id: null,
+      created_at: '2020-01-01T12:00:00.000Z',
     })).toEqual({
       id: 12,
       tempRef: 'session-12',
       programId: null,
       programDayId: null,
+      startedAt: '2020-01-01T12:00:00.000Z',
     })
   })
 })
+
+describe('Session volume comparison (issue #62)', () => {
+  it('computes session volume stats from logged sets', () => {
+    expect(
+      computeSessionVolumeStats([
+        { exercise_id: 1, reps: 8, weight_kg: 100 },
+        { exercise_id: 1, reps: 8, weight_kg: 100 },
+        { exercise_id: 2, reps: 10, weight_kg: 50 },
+      ]),
+    ).toEqual({ totalVolume: 2100, setCount: 3, exerciseCount: 2 })
+  })
+
+  it('returns first-session comparison when there is no previous session', () => {
+    const comparison = compareSessionVolumes({ totalVolume: 1240 }, null)
+    expect(comparison).toEqual({ percentChange: null, direction: 'first' })
+    expect(formatSessionVolumeComparison(1240, 'Chest Day', comparison)).toBe(
+      '1,240 kg total — your first chest day.',
+    )
+    expect(formatSessionVolumeComparison(1240, 'Chest Day', comparison)).not.toMatch(/NaN/)
+  })
+
+  it('avoids divide-by-zero when previous session volume is zero', () => {
+    const comparison = compareSessionVolumes({ totalVolume: 500 }, { totalVolume: 0 })
+    expect(comparison).toEqual({ percentChange: null, direction: 'first' })
+    expect(formatSessionVolumeComparison(500, 'Chest Day', comparison)).not.toMatch(/NaN/)
+  })
+
+  it('formats percent-more comparison against the previous same-named session', () => {
+    const comparison = compareSessionVolumes({ totalVolume: 1240 }, { totalVolume: 1150 })
+    expect(comparison).toEqual({ percentChange: 8, direction: 'more' })
+    expect(formatSessionVolumeComparison(1240, 'Chest Day', comparison)).toBe(
+      '1,240 kg total — 8% more than last chest day.',
+    )
+  })
+
+  it('formats same-volume and percent-less comparisons', () => {
+    const same = compareSessionVolumes({ totalVolume: 1000 }, { totalVolume: 1000 })
+    expect(formatSessionVolumeComparison(1000, 'Chest Day', same)).toBe(
+      '1,000 kg total — same volume as last chest day.',
+    )
+
+    const less = compareSessionVolumes({ totalVolume: 900 }, { totalVolume: 1000 })
+    expect(less).toEqual({ percentChange: 10, direction: 'less' })
+    expect(formatSessionVolumeComparison(900, 'Chest Day', less)).toBe(
+      '900 kg total — 10% less than last chest day.',
+    )
+  })
+
+  it('derives duration minutes between session start and finish', () => {
+    expect(
+      durationMinutesBetween('2020-01-01T10:00:00.000Z', '2020-01-01T10:42:00.000Z'),
+    ).toBe(42)
+    expect(durationMinutesBetween('invalid', '2020-01-01T10:42:00.000Z')).toBe(1)
+  })
+})
+

@@ -20,10 +20,13 @@ import { DateNavigationBar } from '~/components/DateNavigationBar'
 import { ScrollableTable } from '~/components/ScrollableTable'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
 import { WorkoutSetsTable, type WorkoutSetRow } from '~/components/workout/WorkoutSetsTable'
+import { SessionSummaryCard } from '~/components/workout/SessionSummaryCard'
 import {
   getExercises,
   getWorkoutSessions,
   getWorkoutSession,
+  getWorkoutSessionSummary,
+  finishWorkoutSession,
   createWorkoutSession,
   addWorkoutSet,
   deleteWorkoutSet,
@@ -72,6 +75,7 @@ import {
 type WorkoutSearch = {
   session?: number
   date?: string
+  summary?: boolean
   restEnd?: number
   restDur?: number
 }
@@ -88,6 +92,13 @@ export const Route = createFileRoute('/workout/')({
             ? parseInt(search.session, 10)
             : undefined,
       date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
+      summary:
+        search.summary === true ||
+        search.summary === 'true' ||
+        search.summary === 1 ||
+        search.summary === '1'
+          ? true
+          : undefined,
       restEnd: rest.restEnd,
       restDur: rest.restDur,
     }
@@ -114,6 +125,7 @@ function WorkoutPageContent() {
   const {
     session: sessionIdFromSearch,
     date: dateFromSearch,
+    summary: showSummary,
     restEnd: restEndFromSearch,
     restDur: restDurFromSearch,
   } = Route.useSearch()
@@ -134,6 +146,7 @@ function WorkoutPageContent() {
   const [startedSession, setStartedSession] = useState<ActiveSession | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sets, setSets] = useState<WorkoutSetRow[]>([])
+  const [summaryOverride, setSummaryOverride] = useState<WorkoutSessionSummary | null>(null)
   const toast = useToast()
 
   const navigate = useNavigate()
@@ -153,8 +166,16 @@ function WorkoutPageContent() {
       ? activeSessionFromUrl(urlSession.session)
       : null)
 
+  const { data: sessionSummary } = useQuery({
+    queryKey: ['workout-session-summary', sessionIdFromSearch],
+    queryFn: () => getWorkoutSessionSummary({ data: { id: sessionIdFromSearch as number } }),
+    enabled: showSummary === true && sessionIdFromSearch !== undefined,
+  })
+
   const isViewingSavedSession =
     sessionIdFromSearch !== undefined && startedSession === null && urlSession != null
+
+  const isSummaryView = showSummary === true && sessionIdFromSearch !== undefined
 
   const historyExerciseIds = isViewingSavedSession
     ? [...new Set(urlSession.sets.map((set) => set.exercise_id))]
@@ -223,27 +244,66 @@ function WorkoutPageContent() {
       tempRef,
       programId: null,
       programDayId: null,
+      startedAt: new Date().toISOString(),
     })
     setSets([])
   }
 
-  const handleFinish = () => {
-    clearRestTimer()
-    setStartedSession(null)
-    setSelectedExercise(null)
-    setSets([])
+  const dismissSummary = () => {
+    setSummaryOverride(null)
     navigate({
       to: '/workout',
       search: (prev) => {
         const next = { ...prev }
+        delete next.session
+        delete next.summary
         delete next.restEnd
         delete next.restDur
-        if (sessionIdFromSearch !== undefined) {
-          delete next.session
-        }
         return next
       },
     })
+  }
+
+  const handleFinish = async () => {
+    if (!activeSession) return
+
+    clearRestTimer()
+    const finishedSessionId = activeSession.id
+
+    try {
+      if (finishedSessionId != null) {
+        const summary = await finishWorkoutSession({
+          data: {
+            id: finishedSessionId,
+            finishedAt: new Date().toISOString(),
+          },
+        })
+        setSummaryOverride(summary)
+      }
+    } catch {
+      toast({ body: mutationFailedBody('Finish workout'), type: 'error' })
+      return
+    }
+
+    setStartedSession(null)
+    setSelectedExercise(null)
+    setSets([])
+
+    if (finishedSessionId != null) {
+      navigate({
+        to: '/workout',
+        search: (prev) => ({
+          ...prev,
+          session: finishedSessionId,
+          summary: true,
+          restEnd: undefined,
+          restDur: undefined,
+        }),
+      })
+      return
+    }
+
+    dismissSummary()
   }
 
   const handleAddSet = () => {
@@ -399,7 +459,9 @@ function WorkoutPageContent() {
         )
       : null
 
-  const exerciseOptions = buildExerciseOptions(exercises, programTargets)
+  const displayedSummary = summaryOverride ?? sessionSummary ?? null
+
+    const exerciseOptions = buildExerciseOptions(exercises, programTargets)
   const filteredExercises =
     programTargets.length > 0
       ? exercises.filter((ex) => programTargets.some((target) => target.exercise_id === ex.id))
@@ -424,7 +486,11 @@ function WorkoutPageContent() {
         }}
       />
 
-      {!activeSession ? (
+      {isSummaryView ? (
+        displayedSummary ? (
+          <SessionSummaryCard summary={displayedSummary} onDone={dismissSummary} />
+        ) : null
+      ) : !activeSession ? (
         <VStack gap={4}>
           <Card>
             <EmptyState
@@ -464,7 +530,7 @@ function WorkoutPageContent() {
                 <ScrollableTable scrollLabel="recent-sessions">
                   <Table
                     aria-label="Recent workout sessions"
-                    columns={recentSessionColumns()}
+                    columns={recentSessionColumns(selectedDate)}
                     data={sessions}
                     idKey="id"
                     density="compact"
@@ -735,7 +801,7 @@ function buildExerciseOptions(exercises: Exercise[], programTargets: ProgramDayT
   }))
 }
 
-function recentSessionColumns(): TableColumn<WorkoutSession>[] {
+function recentSessionColumns(selectedDate: string): TableColumn<WorkoutSession>[] {
   return [
     {
       key: 'date',
@@ -752,14 +818,22 @@ function recentSessionColumns(): TableColumn<WorkoutSession>[] {
     {
       key: 'actions',
       header: 'Actions',
-      width: proportional(1),
+      width: proportional(2),
       renderCell: (session) => (
-        <Button
-          label={`View session ${session.name || session.date}`}
-          href={`/workout?session=${session.id}`}
-          variant="secondary"
-          size="lg"
-        />
+        <HStack gap={2} wrap="wrap">
+          <Button
+            label={`View session ${session.name || session.date}`}
+            href={`/workout?session=${session.id}&date=${selectedDate}`}
+            variant="secondary"
+            size="lg"
+          />
+          <Button
+            label={`View summary ${session.name || session.date}`}
+            href={`/workout?session=${session.id}&summary=1&date=${selectedDate}`}
+            variant="secondary"
+            size="lg"
+          />
+        </HStack>
       ),
     },
   ]

@@ -201,3 +201,22 @@ export async function findDestructiveSpacingViolations(page: Page): Promise<stri
   }, MIN_DESTRUCTIVE_GAP_PX)
 }
 
+/** Dismiss the post-workout summary card when visible (issue #62). */
+export async function dismissWorkoutSummaryIfVisible(page: import('@playwright/test').Page): Promise<void> {
+  const done = page.getByRole('button', { name: 'Done' })
+  if (await done.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await done.click()
+    await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible({ timeout: 10000 })
+  }
+}
+
+/** Finish an in-progress workout and return to the workout home screen. */
+export async function finishActiveSessionIfNeeded(page: import('@playwright/test').Page): Promise<void> {
+  const finish = page.getByRole('button', { name: 'Finish workout' })
+  if (await finish.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await finish.click()
+    await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+    await dismissWorkoutSummaryIfVisible(page)
+  }
+}
+
