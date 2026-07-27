@@ -28,7 +28,7 @@ export default defineConfig({
       // Mobile navigation specs belong with the bottom-nav change itself.
       name: 'pixel-7',
       use: { ...devices['Pixel 7'] },
-      testMatch: /(mobile-layout|mobile-nav|a11y|pwa-install|gym-mobile)\.spec\.ts/,
+      testMatch: /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile)\.spec\.ts/,
     },
     // No iphone-14 / WebKit project: Playwright's WebKit build cannot run on
     // this host. The binary installs, but launching it needs libicu74 and
@@ -40,6 +40,9 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
+    env: {
+      E2E_PUSH_MOCK: '1',
+    },
     url: 'http://localhost:3000',
     reuseExistingServer: true,
     timeout: 60000,

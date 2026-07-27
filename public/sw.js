@@ -159,3 +159,54 @@ async function broadcast(message) {
   const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
   for (const client of clients) client.postMessage(message)
 }
+
+// Web Push (issue #65): show notifications and focus an existing client on click.
+self.addEventListener('push', (event) => {
+  let payload = { title: 'FitTrack', body: '', tag: 'fittrack-notification', url: '/' }
+  try {
+    if (event.data) {
+      const parsed = event.data.json()
+      payload = { ...payload, ...parsed }
+    }
+  } catch {
+    // Malformed payloads still surface a generic notification.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      data: { url: payload.url },
+      icon: '/android-chrome-192x192.png',
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = event.notification.data?.url || '/'
+
+  event.waitUntil(
+    (async () => {
+      const windowClients = await clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+
+      for (const client of windowClients) {
+        if (!client.url.startsWith(self.location.origin)) {
+          continue
+        }
+        await client.focus()
+        if ('navigate' in client) {
+          await client.navigate(targetUrl)
+        }
+        return
+      }
+
+      if (clients.openWindow) {
+        await clients.openWindow(targetUrl)
+      }
+    })()
+  )
+})

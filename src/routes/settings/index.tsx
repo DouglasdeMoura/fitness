@@ -17,7 +17,7 @@ import {
   VStack,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
-import { getUser, updateUser, logBodyweight, exportData } from '~/lib/api'
+import { getUser, updateUser, logBodyweight, exportData, getPushStatus } from '~/lib/api'
 import { runOrQueue } from '~/lib/offline'
 import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition'
 import {
@@ -39,12 +39,13 @@ import {
 } from '~/lib/toasts'
 import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
 import { InstallPrompt } from '~/components/InstallPrompt'
+import { PushNotifications } from '~/components/PushNotifications'
 
 export const Route = createFileRoute('/settings/')({
   head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
   loader: async () => {
-    const user = await getUser()
-    return { user }
+    const [user, pushStatus] = await Promise.all([getUser(), getPushStatus()])
+    return { user, pushStatus }
   },
   pendingComponent: SettingsSkeleton,
   component: SettingsPage,
@@ -229,6 +230,12 @@ function SettingsPageContent() {
       </Card>
 
       <InstallPrompt />
+
+      <PushNotifications
+        initialConfigured={loaderData.pushStatus.configured}
+        initialPublicKey={loaderData.pushStatus.publicKey}
+        initialSubscribed={loaderData.pushStatus.subscribed}
+      />
 
       <Card>
         <VStack gap={3}>

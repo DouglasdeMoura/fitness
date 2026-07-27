@@ -57,6 +57,25 @@ The app runs at http://localhost:3000
 
 Barcode scanning uses the device camera via `getUserMedia`, which requires **HTTPS** in production. Local development on `http://localhost` is exempt from that restriction.
 
+
+### Push Notifications
+
+Web Push lets the installed PWA reach you when the app is in the background (rest timer complete, future reminders).
+
+Generate a VAPID keypair once and add both values to `.env` (never commit them):
+
+```bash
+npx web-push generate-vapid-keys --json
+```
+
+| Variable | Purpose |
+|----------|---------|
+| `VAPID_PUBLIC_KEY` | Served to the browser for `PushManager.subscribe` |
+| `VAPID_PRIVATE_KEY` | Signs outgoing pushes — server only |
+| `VAPID_SUBJECT` | Contact URI (`mailto:` or `https:`) for push services |
+
+When `VAPID_PUBLIC_KEY` is absent, Settings shows a "push not configured" state instead of throwing. On iOS, Web Push requires installing FitTrack to the Home Screen (iOS 16.4+).
+
 ## Install as PWA
 
 1. Open the app in Chrome/Edge

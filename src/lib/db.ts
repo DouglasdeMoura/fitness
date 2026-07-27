@@ -235,3 +235,12 @@ export type MealPlan = {
   template_id: number
   created_at: string
 }
+
+export type PushSubscription = {
+  id: number
+  user_id: number
+  endpoint: string
+  p256dh: string
+  auth: string
+  created_at: string
+}

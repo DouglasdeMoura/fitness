@@ -42,6 +42,17 @@ import {
 } from './weekly-review'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
+import {
+  deletePushSubscriptionByEndpoint,
+  hasPushSubscription,
+  listPushSubscriptionsForUser,
+  readVapidConfig,
+  readVapidPublicKey,
+  TEST_PUSH_PAYLOAD,
+  upsertPushSubscription,
+  type PushSubscriptionInput,
+} from './push'
+
 // --- Ensure default user exists ---
 
 export const ensureDefaultUser = createServerFn({ method: 'GET' }).handler(async () => {
@@ -1925,3 +1936,66 @@ export const getSyncedClientIds = createServerFn({ method: 'POST' })
     ).all(...ids) as { client_id: string }[]
     return { client_ids: rows.map((r) => r.client_id) }
   })
+
+// --- Web Push (issue #65) ---
+
+
+export type PushStatus = {
+  configured: boolean
+  publicKey: string | null
+  subscribed: boolean
+}
+
+export const getPushStatus = createServerFn({ method: 'GET' }).handler(async (): Promise<PushStatus> => {
+  const publicKey = readVapidPublicKey()
+  const user = await ensureDefaultUser()
+  const db = getDb()
+  return {
+    configured: publicKey != null,
+    publicKey,
+    subscribed: hasPushSubscription(db, user.id),
+  }
+})
+
+export const subscribePush = createServerFn({ method: 'POST' })
+  .validator((data: PushSubscriptionInput) => data)
+  .handler(async (ctx) => {
+    const publicKey = readVapidPublicKey()
+    if (!publicKey) {
+      return { ok: false as const, reason: 'not-configured' as const }
+    }
+    const user = await ensureDefaultUser()
+    const db = getDb()
+    upsertPushSubscription(db, user.id, ctx.data)
+    return { ok: true as const }
+  })
+
+export const unsubscribePush = createServerFn({ method: 'POST' })
+  .validator((data: { endpoint: string }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    deletePushSubscriptionByEndpoint(db, ctx.data.endpoint)
+    return { ok: true as const }
+  })
+
+export const sendTestPush = createServerFn({ method: 'POST' }).handler(async () => {
+  const vapid = readVapidConfig()
+  if (!vapid) {
+    return { ok: false as const, reason: 'not-configured' as const }
+  }
+  const user = await ensureDefaultUser()
+  const db = getDb()
+  const subscriptions = listPushSubscriptionsForUser(db, user.id)
+  if (subscriptions.length === 0) {
+    return { ok: false as const, reason: 'no-subscription' as const }
+  }
+  if (process.env.E2E_PUSH_MOCK === '1') {
+    return { ok: true as const }
+  }
+  const { deliverPushToUser } = await import('./push-server')
+  const results = await deliverPushToUser(db, vapid, user.id, TEST_PUSH_PAYLOAD)
+  const sent = results.some((result) => result.status === 'sent')
+  return sent
+    ? { ok: true as const }
+    : { ok: false as const, reason: 'delivery-failed' as const }
+})

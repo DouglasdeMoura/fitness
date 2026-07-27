@@ -118,8 +118,9 @@ test.describe('Install affordance in Settings (issue #48)', () => {
     await openSettings(page)
     await expect(page.getByRole('heading', { name: INSTALL_CARD_TITLE })).toBeVisible()
     await expect(page.getByText(/Safari Share sheet/i)).toBeVisible()
+    const safariSteps = page.getByRole('list', { name: 'Safari steps' })
     for (const step of IOS_INSTALL_STEPS) {
-      await expect(page.getByText(step)).toBeVisible()
+      await expect(safariSteps.getByText(step)).toBeVisible()
     }
     await expect(page.getByRole('button', { name: INSTALL_BUTTON_LABEL })).toHaveCount(0)
     await context.close()
