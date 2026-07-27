@@ -188,7 +188,7 @@ export type FoodLoggable = FoodMacrosInput & {
 }
 
 export type FoodLogDraft = {
-  food_id: number
+  food_id?: number
   custom_name: string
   date: string
   meal_type: MealType
@@ -197,6 +197,25 @@ export type FoodLogDraft = {
   protein_g: number
   carbs_g: number
   fat_g: number
+}
+
+/** Macros stored on each food_log row (catalog or quick-add). */
+export type FoodLogMacroSlice = {
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+}
+
+/** Fallback label when a quick-add entry has no user-supplied name. */
+export const QUICK_ADD_DEFAULT_NAME = 'Quick add'
+
+export type QuickAddInput = {
+  name?: string
+  calories: number
+  protein_g?: number
+  carbs_g?: number
+  fat_g?: number
 }
 
 /**
@@ -240,6 +259,56 @@ export function buildFoodLogDraft(
 
 export function sumNutritionTotals(items: NutritionTotals[]): NutritionTotals {
   return items.reduce((acc, item) => addTotals(acc, item), emptyTotals())
+}
+
+/**
+ * Sums persisted food-log rows into daily macro totals.
+ * Quick-add rows (null food_id) must be included — see issue #57 regression test.
+ */
+export function sumFoodLogEntryTotals(entries: FoodLogMacroSlice[]): NutritionTotals {
+  return entries.reduce(
+    (acc, entry) => ({
+      calories: acc.calories + entry.calories,
+      protein_g: acc.protein_g + entry.protein_g,
+      carbs_g: acc.carbs_g + entry.carbs_g,
+      fat_g: acc.fat_g + entry.fat_g,
+      fiber_g: 0,
+    }),
+    emptyTotals(),
+  )
+}
+
+/** Quick-add entries omit food_id; they still count toward daily progress. */
+export function isApproximateFoodLogEntry(entry: { food_id: number | null }): boolean {
+  return entry.food_id == null
+}
+
+/**
+ * Builds a food-log payload for approximate logging when the exact food is unknown.
+ * Calories are required; macros default to zero when omitted.
+ * @example buildQuickAddDraft({ calories: 450, name: 'Office lunch' }, '2026-07-25', 'lunch')
+ */
+export function buildQuickAddDraft(
+  input: QuickAddInput,
+  date: string,
+  mealType: MealType,
+): FoodLogDraft {
+  if (!Number.isFinite(input.calories) || input.calories <= 0) {
+    throw new RangeError(
+      `Invalid calories ${String(input.calories)}; expected a positive finite number`,
+    )
+  }
+  const trimmedName = input.name?.trim()
+  return {
+    custom_name: trimmedName || QUICK_ADD_DEFAULT_NAME,
+    date,
+    meal_type: mealType,
+    servings: 1,
+    calories: input.calories,
+    protein_g: input.protein_g ?? 0,
+    carbs_g: input.carbs_g ?? 0,
+    fat_g: input.fat_g ?? 0,
+  }
 }
 
 /** Monday of the week containing the given date (ISO week start). */

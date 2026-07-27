@@ -7,6 +7,7 @@ import {
   calculateMacroTargets,
   calculateFoodMacros,
   sumNutritionTotals,
+  sumFoodLogEntryTotals,
   getWeekStart,
   addDays,
   todayString,
@@ -329,30 +330,31 @@ export const logMealTemplate = createServerFn({ method: 'POST' })
     return logMealTemplateInDb(db, user.id, templateId, date, mealType)
   })
 
+/** LEFT JOIN so null food_id quick-add rows are never dropped from totals (issue #57). */
+export const FOOD_LOG_SUMMARY_SQL = `SELECT fl.*, f.name AS food_name
+       FROM food_log fl
+       LEFT JOIN foods f ON f.id = fl.food_id
+       WHERE fl.user_id = ? AND fl.date = ?
+       ORDER BY fl.meal_type, fl.created_at`
+
+export function fetchFoodLogSummaryEntries(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  date: string,
+): (FoodLogEntry & { food_name?: string | null })[] {
+  return db.prepare(FOOD_LOG_SUMMARY_SQL).all(userId, date) as (FoodLogEntry & {
+    food_name?: string | null
+  })[]
+}
+
 export const getNutritionSummary = createServerFn({ method: 'GET' })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
     const db = getDb()
     const user = await ensureDefaultUser()
     const date = ctx.data?.date || todayString()
-    const entries = db.prepare(
-      `SELECT fl.*, f.name AS food_name
-       FROM food_log fl
-       LEFT JOIN foods f ON f.id = fl.food_id
-       WHERE fl.user_id = ? AND fl.date = ?
-       ORDER BY fl.meal_type, fl.created_at`
-    ).all(user.id, date) as (FoodLogEntry & { food_name?: string | null })[]
-
-    const totals = entries.reduce(
-      (acc, e) => ({
-        calories: acc.calories + e.calories,
-        protein_g: acc.protein_g + e.protein_g,
-        carbs_g: acc.carbs_g + e.carbs_g,
-        fat_g: acc.fat_g + e.fat_g,
-        fiber_g: 0,
-      }),
-      emptyTotals()
-    )
+    const entries = fetchFoodLogSummaryEntries(db, user.id, date)
+    const totals = sumFoodLogEntryTotals(entries)
 
     return { entries, totals }
   })
