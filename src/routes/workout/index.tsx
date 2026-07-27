@@ -469,7 +469,7 @@ function WorkoutPageContent() {
       : exercises
 
   return (
-    <VStack as="main" gap={4}>
+    <VStack as="main" gap={6}>
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>Workout</Heading>
         <Button label="Training Programs" href="/workout/programs" variant="secondary" size="lg" />
@@ -573,16 +573,20 @@ function WorkoutPageContent() {
                 <HStack gap={4} wrap="wrap">
                   <VStack gap={1}>
                     <Text type="label">Volume</Text>
-                    <Text size="2xl" weight="bold" hasTabularNumbers>
-                      {Math.round(totalVolume)} kg
-                    </Text>
+                    <span data-size="2xl">
+                      <Text size="2xl" weight="bold" hasTabularNumbers>
+                        {Math.round(totalVolume)} kg
+                      </Text>
+                    </span>
                   </VStack>
                   {bestSet ? (
                     <VStack gap={1}>
                       <Text type="label">Est. 1RM</Text>
-                      <Text size="2xl" weight="bold" hasTabularNumbers>
-                        {Math.round(estimate1RM(bestSet.weight, bestSet.reps))} kg
-                      </Text>
+                      <span data-size="2xl">
+                        <Text size="2xl" weight="bold" hasTabularNumbers>
+                          {Math.round(estimate1RM(bestSet.weight, bestSet.reps))} kg
+                        </Text>
+                      </span>
                     </VStack>
                   ) : null}
                 </HStack>

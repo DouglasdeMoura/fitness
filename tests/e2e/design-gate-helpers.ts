@@ -6,6 +6,7 @@ export const DESIGN_GATE_ROUTES = [
   '/nutrition',
   '/progress',
   '/settings',
+  '/workout',
 ] as const
 
 export type DesignGateRoute = (typeof DESIGN_GATE_ROUTES)[number]

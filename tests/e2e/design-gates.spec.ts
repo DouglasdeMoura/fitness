@@ -16,8 +16,7 @@ import {
   type ColorMode,
 } from './test-helpers'
 
-// Computed-style gates apply only to migrated routes. Workout is excluded until
-// issue #13 lands — typography cannot be meaningfully measured on legacy markup.
+
 const MIGRATED_ROUTES = DESIGN_GATE_ROUTES
 
 const COLOR_MODES: ColorMode[] = ['light', 'dark']
