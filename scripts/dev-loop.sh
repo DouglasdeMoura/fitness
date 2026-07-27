@@ -11,6 +11,8 @@
 #   npm run dev-loop -- --max 5             # Run up to 5 iterations
 #   npm run dev-loop -- --dry-run           # Show what would be done
 #   npm run dev-loop -- --issue 11          # Work on specific issue
+#   npm run dev-loop -- --no-e2e            # Skip the Playwright gate
+#                                           # (or RUN_E2E=false npm run dev-loop)
 #
 # Without --max, the loop runs indefinitely until one of these:
 #   1. No open issues remain (everything is done)
@@ -27,6 +29,11 @@ STATE_FILE="$REPO_DIR/.dev-loop/state.json"
 MAX_ITERATIONS=0  # 0 = unlimited (run until done or killed)
 DRY_RUN=false
 ISSUE_NUMBER=""
+# The e2e suite is ~15min at workers:1 and dominates iteration time. --no-e2e
+# drops it from the gate for runs where it is checked manually instead. The
+# gate is weaker without it: Playwright specs the model writes go unexecuted,
+# so interaction, mobile, and a11y regressions can reach main.
+RUN_E2E=${RUN_E2E:-true}
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -34,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --issue) ISSUE_NUMBER="$2"; shift 2 ;;
+    --no-e2e) RUN_E2E=false; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -193,8 +201,7 @@ Instructions:
                          green build proves nothing about type safety)
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
-   - npm run test:e2e   (Playwright — the loop now verifies this too, so a
-                         failure here blocks the push and leaves the issue open)
+   - npm run test:e2e   __E2E_NOTE__
 8. Commit your work with a conventional commit message.
    Include "Closes #__ISSUE_NUM__" in the commit body so GitHub links the issue.
    Example commit body format:
@@ -245,6 +252,18 @@ TEMPLATE_END
   PROMPT=${PROMPT//__ISSUE_TITLE__/"$ISSUE_TITLE"}
   PROMPT=${PROMPT//__ISSUE_NUM__/"$ISSUE_NUM"}
   PROMPT=${PROMPT//__ISSUE_BODY__/"$ISSUE_BODY"}
+  # The model must not be told the loop verifies e2e when it does not — it
+  # would treat the gate as a safety net that is not there and skip running
+  # the specs itself. With the gate off, running them is on the model.
+  if $RUN_E2E; then
+    E2E_NOTE="(Playwright — the loop verifies this too, so a
+                         failure here blocks the push and leaves the issue open)"
+  else
+    E2E_NOTE="(Playwright — the loop does NOT run this right now, so nothing
+                         catches a broken spec but you. Run it yourself before
+                         committing; do not assume a later gate will.)"
+  fi
+  PROMPT=${PROMPT//__E2E_NOTE__/"$E2E_NOTE"}
 
   if $DRY_RUN; then
     echo "[DRY RUN] Would dispatch model: ${MODELS[$MODEL_INDEX]}"
@@ -471,7 +490,10 @@ TEMPLATE_END
   #
   # Only run when unit tests and build already passed — e2e against a broken
   # build produces noise, not signal.
-  if $VERIFICATION_PASSED; then
+  if ! $RUN_E2E; then
+    echo "  ▸ Skipping e2e (--no-e2e) — run 'npm run test:e2e' manually"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:disabled"
+  elif $VERIFICATION_PASSED; then
     echo "  ▸ Running browser e2e suite (Playwright)..."
     set +e
     E2E_OUTPUT=$(set -o pipefail; npm run test:e2e 2>&1 | tee /dev/stderr)
