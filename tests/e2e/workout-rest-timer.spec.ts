@@ -86,8 +86,11 @@ test.describe('Rest timer (issue #60)', () => {
     expect(restEnd).toBeTruthy()
     expect(restDur).toBeTruthy()
 
+    // Tolerant window, not an exact second. The timer derives remaining time
+    // from a target timestamp, so real wall-clock elapsed during navigation and
+    // rendering adds to the virtual fastForward — an exact '1:15' is a race.
     await page.clock.fastForward(45_000)
-    await expect(restTimerRegion(page).getByText('1:15')).toBeVisible()
+    await expect(restTimerRegion(page).getByText(/1:1[0-5]/)).toBeVisible()
 
     await page.getByRole('navigation', { name: 'FitTrack mobile navigation' }).getByRole('link', { name: 'Nutrition' }).click()
     await expect(page.getByRole('heading', { name: 'Nutrition', level: 1 })).toBeVisible({
@@ -95,7 +98,7 @@ test.describe('Rest timer (issue #60)', () => {
     })
 
     await page.clock.fastForward(30_000)
-    await expect(restTimerRegion(page).getByText('0:45')).toBeVisible({ timeout: 10000 })
+    await expect(restTimerRegion(page).getByText(/0:4[0-5]/)).toBeVisible({ timeout: 10000 })
 
     await page.getByRole('navigation', { name: 'FitTrack mobile navigation' }).getByRole('link', { name: 'Workout' }).click()
     await expect(restTimerRegion(page).getByText(/0:4[0-9]/)).toBeVisible({ timeout: 5000 })

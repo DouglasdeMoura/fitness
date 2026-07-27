@@ -6,7 +6,12 @@ import {
 } from './test-helpers'
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
-const FARMER_CARRY_OPTION = /^Farmer Carry \(full_body\)$/i
+// Kettlebell Swing is used by NO other spec. workout-progression.spec.ts also
+// drives Farmer Carry and runs first alphabetically, so with workers:1 and a
+// shared SQLite file it left set history behind — and PR detection compares
+// against "most reps at this weight or heavier". That cross-spec history is
+// what made this test flaky, not the detection logic.
+const PR_EXERCISE_OPTION = /^Kettlebell Swing \(full_body\)$/i
 const NO_HISTORY_GUIDANCE =
   'Select a weight that reaches the target RPE for all prescribed sets.'
 
@@ -69,7 +74,7 @@ test.describe('Personal record detection (issue #61)', () => {
     page,
   }) => {
     await startWorkout(page)
-    await selectExercise(page, FARMER_CARRY_OPTION)
+    await selectExercise(page, PR_EXERCISE_OPTION)
     await page.getByRole('button', { name: 'Add set' }).click()
 
     const weightKg = await resolveFreshWeight(page)
@@ -90,7 +95,7 @@ test.describe('Personal record detection (issue #61)', () => {
       toastRegion(page).getByRole('status').filter({ hasText: /Rep PR — beat \d+ reps/ }),
     ).toBeVisible({ timeout: 10000 })
 
-    const setsTable = page.getByRole('table', { name: /Farmer Carry sets/i })
+    const setsTable = page.getByRole('table', { name: /Kettlebell Swing sets/i })
     await expect(setsTable.getByRole('row', { name: /2 PR/ })).toBeVisible({ timeout: 10000 })
 
     await finishActiveSessionIfNeeded(page)

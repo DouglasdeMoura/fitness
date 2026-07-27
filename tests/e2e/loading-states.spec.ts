@@ -7,6 +7,31 @@ async function openAppPage(page: Page, path: string) {
   })
 }
 
+/**
+ * Waits until React has attached props to the element, i.e. the island is
+ * hydrated and its onChange/onClick handlers are live.
+ *
+ * `openAppPage` above only waits for the navigation to be *visible*, and the
+ * nav is server-rendered — so it becomes visible before React hydrates. Typing
+ * into a control before then writes to plain HTML: no onChange fires, the form
+ * store never updates, and any state derived from it (spinners, result lists)
+ * never appears. That is a lost-input race, not an app bug.
+ */
+async function waitForHydration(locator: ReturnType<Page['getByRole']>) {
+  await expect(locator).toBeVisible()
+  await expect
+    .poll(
+      () =>
+        locator.evaluate((element) =>
+          Object.getOwnPropertyNames(element).some((property) =>
+            property.startsWith('__reactProps$'),
+          ),
+        ),
+      { timeout: 15000 },
+    )
+    .toBe(true)
+}
+
 async function clickHydratedButton(button: ReturnType<Page['getByRole']>) {
   await expect(button).toBeVisible()
   await expect
@@ -44,6 +69,9 @@ test.describe('Loading states', () => {
   test('food search shows a spinner while the debounced query is pending', async ({ page }) => {
     await openAppPage(page, '/nutrition')
     const search = page.getByRole('textbox', { name: 'Search foods' })
+    // Must be hydrated before typing, or the keystrokes never reach the form
+    // store and the pending spinner is never rendered.
+    await waitForHydration(search)
     await search.click()
     await search.pressSequentially('chicken', { delay: 120 })
     await expect(page.getByRole('status', { name: 'Searching foods' })).toBeVisible()

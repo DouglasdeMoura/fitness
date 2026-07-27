@@ -30,13 +30,24 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
       testMatch: /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile)\.spec\.ts/,
     },
-    // No iphone-14 / WebKit project: Playwright's WebKit build cannot run on
-    // this host. The binary installs, but launching it needs libicu74 and
-    // friends via `sudo apt-get`, and this is Arch — Playwright itself reports
-    // "your OS is not officially supported". All 94 iphone-14 "failures" in the
-    // first run were `browserType.launch: Executable doesn't exist`, not real
-    // defects. WebKit coverage needs a container or CI image; tracked
-    // separately so it cannot silently block the dev loop.
+    {
+      // iOS Safari coverage. NOT part of `npm run test:e2e` — it is excluded
+      // from the default run via `--project` selection in that script, because
+      // Playwright's WebKit cannot launch on this host: the binary installs but
+      // needs libicu74 (Arch ships 78, and ICU breaks ABI between majors) plus
+      // libxml2.so.2 and libjxl 0.8, none available as official Arch packages.
+      // Playwright itself reports "your OS is not officially supported".
+      //
+      // Run it in the official container instead, which has every dep:
+      //     npm run test:e2e:webkit
+      //
+      // The image tag must track the @playwright/test version or the driver
+      // mismatches. All 94 iphone-14 "failures" seen before this split were
+      // `browserType.launch: Executable doesn't exist` — environmental noise,
+      // not defects, and they blocked the dev loop's e2e gate.
+      name: 'iphone-14',
+      use: { ...devices['iPhone 14'] },
+    },
   ],
   webServer: {
     command: 'npm run dev',
