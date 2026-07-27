@@ -61,6 +61,11 @@ export function setSavedBody(): string {
   return 'Set saved'
 }
 
+/** Append PR fragments after a set-save confirmation (issue #61). */
+export function setSavedWithRecordsBody(prFragments: string): string {
+  return `${setSavedBody()} · ${prFragments}`
+}
+
 /** Rest timer completion (issue #60). */
 export function restCompleteBody(): string {
   return 'Rest complete'

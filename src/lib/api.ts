@@ -503,6 +503,34 @@ export const getLastPerformance = createServerFn({ method: 'GET' })
     return row ?? null
   })
 
+export type ExerciseSetHistoryRow = {
+  id: number
+  session_id: number
+  weight_kg: number
+  reps: number
+}
+
+/** Chronological set history for an exercise — feeds pure PR detection (issue #61). */
+export const getExerciseSetHistory = createServerFn({ method: 'GET' })
+  .validator((data: { exerciseId: number }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+
+    const sets = db
+      .prepare(
+        `SELECT ws.id, ws.session_id, ws.weight_kg, ws.reps
+         FROM workout_sets ws
+         JOIN workout_sessions wse ON ws.session_id = wse.id
+         WHERE wse.user_id = ? AND ws.exercise_id = ?
+           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
+         ORDER BY wse.date ASC, ws.id ASC`,
+      )
+      .all(user.id, ctx.data.exerciseId) as ExerciseSetHistoryRow[]
+
+    return { sets }
+  })
+
 // --- Training Programs ---
 
 export type ProgramExerciseInput = {

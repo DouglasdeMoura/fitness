@@ -9,6 +9,7 @@ import {
   profileSavedBody,
   setDeletedBody,
   setSavedBody,
+  setSavedWithRecordsBody,
   TOAST_DURATION_MS,
   weightLoggedBody,
 } from '~/lib/toasts'
@@ -22,6 +23,9 @@ describe('toast copy (issue #24)', () => {
     expect(templateLoggedBody(165)).toBe('Logged 165 kcal')
     expect(entryDeletedBody()).toBe('Entry deleted')
     expect(setSavedBody()).toBe('Set saved')
+    expect(setSavedWithRecordsBody('Rep PR — beat 8 reps')).toBe(
+      'Set saved · Rep PR — beat 8 reps',
+    )
     expect(setDeletedBody()).toBe('Set deleted')
     expect(dataExportedBody()).toBe('Data exported')
   })

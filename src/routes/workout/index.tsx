@@ -27,9 +27,11 @@ import {
   createWorkoutSession,
   addWorkoutSet,
   deleteWorkoutSet,
+  getExerciseSetHistory,
   getLastPerformance,
   getProgramDayTargets,
   type ProgramDayTarget,
+  type ExerciseSetHistoryRow,
 } from '~/lib/api'
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
@@ -39,6 +41,7 @@ import {
   mutationFailedBody,
   setDeletedBody,
   setSavedBody,
+  setSavedWithRecordsBody,
   TOAST_DURATION_MS,
 } from '~/lib/toasts'
 import {
@@ -58,6 +61,13 @@ import {
   restTimerSearchFromState,
   startRestTimer,
 } from '~/lib/rest-timer'
+import {
+  detectPersonalRecords,
+  personalRecordsToastBody,
+  recordKindsBySetId,
+  type ExerciseSetSnapshot,
+  type RecordKind,
+} from '~/lib/records'
 
 type WorkoutSearch = {
   session?: number
@@ -142,6 +152,32 @@ function WorkoutPageContent() {
     (sessionIdFromSearch !== undefined && urlSession
       ? activeSessionFromUrl(urlSession.session)
       : null)
+
+  const isViewingSavedSession =
+    sessionIdFromSearch !== undefined && startedSession === null && urlSession != null
+
+  const historyExerciseIds = isViewingSavedSession
+    ? [...new Set(urlSession.sets.map((set) => set.exercise_id))]
+    : []
+
+  const { data: historyByExercise } = useQuery({
+    queryKey: ['exercise-set-histories', historyExerciseIds],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        historyExerciseIds.map(async (exerciseId) => {
+          const { sets } = await getExerciseSetHistory({ data: { exerciseId } })
+          return [exerciseId, sets] as const
+        }),
+      )
+      return new Map(entries)
+    },
+    enabled: isViewingSavedSession && historyExerciseIds.length > 0,
+  })
+
+  const sessionHistoryRows =
+    isViewingSavedSession && historyByExercise
+      ? buildSessionHistoryRows(urlSession.sets, historyByExercise)
+      : []
 
   const hasProgramDay = activeSession?.programId != null && activeSession?.programDayId != null
   const { data: targetsResponse } = useQuery({
@@ -239,11 +275,24 @@ function WorkoutPageContent() {
 
     try {
       const sessionId = activeSession.id
+      const { sets: historyRows } = await getExerciseSetHistory({
+        data: { exerciseId: selectedExercise.id },
+      })
+      const brokenRecords =
+        sessionId === null
+          ? []
+          : detectRecordsForNewSet(historyRows, sessionId, set, set.id)
+      const recordKinds = brokenRecords.map((record) => record.kind)
+      const toastBody =
+        brokenRecords.length > 0
+          ? setSavedWithRecordsBody(personalRecordsToastBody(brokenRecords))
+          : setSavedBody()
+
       if (sessionId === null) {
         await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
         startRestTimer(set.rpe, Date.now())
         navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
-        toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
+        toast({ body: toastBody, autoHideDuration: TOAST_DURATION_MS.setSaved })
         return
       }
 
@@ -252,12 +301,18 @@ function WorkoutPageContent() {
       )
       if (!outcome.queued) {
         setSets((prev) =>
-          prev.map((row, i) => (i === index ? { ...row, id: outcome.result.id } : row)),
+          prev.map((row, i) =>
+            i === index ? { ...row, id: outcome.result.id, recordKinds } : row,
+          ),
+        )
+      } else if (recordKinds.length > 0) {
+        setSets((prev) =>
+          prev.map((row, i) => (i === index ? { ...row, recordKinds } : row)),
         )
       }
       startRestTimer(set.rpe, Date.now())
       navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
-      toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
+      toast({ body: toastBody, autoHideDuration: TOAST_DURATION_MS.setSaved })
     } catch {
       toast({ body: mutationFailedBody('Save set'), type: 'error' })
     }
@@ -422,10 +477,28 @@ function WorkoutPageContent() {
         </VStack>
       ) : (
         <VStack gap={4}>
+          {isViewingSavedSession && sessionHistoryRows.length > 0 ? (
+            <Card>
+              <VStack gap={3}>
+                <Heading level={2}>Session History</Heading>
+                <ScrollableTable scrollLabel="session-history-sets">
+                  <Table
+                    aria-label="Logged sets for this session"
+                    columns={sessionHistoryColumns()}
+                    data={sessionHistoryRows}
+                    idKey="id"
+                    density="compact"
+                    hasHover
+                  />
+                </ScrollableTable>
+              </VStack>
+            </Card>
+          ) : null}
+
           <Card>
             <VStack gap={3}>
               <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
-                <Heading level={2}>Active Session</Heading>
+                <Heading level={2}>{isViewingSavedSession ? 'Session' : 'Active Session'}</Heading>
                 <Button label="Finish workout" variant="secondary" size="lg" clickAction={handleFinish} />
               </HStack>
               {totalVolume > 0 ? (
@@ -542,6 +615,113 @@ function WorkoutPageContent() {
       )}
     </VStack>
   )
+}
+
+
+type SessionHistoryRow = {
+  id: number
+  exercise_name: string
+  set_number: number
+  weight_kg: number
+  reps: number
+  rpe: number
+  recordKinds: RecordKind[]
+}
+
+function toSetSnapshot(row: ExerciseSetHistoryRow): ExerciseSetSnapshot {
+  return {
+    id: row.id,
+    session_id: row.session_id,
+    weight_kg: row.weight_kg,
+    reps: row.reps,
+  }
+}
+
+function detectRecordsForNewSet(
+  historyRows: ExerciseSetHistoryRow[],
+  sessionId: number,
+  set: WorkoutSetRow,
+  excludeSetId?: number,
+) {
+  const priorSets = historyRows
+    .filter((row) => row.id !== excludeSetId)
+    .map(toSetSnapshot)
+  const newSet: ExerciseSetSnapshot = {
+    session_id: sessionId,
+    weight_kg: set.weight,
+    reps: set.reps,
+  }
+  const currentSessionPrior = priorSets.filter((row) => row.session_id === sessionId)
+  return detectPersonalRecords(priorSets, newSet, currentSessionPrior)
+}
+
+function buildSessionHistoryRows(
+  sets: Array<{
+    id: number
+    exercise_id: number
+    exercise_name: string
+    set_number: number
+    weight_kg: number | null
+    reps: number | null
+    rpe: number
+  }>,
+  historyByExercise: Map<number, ExerciseSetHistoryRow[]>,
+): SessionHistoryRow[] {
+  return sets
+    .filter((set) => set.weight_kg != null && set.reps != null)
+    .map((set) => {
+      const chronological = (historyByExercise.get(set.exercise_id) ?? []).map(toSetSnapshot)
+      const recordKinds = recordKindsBySetId(chronological).get(set.id) ?? []
+      return {
+        id: set.id,
+        exercise_name: set.exercise_name,
+        set_number: set.set_number,
+        weight_kg: set.weight_kg as number,
+        reps: set.reps as number,
+        rpe: set.rpe,
+        recordKinds,
+      }
+    })
+}
+
+function sessionHistoryColumns(): TableColumn<SessionHistoryRow>[] {
+  return [
+    {
+      key: 'exercise_name',
+      header: 'Exercise',
+      width: proportional(2),
+      renderCell: (row) => <Text>{row.exercise_name}</Text>,
+    },
+    {
+      key: 'set_number',
+      header: 'Set',
+      width: proportional(1),
+      renderCell: (row) => (
+        <HStack gap={2} wrap="wrap" vAlign="center">
+          <Text hasTabularNumbers>{row.set_number}</Text>
+          {row.recordKinds.length > 0 ? <Badge label="PR" variant="success" /> : null}
+        </HStack>
+      ),
+    },
+    {
+      key: 'weight',
+      header: 'Weight (kg)',
+      width: proportional(1),
+      renderCell: (row) => <Text hasTabularNumbers>{row.weight_kg}</Text>,
+    },
+    {
+      key: 'reps',
+      header: 'Reps',
+      width: proportional(1),
+      renderCell: (row) => <Text hasTabularNumbers>{row.reps}</Text>,
+    },
+    {
+      key: 'rpe',
+      header: 'RPE',
+      width: proportional(1),
+      renderCell: (row) => <Text hasTabularNumbers>{row.rpe}</Text>,
+    },
+  ]
 }
 
 function buildExerciseOptions(exercises: Exercise[], programTargets: ProgramDayTarget[]) {

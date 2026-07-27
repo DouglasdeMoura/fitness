@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   HStack,
   Table,
@@ -9,6 +10,7 @@ import {
 import { GymStepperInput } from '~/components/GymStepperInput'
 import { ScrollableTable } from '~/components/ScrollableTable'
 import { REPS_STEP, WEIGHT_STEP_KG } from '~/lib/gym-input'
+import type { RecordKind } from '~/lib/records'
 import { calculateVolume } from '~/lib/workout'
 
 export type WorkoutSetRow = {
@@ -16,6 +18,7 @@ export type WorkoutSetRow = {
   weight: number
   rpe: number
   id?: number
+  recordKinds?: RecordKind[]
 }
 
 type WorkoutSetTableRow = WorkoutSetRow & {
@@ -71,7 +74,14 @@ function workoutSetColumns(
       key: 'set_number',
       header: 'Set',
       width: proportional(1),
-      renderCell: (row) => <Text hasTabularNumbers>{row.rowIndex + 1}</Text>,
+      renderCell: (row) => (
+        <HStack gap={2} wrap="wrap" vAlign="center">
+          <Text hasTabularNumbers>{row.rowIndex + 1}</Text>
+          {row.recordKinds && row.recordKinds.length > 0 ? (
+            <Badge label="PR" variant="success" />
+          ) : null}
+        </HStack>
+      ),
     },
     {
       key: 'weight',
