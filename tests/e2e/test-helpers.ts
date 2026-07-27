@@ -7,6 +7,7 @@ export const APP_ROUTES = [
   '/workout',
   '/progress',
   '/settings',
+  '/review',
   '/nutrition/templates',
   '/nutrition/planning',
   '/workout/programs',
@@ -22,7 +23,7 @@ export const FIXED_E2E_DATE = '2020-01-01'
 export const FIXED_E2E_TIME = new Date('2020-01-01T12:00:00Z')
 
 export function routeWithStableQuery(path: AppRoute | string): string {
-  if (path === '/nutrition' || path === '/workout') {
+  if (path === '/' || path === '/review' || path === '/nutrition' || path === '/workout') {
     return `${path}?date=${FIXED_E2E_DATE}`
   }
   return path

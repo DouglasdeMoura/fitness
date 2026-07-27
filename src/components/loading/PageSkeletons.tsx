@@ -209,6 +209,35 @@ export function SettingsSkeleton() {
   )
 }
 
+
+export function ReviewSkeleton() {
+  return (
+    <VStack as="main" gap={4} aria-busy="true" aria-label="Loading weekly review">
+      <Skeleton height={32} width="60%" />
+      <Card>
+        <VStack gap={2}>
+          <Skeleton height={20} width="30%" />
+          <Skeleton height={48} width="100%" />
+        </VStack>
+      </Card>
+      <Grid columns={{ minWidth: 280 }} gap={4}>
+        <Card>
+          <VStack gap={2}>
+            <Skeleton height={24} width="40%" />
+            <Skeleton height={80} width="100%" />
+          </VStack>
+        </Card>
+        <Card>
+          <VStack gap={2}>
+            <Skeleton height={24} width="40%" />
+            <Skeleton height={80} width="100%" />
+          </VStack>
+        </Card>
+      </Grid>
+    </VStack>
+  )
+}
+
 export function RoutePageSkeleton() {
   return (
     <VStack as="main" gap={4} aria-busy="true" aria-label="Loading page">

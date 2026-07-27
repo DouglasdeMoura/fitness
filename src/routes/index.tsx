@@ -15,22 +15,33 @@ import {
   Text,
   VStack,
 } from '@astryxdesign/core'
-import { getConsistency, getDashboardStats } from '~/lib/api'
+import { getConsistency, getDashboardStats, getWeeklyReviewAvailability } from '~/lib/api'
 import {
   calorieRemainingLabel,
   macroProgress,
   type MacroTone,
 } from '~/lib/dashboard'
 import { DashboardSkeleton } from '~/components/loading/PageSkeletons'
+import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
+
+type DashboardSearch = {
+  date?: string
+}
 
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>): DashboardSearch => ({
+    date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
+  }),
+  loaderDeps: ({ search: { date } }) => ({ date }),
   head: () => ({ meta: [{ title: 'Dashboard - FitTrack' }] }),
-  loader: async () => {
-    const [stats, consistency] = await Promise.all([
+  loader: async ({ deps }) => {
+    const asOf = resolveSelectedDate(deps.date)
+    const [stats, consistency, weeklyReview] = await Promise.all([
       getDashboardStats(),
-      getConsistency({ data: {} }),
+      getConsistency({ data: { asOf } }),
+      getWeeklyReviewAvailability({ data: { asOf } }),
     ])
-    return { stats, consistency }
+    return { asOf, stats, consistency, weeklyReview }
   },
   pendingComponent: DashboardSkeleton,
   component: DashboardPage,
@@ -45,17 +56,23 @@ function DashboardPage() {
 }
 
 function DashboardPageContent() {
-  const initialData = Route.useLoaderData()
+  const loaderData = Route.useLoaderData()
+  const { asOf } = loaderData
   const { data: dashboard } = useSuspenseQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', asOf],
     queryFn: async () => ({
       stats: await getDashboardStats(),
-      consistency: await getConsistency({ data: {} }),
+      consistency: await getConsistency({ data: { asOf } }),
+      weeklyReview: await getWeeklyReviewAvailability({ data: { asOf } }),
     }),
-    initialData,
+    initialData: {
+      stats: loaderData.stats,
+      consistency: loaderData.consistency,
+      weeklyReview: loaderData.weeklyReview,
+    },
   })
 
-  const { stats, consistency } = dashboard
+  const { stats, consistency, weeklyReview } = dashboard
   const { consumed, targets, user, workoutDaysThisMonth } = stats
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -194,6 +211,9 @@ function DashboardPageContent() {
             <Button label="Log Food" href="/nutrition" variant="primary" />
             <Button label="Start Workout" href="/workout" variant="secondary" />
             <Button label="View Progress" href="/progress" variant="secondary" />
+            {weeklyReview.available ? (
+              <Button label="Weekly Review" href={`/review?date=${asOf}`} variant="secondary" />
+            ) : null}
           </HStack>
         </VStack>
       </Card>

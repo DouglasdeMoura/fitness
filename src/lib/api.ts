@@ -33,6 +33,13 @@ import {
 } from './workout'
 import { assembleConsistencyMetrics, type ConsistencyMetrics } from './consistency'
 import { recordKindsBySetId, type ExerciseSetSnapshot } from './records'
+import {
+  assembleWeeklyReview,
+  hasReviewableWeek,
+  lastCompleteWeekRange,
+  priorWeekRange,
+  type WeeklyReviewPayload,
+} from './weekly-review'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
 // --- Ensure default user exists ---
@@ -1470,6 +1477,176 @@ export const getConsistency = createServerFn({ method: 'GET' })
     ).all(user.id, windowStart, asOf) as { date: string }[]
 
     return assembleConsistencyMetrics(rows.map((row) => row.date), asOf)
+  })
+
+
+// --- Weekly Review (issue #64) ---
+
+export type WeeklyReview = WeeklyReviewPayload
+
+function collectActivityDates(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+): string[] {
+  const foodDates = db
+    .prepare('SELECT DISTINCT date FROM food_log WHERE user_id = ?')
+    .all(userId) as { date: string }[]
+  const sessionDates = db
+    .prepare('SELECT DISTINCT date FROM workout_sessions WHERE user_id = ?')
+    .all(userId) as { date: string }[]
+  const bodyDates = db
+    .prepare(
+      'SELECT DISTINCT date FROM body_logs WHERE user_id = ? AND weight_kg IS NOT NULL',
+    )
+    .all(userId) as { date: string }[]
+
+  return [...foodDates, ...sessionDates, ...bodyDates].map((row) => row.date)
+}
+
+function countPersonalRecordsInRange(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  range: { start: string; end: string },
+): number {
+  const sets = db
+    .prepare(
+      `SELECT ws.id, ws.exercise_id, ws.weight_kg, ws.reps
+       FROM workout_sets ws
+       JOIN workout_sessions wse ON ws.session_id = wse.id
+       WHERE wse.user_id = ? AND wse.date >= ? AND wse.date <= ?
+         AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
+       ORDER BY wse.date ASC, ws.id ASC`,
+    )
+    .all(userId, range.start, range.end) as Array<{
+    id: number
+    exercise_id: number
+    weight_kg: number
+    reps: number
+  }>
+
+  const exerciseIds = [...new Set(sets.map((set) => set.exercise_id))]
+  let prCount = 0
+
+  for (const exerciseId of exerciseIds) {
+    const history = loadExerciseHistory(db, userId, exerciseId)
+    const kindsBySetId = recordKindsBySetId(history)
+    for (const set of sets) {
+      if (set.exercise_id !== exerciseId) {
+        continue
+      }
+      if ((kindsBySetId.get(set.id) ?? []).length > 0) {
+        prCount += 1
+      }
+    }
+  }
+
+  return prCount
+}
+
+function loadWeeklyReviewFromDb(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  asOf: string,
+  calorieTarget: number,
+  proteinTargetG: number,
+): WeeklyReview | null {
+  const week = lastCompleteWeekRange(asOf)
+  const prior = priorWeekRange(week)
+  const bodyLogStart = addDays(week.start, -6)
+
+  const foodRows = db
+    .prepare(
+      `SELECT date,
+              SUM(calories) AS calories,
+              SUM(protein_g) AS protein_g
+       FROM food_log
+       WHERE user_id = ? AND date >= ? AND date <= ?
+       GROUP BY date`,
+    )
+    .all(userId, prior.start, week.end) as Array<{
+    date: string
+    calories: number
+    protein_g: number
+  }>
+
+  const dailyNutrition = new Map(
+    foodRows.map((row) => [
+      row.date,
+      { calories: row.calories, protein_g: row.protein_g },
+    ]),
+  )
+
+  const setRows = db
+    .prepare(
+      `SELECT ws.exercise_id, ws.reps, ws.weight_kg, wse.date
+       FROM workout_sets ws
+       JOIN workout_sessions wse ON ws.session_id = wse.id
+       WHERE wse.user_id = ? AND wse.date >= ? AND wse.date <= ?`,
+    )
+    .all(userId, prior.start, week.end) as Array<{
+    exercise_id: number
+    reps: number | null
+    weight_kg: number | null
+    date: string
+  }>
+
+  const sessionDates = (
+    db
+      .prepare(
+        `SELECT DISTINCT date FROM workout_sessions
+         WHERE user_id = ? AND date >= ? AND date <= ?`,
+      )
+      .all(userId, prior.start, week.end) as { date: string }[]
+  ).map((row) => row.date)
+
+  const bodyLogs = db
+    .prepare(
+      `SELECT * FROM body_logs
+       WHERE user_id = ? AND date >= ? AND date <= ?
+       ORDER BY date ASC`,
+    )
+    .all(userId, bodyLogStart, week.end) as BodyLog[]
+
+  const personalRecordCount = countPersonalRecordsInRange(db, userId, week)
+
+  return assembleWeeklyReview({
+    asOf,
+    calorieTarget,
+    proteinTargetG,
+    dailyNutrition,
+    workoutSets: setRows,
+    sessionDates,
+    bodyLogs,
+    personalRecordCount,
+  })
+}
+
+/** Whether the dashboard should link to the weekly review (issue #64). */
+export const getWeeklyReviewAvailability = createServerFn({ method: 'GET' })
+  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const asOf = ctx.data.asOf ?? todayString()
+    const activityDates = collectActivityDates(db, user.id)
+    return { available: hasReviewableWeek(asOf, activityDates) }
+  })
+
+/** Last complete week's review metrics and headline (issue #64). */
+export const getWeeklyReview = createServerFn({ method: 'GET' })
+  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .handler(async (ctx): Promise<WeeklyReview | null> => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const asOf = ctx.data.asOf ?? todayString()
+    const targets = await getDailyTargets()
+    return loadWeeklyReviewFromDb(
+      db,
+      user.id,
+      asOf,
+      targets.calories,
+      targets.protein_g,
+    )
   })
 
 // --- Offline Support ---

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NutritionIndexRouteImport } from './routes/nutrition/index'
 import { Route as ProgressIndexRouteImport } from './routes/progress/index'
+import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
 import { Route as NutritionPlanningIndexRouteImport } from './routes/nutrition/planning/index'
@@ -33,6 +34,11 @@ const NutritionIndexRoute = NutritionIndexRouteImport.update({
 const ProgressIndexRoute = ProgressIndexRouteImport.update({
   id: '/progress/',
   path: '/progress/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewIndexRoute = ReviewIndexRouteImport.update({
+  id: '/review/',
+  path: '/review/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
+  '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/nutrition': typeof NutritionIndexRoute
   '/progress': typeof ProgressIndexRoute
+  '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workout': typeof WorkoutIndexRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
+  '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nutrition/'
     | '/progress/'
+    | '/review/'
     | '/settings/'
     | '/workout/'
     | '/nutrition/templates/$templateId'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nutrition'
     | '/progress'
+    | '/review'
     | '/settings'
     | '/workout'
     | '/nutrition/templates/$templateId'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nutrition/'
     | '/progress/'
+    | '/review/'
     | '/settings/'
     | '/workout/'
     | '/nutrition/templates/$templateId'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NutritionIndexRoute: typeof NutritionIndexRoute
   ProgressIndexRoute: typeof ProgressIndexRoute
+  ReviewIndexRoute: typeof ReviewIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
   NutritionTemplatesTemplateIdRoute: typeof NutritionTemplatesTemplateIdRoute
@@ -183,6 +196,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress/'
       preLoaderRoute: typeof ProgressIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review/': {
+      id: '/review/'
+      path: '/review'
+      fullPath: '/review/'
+      preLoaderRoute: typeof ReviewIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/': {
@@ -241,6 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NutritionIndexRoute: NutritionIndexRoute,
   ProgressIndexRoute: ProgressIndexRoute,
+  ReviewIndexRoute: ReviewIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
   NutritionTemplatesTemplateIdRoute: NutritionTemplatesTemplateIdRoute,
