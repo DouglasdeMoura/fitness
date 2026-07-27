@@ -140,6 +140,37 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await expect(foodRow).not.toBeVisible()
   })
 
+
+  test('repeat food logs from Recent in at most two taps', async ({ page }) => {
+    const foodName = `E2E Repeat Food ${Date.now()}`
+    await openAppPage(page, '/nutrition')
+    const searchInput = page.getByRole('textbox', { name: 'Search foods' })
+
+    await page.getByRole('button', { name: 'Create Custom Food' }).click()
+    await page.getByLabel('Name').fill(foodName)
+    await page.getByLabel('Calories per serving').fill('180')
+    await page.getByRole('button', { name: 'Save Food' }).click()
+    await expect(page.getByText(foodName)).toBeVisible()
+
+    await page.getByRole('spinbutton', { name: 'Servings' }).fill('2')
+    await page.getByRole('button', { name: 'Add to Log' }).click()
+    const foodRow = page.getByRole('row').filter({ hasText: foodName })
+    await expect(foodRow).toBeVisible({ timeout: 10000 })
+
+    await searchInput.clear()
+    await expect(page.getByText('Recent')).toBeVisible({ timeout: 10000 })
+    const recentFood = page.getByRole('listitem').filter({ hasText: foodName }).first()
+    await expect(recentFood).toBeVisible()
+
+    let taps = 0
+    await recentFood.click()
+    taps += 1
+    expect(taps).toBeLessThanOrEqual(2)
+
+    await expect(page.getByRole('row').filter({ hasText: foodName })).toHaveCount(2, {
+      timeout: 10000,
+    })
+  })
   test('food log shows a table or a helpful empty state', async ({ page }) => {
     await openAppPage(page, '/nutrition')
     await expect(page.getByRole('heading', { name: "Today's Food Log" })).toBeVisible({

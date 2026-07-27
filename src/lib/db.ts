@@ -42,6 +42,11 @@ function runMigrations(db: Database.Database) {
       db.exec(migration.sql)
     }
   }
+
+  // Batch 1 (PRD 09): recency/frequency queries over food_log by user + date.
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_food_log_user_date ON food_log(user_id, date DESC)',
+  )
 }
 
 export function getDb(): Database.Database {

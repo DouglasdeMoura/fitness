@@ -165,6 +165,82 @@ export const addFood = createServerFn({ method: 'POST' })
     return db.prepare('SELECT * FROM foods WHERE id = ?').get(result.lastInsertRowid) as Food
   })
 
+export type LoggedFoodSummary = Food & {
+  last_servings: number
+  last_meal_type: MealType
+  log_count?: number
+}
+
+export type FoodLogStats = {
+  food_id: number
+  log_count: number
+  last_servings: number
+  last_meal_type: MealType
+}
+
+const LATEST_FOOD_LOG_CTE = `
+  SELECT food_id, servings, meal_type, date, created_at,
+    ROW_NUMBER() OVER (PARTITION BY food_id ORDER BY date DESC, created_at DESC) AS rn
+  FROM food_log
+  WHERE user_id = ? AND food_id IS NOT NULL
+`
+
+/** Distinct foods ordered by most recent log date (derived, not denormalised). */
+export const getRecentFoods = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  return db.prepare(`
+    WITH latest AS (${LATEST_FOOD_LOG_CTE})
+    SELECT f.*, latest.servings AS last_servings, latest.meal_type AS last_meal_type
+    FROM latest
+    JOIN foods f ON f.id = latest.food_id
+    WHERE latest.rn = 1
+    ORDER BY latest.date DESC, latest.created_at DESC
+    LIMIT 20
+  `).all(user.id) as LoggedFoodSummary[]
+})
+
+/** Distinct foods ordered by log count over the trailing 90 days. */
+export const getFrequentFoods = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  return db.prepare(`
+    WITH freq AS (
+      SELECT food_id, COUNT(*) AS log_count
+      FROM food_log
+      WHERE user_id = ? AND food_id IS NOT NULL
+        AND date >= date('now', '-90 days')
+      GROUP BY food_id
+      ORDER BY log_count DESC
+      LIMIT 20
+    ),
+    latest AS (${LATEST_FOOD_LOG_CTE})
+    SELECT f.*, freq.log_count, latest.servings AS last_servings, latest.meal_type AS last_meal_type
+    FROM freq
+    JOIN foods f ON f.id = freq.food_id
+    JOIN latest ON latest.food_id = freq.food_id AND latest.rn = 1
+    ORDER BY freq.log_count DESC
+  `).all(user.id, user.id) as LoggedFoodSummary[]
+})
+
+/** All-time log counts plus last-used servings/meal for search ranking. */
+export const getLoggedFoodStats = createServerFn({ method: 'GET' }).handler(async () => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  return db.prepare(`
+    WITH latest AS (${LATEST_FOOD_LOG_CTE}),
+    counts AS (
+      SELECT food_id, COUNT(*) AS log_count
+      FROM food_log
+      WHERE user_id = ? AND food_id IS NOT NULL
+      GROUP BY food_id
+    )
+    SELECT c.food_id, c.log_count, latest.servings AS last_servings, latest.meal_type AS last_meal_type
+    FROM counts c
+    JOIN latest ON latest.food_id = c.food_id AND latest.rn = 1
+  `).all(user.id, user.id) as FoodLogStats[]
+})
+
 // --- Food Log ---
 
 export const getFoodLog = createServerFn({ method: 'GET' })

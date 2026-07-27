@@ -3,6 +3,7 @@ import { useForm } from '@tanstack/react-form'
 import { useStore } from '@tanstack/react-store'
 import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -20,7 +21,14 @@ import {
   VStack,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
-import { addFood, addFoodLogEntry, searchFoods } from '~/lib/api'
+import {
+  addFood,
+  addFoodLogEntry,
+  getLoggedFoodStats,
+  getRecentFoods,
+  searchFoods,
+  type LoggedFoodSummary,
+} from '~/lib/api'
 import type { Food } from '~/lib/db'
 import {
   buildFoodLogDraft,
@@ -36,7 +44,12 @@ import {
   type CustomFoodDraft,
 } from '~/lib/custom-food'
 import { useDebouncedValue } from '~/hooks/use-debounced-value'
-import { FOOD_SEARCH_MIN_LENGTH, isFoodSearchPending } from '~/lib/food-search'
+import {
+  FOOD_SEARCH_MIN_LENGTH,
+  isFoodSearchPending,
+  rankFoodSearchResults,
+  type RankedFoodSearchResult,
+} from '~/lib/food-search'
 import { foodLoggedBody, mutationFailedBody } from '~/lib/toasts'
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
@@ -97,6 +110,7 @@ export const AddFoodCard = forwardRef<AddFoodCardHandle, { selectedDate: string 
             />
           ) : (
             <FoodSearchForm
+              selectedDate={selectedDate}
               onSelect={(food) => form.setFieldValue('selectedFood', food)}
               searchFocusRef={searchFocusRef}
             />
@@ -136,9 +150,11 @@ function useFoodLogEntryForm(selectedDate: string) {
         formApi.reset()
         toast({ body: foodLoggedBody() })
         if (!outcome.queued) {
-          await queryClient.invalidateQueries({
-            queryKey: ['food-log', selectedDate],
-          })
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
+            queryClient.invalidateQueries({ queryKey: ['recent-foods'] }),
+            queryClient.invalidateQueries({ queryKey: ['logged-food-stats'] }),
+          ])
         }
       } catch {
         toast({ body: mutationFailedBody('Log food'), type: 'error' })
@@ -214,9 +230,11 @@ function FoodSelectionSummary({ food }: { food: Food }) {
  * toggle in {@link CustomFoodForm}.
  */
 function FoodSearchForm({
+  selectedDate,
   onSelect,
   searchFocusRef,
 }: {
+  selectedDate: string
   onSelect: (food: Food) => void
   searchFocusRef: MutableRefObject<() => void>
 }) {
@@ -232,7 +250,11 @@ function FoodSearchForm({
   const query = useStore(searchForm.store, (state) => state.values.query)
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
   const searchState = useFoodSearchResults(debouncedQuery)
+  const quickLog = useQuickLogFood(selectedDate)
   const trimmedQuery = query.trim()
+  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH
+  const recentFoods = useRecentFoods(showRecent)
+  const loggedHistory = useLoggedFoodHistory(!showRecent || searchState.hasSearched)
   const searchPending = isFoodSearchPending(
     trimmedQuery,
     debouncedQuery.trim(),
@@ -261,7 +283,11 @@ function FoodSearchForm({
       </searchForm.Field>
       <FoodSearchResults
         searchState={searchState}
+        trimmedQuery={trimmedQuery}
+        recentFoods={recentFoods}
+        loggedHistory={loggedHistory}
         onSelect={onSelect}
+        onQuickLog={quickLog}
         onCreateCustomFood={() => setCustomFoodOpen(true)}
       />
       <CustomFoodForm
@@ -310,30 +336,155 @@ function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
   }
 }
 
+function useQuickLogFood(selectedDate: string) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  return async (food: Food, servings: number, mealType: MealType) => {
+    const entry = buildFoodLogDraft(food, servings, selectedDate, mealType)
+    try {
+      const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
+        addFoodLogEntry({ data: entry }),
+      )
+      toast({ body: foodLoggedBody() })
+      if (!outcome.queued) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
+          queryClient.invalidateQueries({ queryKey: ['recent-foods'] }),
+          queryClient.invalidateQueries({ queryKey: ['logged-food-stats'] }),
+        ])
+      }
+    } catch {
+      toast({ body: mutationFailedBody('Log food'), type: 'error' })
+    }
+  }
+}
+
+function useRecentFoods(enabled: boolean) {
+  const { data } = useQuery({
+    queryKey: ['recent-foods'],
+    queryFn: () => getRecentFoods(),
+    enabled,
+    staleTime: 1000 * 60,
+  })
+  return data ?? []
+}
+
+function useLoggedFoodHistory(enabled: boolean) {
+  const { data } = useQuery({
+    queryKey: ['logged-food-stats'],
+    queryFn: () => getLoggedFoodStats(),
+    enabled,
+    staleTime: 1000 * 60,
+  })
+  return data ?? []
+}
+
+function recentFoodDescription(food: LoggedFoodSummary): string {
+  const mealLabel = MEAL_TYPE_LABELS[food.last_meal_type]
+  const servingLabel = food.last_servings === 1 ? '1 serving' : `${food.last_servings} servings`
+  return `${servingLabel} · ${mealLabel} · ${food.calories_per_serving * food.last_servings} kcal`
+}
+
+function RecentFoodsList({
+  foods,
+  onQuickLog,
+}: {
+  foods: LoggedFoodSummary[]
+  onQuickLog: (food: LoggedFoodSummary) => void
+}) {
+  if (foods.length === 0) return null
+  return (
+    <List header={<Text type="label">Recent</Text>} hasDividers>
+      {foods.map((food) => (
+        <ListItem
+          key={food.id}
+          label={food.name}
+          description={recentFoodDescription(food)}
+          onClick={() => onQuickLog(food)}
+        />
+      ))}
+    </List>
+  )
+}
+
+function FoodSearchResultItem({
+  result,
+  onSelect,
+  onQuickLog,
+}: {
+  result: RankedFoodSearchResult
+  onSelect: (food: Food) => void
+  onQuickLog: (food: Food, servings: number, mealType: MealType) => void
+}) {
+  const { food, logCount, lastServings, lastMealType } = result
+  const hasHistory = logCount !== null && lastServings !== null && lastMealType !== null
+  return (
+    <ListItem
+      label={food.name}
+      description={`${food.calories_per_serving} kcal · ${food.protein_g} g protein`}
+      endContent={
+        hasHistory ? (
+          <Badge variant="neutral" label={`logged ${logCount}×`} />
+        ) : undefined
+      }
+      onClick={() => {
+        if (hasHistory) {
+          onQuickLog(food, lastServings, lastMealType)
+          return
+        }
+        onSelect(food)
+      }}
+    />
+  )
+}
+
 function FoodSearchResults({
   searchState,
+  trimmedQuery,
+  recentFoods,
+  loggedHistory,
   onSelect,
+  onQuickLog,
   onCreateCustomFood,
 }: {
   searchState: FoodSearchResultsState
+  trimmedQuery: string
+  recentFoods: LoggedFoodSummary[]
+  loggedHistory: Awaited<ReturnType<typeof getLoggedFoodStats>>
   onSelect: (food: Food) => void
+  onQuickLog: (food: Food, servings: number, mealType: MealType) => void
   onCreateCustomFood: () => void
 }) {
+  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH
+
+  if (showRecent) {
+    return (
+      <RecentFoodsList
+        foods={recentFoods}
+        onQuickLog={(food) => onQuickLog(food, food.last_servings, food.last_meal_type)}
+      />
+    )
+  }
+
   if (searchState.results.length > 0) {
+    const ranked = rankFoodSearchResults(searchState.results, loggedHistory)
     return (
       <List header={<Text type="label">Search results</Text>} hasDividers>
-        {searchState.results.map((food) => (
-          <ListItem
-            key={food.id}
-            label={food.name}
-            description={`${food.calories_per_serving} kcal · ${food.protein_g} g protein`}
-            onClick={() => onSelect(food)}
+        {ranked.map((result) => (
+          <FoodSearchResultItem
+            key={result.food.id}
+            result={result}
+            onSelect={onSelect}
+            onQuickLog={onQuickLog}
           />
         ))}
       </List>
     )
   }
+
   if (!searchState.hasSearched) return null
+
   return (
     <EmptyState
       icon={<span aria-hidden>🔍</span>}
