@@ -54,6 +54,9 @@ fi
 # When a model is rate-limited, the script falls back to the next.
 # Rate limit info is fetched via `omp usage` before each iteration.
 MODELS=(
+  "mistral/mistral-medium-3.5"          # Mistral Medium 3.5
+  "google-antigravity/gemini-3.1-pro"   # Gemini 3.1 Pro — top Pro tier on Antigravity (3.5/3.6 are Flash-only)
+  "opencode-go/deepseek-v4-pro"         # DeepSeek V4 Pro via opencode-go (1M ctx)
   "cursor/composer-2.5"                # Composer 2.5 via Cursor (known working)
   "openai-codex/gpt-5.6-sol"            # GPT-5.6 Sol via OpenAI Codex provider
   "cursor/gpt-5.6-sol-high"             # GPT-5.6 Sol High via Cursor
