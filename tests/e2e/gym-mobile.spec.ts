@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
+  assertFoodLogEntryScrollsInHost,
   assertTableScrollsInHost,
   findDestructiveSpacingViolations,
   installDeterministicClock,
@@ -68,7 +69,7 @@ test.describe('Gym-grade mobile ergonomics (issue #53)', () => {
     await expect(page.getByText(foodName)).toBeVisible()
     await page.getByRole('button', { name: 'Add to Log' }).click()
     await expect(page.getByRole('row').filter({ hasText: foodName })).toBeVisible({ timeout: 10000 })
-    await assertTableScrollsInHost(page, NAMED_TABLE_SCROLL_LABELS.foodLog)
+    await assertFoodLogEntryScrollsInHost(page, foodName)
   })
 
   test('workout sets use decimal/numeric input modes and 2.5 kg / 1 rep steppers', async ({ page }) => {

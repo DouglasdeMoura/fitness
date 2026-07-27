@@ -38,6 +38,12 @@ export function entryDeletedBody(): string {
   return 'Entry deleted'
 }
 
+/** Copy-from-yesterday confirmation (pair with Undo in endContent). */
+export function copyCompletedBody(entryCount: number): string {
+  const label = entryCount === 1 ? 'entry' : 'entries'
+  return `Copied ${entryCount} ${label}`
+}
+
 /** Weight log confirmation including the kg value the user just entered. */
 export function weightLoggedBody(kg: number): string {
   return `Weight logged — ${kg}kg`

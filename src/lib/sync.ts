@@ -26,6 +26,18 @@ export type QueuedMutationPayloads = {
   deleteFoodLogEntry: {
     id: number
   }
+  deleteFoodLogEntries: {
+    ids: number[]
+  }
+  copyMealFromDate: {
+    fromDate: string
+    toDate: string
+    mealType: MealType
+  }
+  copyDayFromDate: {
+    fromDate: string
+    toDate: string
+  }
   logBodyweight: {
     weight_kg: number
     body_fat_pct?: number

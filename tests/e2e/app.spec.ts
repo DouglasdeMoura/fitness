@@ -176,7 +176,7 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await expect(page.getByRole('heading', { name: "Today's Food Log" })).toBeVisible({
       timeout: 10000,
     })
-    const hasTable = await page.getByRole('table', { name: "Today's food log" }).count()
+    const hasTable = await page.getByRole('table', { name: /food log/i }).count()
     const hasEmptyState = await page.getByRole('status').filter({ hasText: 'No food logged' }).count()
     expect(hasTable > 0 || hasEmptyState > 0).toBeTruthy()
   })

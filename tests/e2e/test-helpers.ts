@@ -109,7 +109,6 @@ export function formatAxeViolations(
 }
 
 export const NAMED_TABLE_SCROLL_LABELS = {
-  foodLog: 'food-log',
   workoutSets: 'workout-sets',
   programsList: 'programs-list',
   templatesList: 'templates-list',
@@ -120,6 +119,27 @@ export type NamedTableScrollLabel = (typeof NAMED_TABLE_SCROLL_LABELS)[keyof typ
 /** Document stays fixed while a named table region scrolls horizontally (issue #53). */
 export async function assertTableScrollsInHost(page: Page, scrollLabel: NamedTableScrollLabel): Promise<void> {
   const host = page.locator(`[data-fittrack-table-scroll="${scrollLabel}"]`)
+  await expect(host).toBeVisible({ timeout: 15000 })
+
+  const metrics = await host.evaluate((element) => {
+    const doc = document.documentElement
+    return {
+      docOverflow: doc.scrollWidth > doc.clientWidth,
+      hostClientWidth: element.clientWidth,
+      hostScrollWidth: element.scrollWidth,
+    }
+  })
+
+  expect(metrics.docOverflow).toBe(false)
+  expect(metrics.hostScrollWidth).toBeGreaterThan(metrics.hostClientWidth)
+}
+
+
+/** Meal-grouped food log scroll host containing `foodName` (issue #55). */
+export async function assertFoodLogEntryScrollsInHost(page: Page, foodName: string): Promise<void> {
+  const host = page.locator('[data-fittrack-table-scroll^="food-log-"]').filter({
+    has: page.getByRole('row').filter({ hasText: foodName }),
+  })
   await expect(host).toBeVisible({ timeout: 15000 })
 
   const metrics = await host.evaluate((element) => {

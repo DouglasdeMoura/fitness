@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   dataExportedBody,
+  copyCompletedBody,
   entryDeletedBody,
   foodLoggedBody,
   mutationFailedBody,
@@ -15,6 +16,8 @@ describe('toast copy (issue #24)', () => {
   it('uses the exact confirmation bodies from the design sweep', () => {
     expect(profileSavedBody()).toBe('Profile saved')
     expect(foodLoggedBody()).toBe('Food logged')
+    expect(copyCompletedBody(3)).toBe('Copied 3 entries')
+    expect(copyCompletedBody(1)).toBe('Copied 1 entry')
     expect(entryDeletedBody()).toBe('Entry deleted')
     expect(setSavedBody()).toBe('Set saved')
     expect(setDeletedBody()).toBe('Set deleted')

@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
   Heading,
+  HStack,
   Table,
   Text,
   VStack,
@@ -14,27 +14,32 @@ import {
 import { useToast } from '@astryxdesign/core/Toast'
 import { ScrollableTable } from '~/components/ScrollableTable'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
-import { addFoodLogEntry, deleteFoodLogEntry } from '~/lib/api'
+import {
+  addFoodLogEntry,
+  copyMealFromDate,
+  deleteFoodLogEntry,
+  deleteFoodLogEntries,
+} from '~/lib/api'
 import type { FoodLogEntry } from '~/lib/db'
-import { MEAL_TYPE_LABELS } from '~/lib/nutrition'
+import {
+  canCopyMealFromDate,
+  entriesForMeal,
+  previousDay,
+} from '~/lib/food-log-copy'
+import { MEAL_TYPE_LABELS, MEAL_TYPES, type MealType } from '~/lib/nutrition'
 import { runOrQueue } from '~/lib/offline'
 import {
+  copyCompletedBody,
   entryDeletedBody,
   mutationFailedBody,
   TOAST_DURATION_MS,
 } from '~/lib/toasts'
 
 type DeleteFoodEntry = (entry: FoodLogEntry) => Promise<void>
+type CopyMealFromYesterday = (mealType: MealType) => Promise<void>
+type FoodLogRow = FoodLogEntry & { food_name?: string | null }
 
-const FOOD_LOG_COLUMNS: TableColumn<FoodLogEntry>[] = [
-  {
-    key: 'meal_type',
-    header: 'Meal',
-    width: proportional(1),
-    renderCell: (entry) => (
-      <Badge label={MEAL_TYPE_LABELS[entry.meal_type]} variant="neutral" />
-    ),
-  },
+const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
   {
     key: 'custom_name',
     header: 'Food',
@@ -64,65 +69,108 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogEntry>[] = [
 ]
 
 /**
- * Displays today's persisted food entries or guidance for the first entry.
- * @example <FoodLogCard entries={entries} selectedDate="2026-07-25" onAddMeal={focusSearch} />
+ * Displays food entries grouped by meal with copy-from-yesterday shortcuts.
+ * @example <FoodLogCard entries={entries} sourceDayEntries={yesterday} selectedDate="2026-07-25" />
  */
 export function FoodLogCard({
   entries,
+  sourceDayEntries,
   selectedDate,
   onAddMeal,
 }: {
-  entries: FoodLogEntry[]
+  entries: FoodLogRow[]
+  sourceDayEntries: FoodLogRow[]
   selectedDate: string
   onAddMeal?: () => void
 }) {
   const deleteEntry = useDeleteFoodEntry(selectedDate)
+  const copyMeal = useCopyMealFromYesterday(selectedDate, sourceDayEntries)
+  const showGlobalEmpty =
+    entries.length === 0 &&
+    !MEAL_TYPES.some((mealType) =>
+      canCopyMealFromDate(entries, sourceDayEntries, mealType),
+    )
+
   return (
     <Card>
-      <VStack gap={3}>
+      <VStack gap={4}>
         <Heading level={2}>Today&apos;s Food Log</Heading>
-        <FoodLogContent entries={entries} onDelete={deleteEntry} onAddMeal={onAddMeal} />
+        {showGlobalEmpty ? (
+          <EmptyState
+            icon={<span aria-hidden>🍽️</span>}
+            title="No food logged yet"
+            description="Search above to add your first meal today."
+            actions={
+              onAddMeal ? (
+                <Button label="Add your first meal" variant="primary" clickAction={onAddMeal} />
+              ) : undefined
+            }
+            headingLevel={3}
+            isCompact
+          />
+        ) : (
+          <VStack gap={4}>
+            {MEAL_TYPES.map((mealType) => (
+              <MealLogSection
+                key={mealType}
+                mealType={mealType}
+                entries={entriesForMeal(entries, mealType)}
+                showCopyAction={canCopyMealFromDate(entries, sourceDayEntries, mealType)}
+                onCopy={() => copyMeal(mealType)}
+                onDelete={deleteEntry}
+              />
+            ))}
+          </VStack>
+        )}
       </VStack>
     </Card>
   )
 }
 
-function FoodLogContent({
+function MealLogSection({
+  mealType,
   entries,
+  showCopyAction,
+  onCopy,
   onDelete,
-  onAddMeal,
 }: {
-  entries: FoodLogEntry[]
+  mealType: MealType
+  entries: FoodLogRow[]
+  showCopyAction: boolean
+  onCopy: () => void
   onDelete: DeleteFoodEntry
-  onAddMeal?: () => void
 }) {
-  if (entries.length === 0) {
-    return (
-      <EmptyState
-        icon={<span aria-hidden>🍽️</span>}
-        title="No food logged yet"
-        description="Search above to add your first meal today."
-        actions={
-          onAddMeal ? (
-            <Button label="Add your first meal" variant="primary" clickAction={onAddMeal} />
-          ) : undefined
-        }
-        headingLevel={3}
-        isCompact
-      />
-    )
-  }
+  const mealLabel = MEAL_TYPE_LABELS[mealType]
+  if (entries.length === 0 && !showCopyAction) return null
+
   return (
-    <ScrollableTable scrollLabel="food-log">
-      <Table
-        aria-label="Today's food log"
-        columns={foodLogColumns(onDelete)}
-        data={entries}
-        idKey="id"
-        density="compact"
-        hasHover
-      />
-    </ScrollableTable>
+    <VStack gap={2}>
+      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+        <Heading level={3}>{mealLabel}</Heading>
+        {showCopyAction ? (
+          <Button
+            label={`Copy ${mealLabel.toLowerCase()} from yesterday`}
+            variant="secondary"
+            size="sm"
+            clickAction={onCopy}
+          >
+            Copy from yesterday
+          </Button>
+        ) : undefined}
+      </HStack>
+      {entries.length > 0 ? (
+        <ScrollableTable scrollLabel={`food-log-${mealType}`}>
+          <Table
+            aria-label={`${mealLabel} food log`}
+            columns={foodLogColumns(onDelete)}
+            data={entries}
+            idKey="id"
+            density="compact"
+            hasHover
+          />
+        </ScrollableTable>
+      ) : undefined}
+    </VStack>
   )
 }
 
@@ -142,13 +190,67 @@ function foodEntryRestorePayload(entry: FoodLogEntry) {
   }
 }
 
-function useDeleteFoodEntry(selectedDate: string): DeleteFoodEntry {
+function useInvalidateFoodLog(selectedDate: string) {
   const queryClient = useQueryClient()
-  const toast = useToast()
+  const sourceDate = previousDay(selectedDate)
 
-  const invalidateFoodLog = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] })
+  return async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
+      queryClient.invalidateQueries({ queryKey: ['food-log', sourceDate] }),
+    ])
   }
+}
+
+function useCopyMealFromYesterday(
+  selectedDate: string,
+  sourceDayEntries: FoodLogRow[],
+): CopyMealFromYesterday {
+  const toast = useToast()
+  const invalidateFoodLog = useInvalidateFoodLog(selectedDate)
+  const sourceDate = previousDay(selectedDate)
+
+  return async (mealType) => {
+    const payload = { fromDate: sourceDate, toDate: selectedDate, mealType }
+    try {
+      const outcome = await runOrQueue('copyMealFromDate', payload, () =>
+        copyMealFromDate({ data: payload }),
+      )
+      if (!outcome.queued) {
+        await invalidateFoodLog()
+        const entryIds = outcome.result.entries.map((entry) => entry.id)
+        let dismiss = () => {}
+        dismiss = toast({
+          body: copyCompletedBody(entryIds.length),
+          autoHideDuration: TOAST_DURATION_MS.undo,
+          endContent: (
+            <ToastUndoButton
+              onUndo={async () => {
+                dismiss()
+                try {
+                  await runOrQueue('deleteFoodLogEntries', { ids: entryIds }, () =>
+                    deleteFoodLogEntries({ data: { ids: entryIds } }),
+                  )
+                  await invalidateFoodLog()
+                } catch {
+                  toast({ body: mutationFailedBody('Undo copy'), type: 'error' })
+                }
+              }}
+            />
+          ),
+        })
+        return
+      }
+      toast({ body: copyCompletedBody(entriesForMeal(sourceDayEntries, mealType).length) })
+    } catch {
+      toast({ body: mutationFailedBody('Copy meal'), type: 'error' })
+    }
+  }
+}
+
+function useDeleteFoodEntry(selectedDate: string): DeleteFoodEntry {
+  const toast = useToast()
+  const invalidateFoodLog = useInvalidateFoodLog(selectedDate)
 
   return async (entry) => {
     const foodName = foodEntryName(entry)
@@ -189,11 +291,11 @@ function useDeleteFoodEntry(selectedDate: string): DeleteFoodEntry {
   }
 }
 
-function foodEntryName(entry: FoodLogEntry): string {
-  return entry.custom_name || `Food #${entry.food_id}`
+function foodEntryName(entry: FoodLogRow): string {
+  return entry.custom_name || entry.food_name || `Food #${entry.food_id}`
 }
 
-function foodLogColumns(onDelete: DeleteFoodEntry): TableColumn<FoodLogEntry>[] {
+function foodLogColumns(onDelete: DeleteFoodEntry): TableColumn<FoodLogRow>[] {
   return [
     ...FOOD_LOG_COLUMNS,
     {

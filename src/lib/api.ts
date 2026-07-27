@@ -16,6 +16,11 @@ import {
   type MacroTargets,
   type NutritionTotals,
 } from './nutrition'
+import {
+  copyDayEntriesInDb,
+  copyMealEntriesInDb,
+  deleteFoodLogEntriesInDb,
+} from './food-log-copy'
 import { resolveProgramTargets } from './workout'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
@@ -288,6 +293,32 @@ export const deleteFoodLogEntry = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+export const deleteFoodLogEntries = createServerFn({ method: 'POST' })
+  .validator((data: { ids: number[] }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    return deleteFoodLogEntriesInDb(db, user.id, ctx.data.ids)
+  })
+
+export const copyMealFromDate = createServerFn({ method: 'POST' })
+  .validator((data: { fromDate: string; toDate: string; mealType: MealType }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const { fromDate, toDate, mealType } = ctx.data
+    return copyMealEntriesInDb(db, user.id, fromDate, toDate, mealType)
+  })
+
+export const copyDayFromDate = createServerFn({ method: 'POST' })
+  .validator((data: { fromDate: string; toDate: string }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const { fromDate, toDate } = ctx.data
+    return copyDayEntriesInDb(db, user.id, fromDate, toDate)
+  })
+
 export const getNutritionSummary = createServerFn({ method: 'GET' })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
@@ -295,8 +326,12 @@ export const getNutritionSummary = createServerFn({ method: 'GET' })
     const user = await ensureDefaultUser()
     const date = ctx.data?.date || todayString()
     const entries = db.prepare(
-      'SELECT * FROM food_log WHERE user_id = ? AND date = ?'
-    ).all(user.id, date) as FoodLogEntry[]
+      `SELECT fl.*, f.name AS food_name
+       FROM food_log fl
+       LEFT JOIN foods f ON f.id = fl.food_id
+       WHERE fl.user_id = ? AND fl.date = ?
+       ORDER BY fl.meal_type, fl.created_at`
+    ).all(user.id, date) as (FoodLogEntry & { food_name?: string | null })[]
 
     const totals = entries.reduce(
       (acc, e) => ({
@@ -1288,6 +1323,20 @@ export const syncQueuedMutations = createServerFn({ method: 'POST' })
         case 'deleteFoodLogEntry': {
           db.prepare('DELETE FROM food_log WHERE id = ? AND user_id = ?').run(m.payload.id, user.id)
           return m.payload.id
+        }
+        case 'deleteFoodLogEntries': {
+          deleteFoodLogEntriesInDb(db, user.id, m.payload.ids)
+          return m.payload.ids[0]
+        }
+        case 'copyMealFromDate': {
+          const d = m.payload
+          const result = copyMealEntriesInDb(db, user.id, d.fromDate, d.toDate, d.mealType)
+          return result.entries[0]?.id
+        }
+        case 'copyDayFromDate': {
+          const d = m.payload
+          const result = copyDayEntriesInDb(db, user.id, d.fromDate, d.toDate)
+          return result.entries[0]?.id
         }
         case 'logBodyweight': {
           const d = m.payload

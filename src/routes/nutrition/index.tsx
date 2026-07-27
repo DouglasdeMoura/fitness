@@ -1,5 +1,5 @@
 import { Suspense, useRef } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Button,
@@ -13,21 +13,32 @@ import {
   Text,
   VStack,
 } from '@astryxdesign/core'
+import { useToast } from '@astryxdesign/core/Toast'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
 import { AddFoodCard, type AddFoodCardHandle } from '~/components/nutrition/AddFoodCard'
 import { FoodLogCard } from '~/components/nutrition/FoodLogCard'
+import { ToastUndoButton } from '~/components/ToastUndoButton'
 import {
+  copyDayFromDate,
+  deleteFoodLogEntries,
   getDailyTargets,
   getNutritionSummary,
   type DailyTargets,
 } from '~/lib/api'
 import { macroProgress } from '~/lib/dashboard'
+import { canCopyDayFromDate, previousDay } from '~/lib/food-log-copy'
 import {
   parseSearchDate,
   resolveSelectedDate,
   type NutritionTotals,
 } from '~/lib/nutrition'
 import { NutritionSkeleton } from '~/components/loading/PageSkeletons'
+import { runOrQueue } from '~/lib/offline'
+import {
+  copyCompletedBody,
+  mutationFailedBody,
+  TOAST_DURATION_MS,
+} from '~/lib/toasts'
 
 type NutritionSearch = {
   date?: string
@@ -40,11 +51,13 @@ export const Route = createFileRoute('/nutrition/')({
   loaderDeps: ({ search: { date } }) => ({ date }),
   loader: async ({ deps }) => {
     const selectedDate = resolveSelectedDate(deps.date)
-    const [summary, targets] = await Promise.all([
+    const sourceDate = previousDay(selectedDate)
+    const [summary, sourceSummary, targets] = await Promise.all([
       getNutritionSummary({ data: { date: selectedDate } }),
+      getNutritionSummary({ data: { date: sourceDate } }),
       getDailyTargets(),
     ])
-    return { selectedDate, summary, targets }
+    return { selectedDate, sourceDate, summary, sourceSummary, targets }
   },
   head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
   pendingComponent: NutritionSkeleton,
@@ -66,16 +79,23 @@ function NutritionPageContent() {
   const navigate = useNavigate({ from: Route.fullPath })
   const addFoodRef = useRef<AddFoodCardHandle>(null)
 
+  const sourceDate = previousDay(selectedDate)
   const { data: summary } = useSuspenseQuery({
     queryKey: ['food-log', selectedDate],
     queryFn: () => getNutritionSummary({ data: { date: selectedDate } }),
     initialData: loaderData.selectedDate === selectedDate ? loaderData.summary : undefined,
+  })
+  const { data: sourceSummary } = useSuspenseQuery({
+    queryKey: ['food-log', sourceDate],
+    queryFn: () => getNutritionSummary({ data: { date: sourceDate } }),
+    initialData: loaderData.selectedDate === selectedDate ? loaderData.sourceSummary : undefined,
   })
   const { data: targets } = useSuspenseQuery({
     queryKey: ['targets'],
     queryFn: () => getDailyTargets(),
     initialData: loaderData.targets,
   })
+  const copyDay = useCopyDayFromYesterday(selectedDate, sourceSummary.entries)
 
   const handleDateChange = (nextDate: string) => {
     navigate({
@@ -91,6 +111,8 @@ function NutritionPageContent() {
       <NutritionHeader
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
+        showCopyDay={canCopyDayFromDate(summary.entries, sourceSummary.entries)}
+        onCopyDay={copyDay}
       />
       <Grid columns={{ minWidth: 320, max: 2, repeat: 'fit' }} gap={4}>
         <DailySummaryCard totals={summary.totals} targets={targets} />
@@ -98,6 +120,7 @@ function NutritionPageContent() {
       </Grid>
       <FoodLogCard
         entries={summary.entries}
+        sourceDayEntries={sourceSummary.entries}
         selectedDate={selectedDate}
         onAddMeal={() => addFoodRef.current?.focusSearch()}
       />
@@ -108,15 +131,29 @@ function NutritionPageContent() {
 function NutritionHeader({
   selectedDate,
   onDateChange,
+  showCopyDay,
+  onCopyDay,
 }: {
   selectedDate: string
   onDateChange: (date: string) => void
+  showCopyDay: boolean
+  onCopyDay: () => Promise<void>
 }) {
   return (
     <VStack gap={2}>
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>Nutrition</Heading>
         <HStack gap={2} wrap="wrap">
+          {showCopyDay ? (
+            <Button
+              label="Copy yesterday"
+              variant="primary"
+              size="sm"
+              clickAction={onCopyDay}
+            >
+              Copy yesterday
+            </Button>
+          ) : undefined}
           <Button label="Templates" href="/nutrition/templates" size="sm" />
           <Button label="Weekly Plan" href="/nutrition/planning" size="sm" />
         </HStack>
@@ -124,6 +161,59 @@ function NutritionHeader({
       <DateNavigationBar selectedDate={selectedDate} onDateChange={onDateChange} />
     </VStack>
   )
+}
+
+function useCopyDayFromYesterday(
+  selectedDate: string,
+  sourceDayEntries: import('~/lib/db').FoodLogEntry[],
+) {
+  const toast = useToast()
+  const queryClient = useQueryClient()
+  const sourceDate = previousDay(selectedDate)
+
+  const invalidateFoodLog = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
+      queryClient.invalidateQueries({ queryKey: ['food-log', sourceDate] }),
+    ])
+  }
+
+  return async () => {
+    const payload = { fromDate: sourceDate, toDate: selectedDate }
+    try {
+      const outcome = await runOrQueue('copyDayFromDate', payload, () =>
+        copyDayFromDate({ data: payload }),
+      )
+      if (!outcome.queued) {
+        await invalidateFoodLog()
+        const entryIds = outcome.result.entries.map((entry) => entry.id)
+        let dismiss = () => {}
+        dismiss = toast({
+          body: copyCompletedBody(entryIds.length),
+          autoHideDuration: TOAST_DURATION_MS.undo,
+          endContent: (
+            <ToastUndoButton
+              onUndo={async () => {
+                dismiss()
+                try {
+                  await runOrQueue('deleteFoodLogEntries', { ids: entryIds }, () =>
+                    deleteFoodLogEntries({ data: { ids: entryIds } }),
+                  )
+                  await invalidateFoodLog()
+                } catch {
+                  toast({ body: mutationFailedBody('Undo copy'), type: 'error' })
+                }
+              }}
+            />
+          ),
+        })
+        return
+      }
+      toast({ body: copyCompletedBody(sourceDayEntries.length) })
+    } catch {
+      toast({ body: mutationFailedBody('Copy day'), type: 'error' })
+    }
+  }
 }
 
 function DailySummaryCard({
