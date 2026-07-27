@@ -3,7 +3,6 @@
 import { AppShell } from '@astryxdesign/core/AppShell'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { LinkProvider } from '@astryxdesign/core/Link'
-import { Section } from '@astryxdesign/core/Section'
 import { Tab, TabList } from '@astryxdesign/core/TabList'
 import { Theme } from '@astryxdesign/core/theme'
 import { ToastViewport } from '@astryxdesign/core/Toast'
@@ -11,8 +10,10 @@ import { Toolbar } from '@astryxdesign/core/Toolbar'
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav'
 import { fittrackTheme } from '~/lib/fittrack-theme'
 import { useRouterState } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { OfflineStatus } from '~/components/OfflineStatus'
+import { RestTimer } from '~/components/workout/RestTimer'
+import { getRestTimerSnapshot, shouldMountRestTimer, subscribeRestTimer } from '~/lib/rest-timer'
 import { RouterLink } from '~/components/RouterLink'
 import {
   getStoredTheme,
@@ -74,16 +75,14 @@ function MobileBottomNav() {
   )
 }
 
-function RestTimerReserve() {
-  return (
-    <Section
-      data-fittrack-rest-timer-slot=""
-      variant="transparent"
-      padding={0}
-      minHeight="var(--app-rest-timer-reserved-height)"
-      aria-hidden
-    />
-  )
+
+function RestTimerMount() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const snapshot = useSyncExternalStore(subscribeRestTimer, getRestTimerSnapshot, getRestTimerSnapshot)
+  if (!shouldMountRestTimer(pathname, snapshot)) {
+    return null
+  }
+  return <RestTimer />
 }
 
 export function AppChrome({ children }: { children: ReactNode }) {
@@ -142,7 +141,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
           >
             <OfflineStatus />
             {children}
-            {isWorkoutRoute(pathname) ? <RestTimerReserve /> : null}
+            <RestTimerMount />
             <MobileBottomNav />
           </AppShell>
         </ToastViewport>

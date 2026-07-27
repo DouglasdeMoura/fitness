@@ -10,6 +10,8 @@ export const TOAST_DURATION_MS = {
   info: 5000,
   /** Workout set save — short confirmation. */
   setSaved: 3000,
+  /** Rest timer completion (issue #60). */
+  restComplete: 3000,
   /** Delete + Undo window. */
   undo: 8000,
 } as const
@@ -57,6 +59,11 @@ export function weightLoggedBody(kg: number): string {
 /** Workout set save confirmation. */
 export function setSavedBody(): string {
   return 'Set saved'
+}
+
+/** Rest timer completion (issue #60). */
+export function restCompleteBody(): string {
+  return 'Rest complete'
 }
 
 /** Workout set delete confirmation (pair with Undo in endContent). */

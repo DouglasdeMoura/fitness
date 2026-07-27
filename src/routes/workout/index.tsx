@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import {
   Badge,
   Button,
@@ -51,23 +51,37 @@ import {
   type ActiveSession,
 } from '~/lib/workout'
 import { WorkoutSkeleton } from '~/components/loading/PageSkeletons'
+import {
+  clearRestTimer,
+  hydrateRestTimerFromUrl,
+  parseRestTimerSearch,
+  restTimerSearchFromState,
+  startRestTimer,
+} from '~/lib/rest-timer'
 
 type WorkoutSearch = {
   session?: number
   date?: string
+  restEnd?: number
+  restDur?: number
 }
 
 export const Route = createFileRoute('/workout/')({
   head: () => ({ meta: [{ title: 'Workout - FitTrack' }] }),
-  validateSearch: (search: Record<string, unknown>): WorkoutSearch => ({
-    session:
-      typeof search.session === 'number'
-        ? search.session
-        : typeof search.session === 'string' && search.session
-          ? parseInt(search.session, 10)
-          : undefined,
-    date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
-  }),
+  validateSearch: (search: Record<string, unknown>): WorkoutSearch => {
+    const rest = parseRestTimerSearch(search)
+    return {
+      session:
+        typeof search.session === 'number'
+          ? search.session
+          : typeof search.session === 'string' && search.session
+            ? parseInt(search.session, 10)
+            : undefined,
+      date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
+      restEnd: rest.restEnd,
+      restDur: rest.restDur,
+    }
+  },
   loaderDeps: ({ search: { date } }) => ({ date }),
   loader: async ({ deps }) => {
     const selectedDate = resolveSelectedDate(deps.date)
@@ -87,7 +101,12 @@ function WorkoutPage() {
 }
 
 function WorkoutPageContent() {
-  const { session: sessionIdFromSearch, date: dateFromSearch } = Route.useSearch()
+  const {
+    session: sessionIdFromSearch,
+    date: dateFromSearch,
+    restEnd: restEndFromSearch,
+    restDur: restDurFromSearch,
+  } = Route.useSearch()
   const loaderData = Route.useLoaderData()
   const selectedDate = resolveSelectedDate(dateFromSearch)
 
@@ -108,6 +127,10 @@ function WorkoutPageContent() {
   const toast = useToast()
 
   const navigate = useNavigate()
+  useEffect(() => {
+    hydrateRestTimerFromUrl({ restEnd: restEndFromSearch, restDur: restDurFromSearch }, Date.now())
+  }, [restEndFromSearch, restDurFromSearch])
+
   const { data: urlSession } = useQuery({
     queryKey: ['workout-session', sessionIdFromSearch],
     queryFn: () => getWorkoutSession({ data: { id: sessionIdFromSearch as number } }),
@@ -169,12 +192,22 @@ function WorkoutPageContent() {
   }
 
   const handleFinish = () => {
+    clearRestTimer()
     setStartedSession(null)
     setSelectedExercise(null)
     setSets([])
-    if (sessionIdFromSearch !== undefined) {
-      navigate({ to: '/workout', search: (prev) => ({ date: prev.date }) })
-    }
+    navigate({
+      to: '/workout',
+      search: (prev) => {
+        const next = { ...prev }
+        delete next.restEnd
+        delete next.restDur
+        if (sessionIdFromSearch !== undefined) {
+          delete next.session
+        }
+        return next
+      },
+    })
   }
 
   const handleAddSet = () => {
@@ -208,6 +241,8 @@ function WorkoutPageContent() {
       const sessionId = activeSession.id
       if (sessionId === null) {
         await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
+        startRestTimer(set.rpe, Date.now())
+        navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
         toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
         return
       }
@@ -220,6 +255,8 @@ function WorkoutPageContent() {
           prev.map((row, i) => (i === index ? { ...row, id: outcome.result.id } : row)),
         )
       }
+      startRestTimer(set.rpe, Date.now())
+      navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
       toast({ body: setSavedBody(), autoHideDuration: TOAST_DURATION_MS.setSaved })
     } catch {
       toast({ body: mutationFailedBody('Save set'), type: 'error' })
