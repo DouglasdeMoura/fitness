@@ -18,6 +18,7 @@ export type CustomFoodDraft = {
   protein: number | null
   carbs: number | null
   fat: number | null
+  barcode: string
 }
 
 /** A fresh draft with the sensible defaults a new custom food starts from. */
@@ -30,6 +31,7 @@ export const EMPTY_CUSTOM_FOOD_DRAFT: CustomFoodDraft = {
   protein: null,
   carbs: null,
   fat: null,
+  barcode: '',
 }
 
 /** Persisted shape the `addFood` server function expects (server fills the rest). */
@@ -63,5 +65,6 @@ export function customFoodPayload(draft: CustomFoodDraft): CustomFoodPayload {
     fiber_g: 0,
     sugar_g: 0,
     sodium_mg: 0,
+    barcode: (draft.barcode ?? '').trim() || null,
   }
 }

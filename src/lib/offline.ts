@@ -6,6 +6,7 @@
 // idempotency keys is far safer than replaying raw POST bodies from a worker.
 
 import { getOfflineBundle, syncQueuedMutations } from './api'
+import { barcodeLookupVariants, normalizeBarcode } from './barcode'
 import {
   MAX_SYNC_ATTEMPTS,
   makeClientId,
@@ -122,6 +123,18 @@ export async function searchCachedFoods(query: string, limit = 20): Promise<Offl
         (food.brand ?? '').toLowerCase().includes(needle)
     )
     .slice(0, limit)
+}
+
+/** Offline stand-in for getFoodByBarcode (issue #58). */
+export async function getCachedFoodByBarcode(
+  barcode: string,
+): Promise<OfflineBundle['foods'][number] | null> {
+  const bundle = await readOfflineBundle()
+  if (!bundle) return null
+  const normalized = normalizeBarcode(barcode)
+  if (!normalized) return null
+  const variants = new Set(barcodeLookupVariants(normalized))
+  return bundle.foods.find((food) => food.barcode != null && variants.has(food.barcode)) ?? null
 }
 
 /** Offline stand-in for the getFoodLog server function. */

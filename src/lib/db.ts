@@ -34,6 +34,11 @@ function runMigrations(db: Database.Database) {
       column: 'program_day_id',
       sql: 'ALTER TABLE workout_sessions ADD COLUMN program_day_id INTEGER REFERENCES program_days(id)',
     },
+    {
+      table: 'foods',
+      column: 'barcode',
+      sql: 'ALTER TABLE foods ADD COLUMN barcode TEXT',
+    },
   ]
 
   for (const migration of migrations) {
@@ -47,6 +52,9 @@ function runMigrations(db: Database.Database) {
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_food_log_user_date ON food_log(user_id, date DESC)',
   )
+
+  // Batch 5 (PRD 09, issue #58): barcode lookup on packaged foods.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_foods_barcode ON foods(barcode)')
 }
 
 export function getDb(): Database.Database {
@@ -104,6 +112,7 @@ export type Food = {
   fiber_g: number
   sugar_g: number
   sodium_mg: number
+  barcode: string | null
   source: string
   created_at: string
 }

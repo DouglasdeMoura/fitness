@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { barcodeLookupVariants, normalizeBarcode } from './barcode'
 import { getDb, type User, type Food, type FoodLogEntry, type Exercise, type WorkoutSession, type WorkoutSet, type BodyLog, type Program, type ProgramDay, type ProgramExercise, type PeriodizationType, type MealTemplate, type MealTemplateItem, type MealPlan, type MealType } from './db'
 import {
   calculateBMR,
@@ -156,18 +157,34 @@ export const getAllFoods = createServerFn({ method: 'GET' })
     return db.prepare('SELECT * FROM foods ORDER BY name LIMIT ?').all(limit) as Food[]
   })
 
+/** Resolve a scanned GTIN against foods the user has logged before (issue #58). */
+export const getFoodByBarcode = createServerFn({ method: 'GET' })
+  .validator((data: { barcode: string }) => data)
+  .handler(async (ctx) => {
+    const normalized = normalizeBarcode(ctx.data.barcode)
+    if (!normalized) {
+      return null
+    }
+    const db = getDb()
+    const variants = barcodeLookupVariants(normalized)
+    const placeholders = variants.map(() => '?').join(', ')
+    return (db.prepare(
+      `SELECT * FROM foods WHERE barcode IN (${placeholders}) LIMIT 1`,
+    ).get(...variants) as Food | undefined) ?? null
+  })
+
 export const addFood = createServerFn({ method: 'POST' })
   .validator((data: Omit<Food, 'id' | 'created_at' | 'source'> & { source?: string }) => data)
   .handler(async (ctx) => {
     const db = getDb()
     const d = ctx.data
     const result = db.prepare(
-      `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, barcode, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       d.name, d.brand, d.serving_size, d.serving_unit,
       d.calories_per_serving, d.protein_g, d.carbs_g, d.fat_g,
-      d.fiber_g, d.sugar_g, d.sodium_mg, d.source || 'user'
+      d.fiber_g, d.sugar_g, d.sodium_mg, d.barcode ?? null, d.source || 'user'
     )
     return db.prepare('SELECT * FROM foods WHERE id = ?').get(result.lastInsertRowid) as Food
   })
@@ -1374,12 +1391,12 @@ export const syncQueuedMutations = createServerFn({ method: 'POST' })
         case 'addFood': {
           const d = m.payload
           const res = db.prepare(
-            `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`
+            `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, barcode, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`
           ).run(
             d.name, d.brand ?? null, d.serving_size, d.serving_unit,
             d.calories_per_serving, d.protein_g, d.carbs_g, d.fat_g,
-            d.fiber_g ?? 0, d.sugar_g ?? 0, d.sodium_mg ?? 0
+            d.fiber_g ?? 0, d.sugar_g ?? 0, d.sodium_mg ?? 0, d.barcode ?? null
           )
           return res.lastInsertRowid as number
         }

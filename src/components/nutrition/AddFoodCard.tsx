@@ -50,6 +50,7 @@ import {
   rankFoodSearchResults,
   type RankedFoodSearchResult,
 } from '~/lib/food-search'
+import { BarcodeScanner } from '~/components/nutrition/BarcodeScanner'
 import { foodLoggedBody, mutationFailedBody } from '~/lib/toasts'
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
@@ -246,6 +247,7 @@ function FoodSearchForm({
   })
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [customFoodOpen, setCustomFoodOpen] = useState(false)
+  const [prefillBarcode, setPrefillBarcode] = useState('')
   searchFocusRef.current = () => searchInputRef.current?.focus()
   const query = useStore(searchForm.store, (state) => state.values.query)
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
@@ -264,6 +266,14 @@ function FoodSearchForm({
 
   return (
     <VStack gap={3}>
+      <BarcodeScanner
+        selectedDate={selectedDate}
+        onSelectFood={onSelect}
+        onCreateFood={(barcode) => {
+          setPrefillBarcode(barcode)
+          setCustomFoodOpen(true)
+        }}
+      />
       <searchForm.Field name="query">
         {(field) => (
           <HStack gap={2} vAlign="end">
@@ -293,7 +303,11 @@ function FoodSearchForm({
       <CustomFoodForm
         onCreated={onSelect}
         isOpen={customFoodOpen}
-        onOpenChange={setCustomFoodOpen}
+        onOpenChange={(open) => {
+          setCustomFoodOpen(open)
+          if (!open) setPrefillBarcode('')
+        }}
+        initialBarcode={prefillBarcode}
       />
     </VStack>
   )
@@ -508,10 +522,12 @@ function CustomFoodForm({
   onCreated,
   isOpen: controlledOpen,
   onOpenChange,
+  initialBarcode = '',
 }: {
   onCreated: (food: Food) => void
   isOpen?: boolean
   onOpenChange?: (open: boolean) => void
+  initialBarcode?: string
 }) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = controlledOpen ?? internalOpen
@@ -527,6 +543,7 @@ function CustomFoodForm({
   }
   return (
     <CustomFoodEditor
+      initialBarcode={initialBarcode}
       onCreated={(food) => {
         onCreated(food)
         setOpen(false)
@@ -539,11 +556,13 @@ function CustomFoodForm({
 function CustomFoodEditor({
   onCreated,
   onCancel,
+  initialBarcode = '',
 }: {
   onCreated: (food: Food) => void
   onCancel: () => void
+  initialBarcode?: string
 }) {
-  const form = useCustomFoodForm(onCreated, onCancel)
+  const form = useCustomFoodForm(onCreated, onCancel, initialBarcode)
   return (
     <VStack gap={3}>
       <Heading level={3}>New Custom Food</Heading>
@@ -570,9 +589,10 @@ function CustomFoodEditor({
 function useCustomFoodForm(
   onCreated: (food: Food) => void,
   onCancel: () => void,
+  initialBarcode = '',
 ) {
   return useForm({
-    defaultValues: { ...EMPTY_CUSTOM_FOOD_DRAFT } as CustomFoodDraft,
+    defaultValues: { ...EMPTY_CUSTOM_FOOD_DRAFT, barcode: initialBarcode } as CustomFoodDraft,
     onSubmit: async ({ value, formApi }) => {
       if (!isCustomFoodDraftValid(value)) return
       const payload = customFoodPayload(value)
@@ -608,6 +628,17 @@ function CustomFoodIdentity({ form }: { form: CustomFoodFormApi }) {
             label="Brand"
             value={field.state.value}
             onChange={field.handleChange}
+            isOptional
+          />
+        )}
+      </form.Field>
+      <form.Field name="barcode">
+        {(field) => (
+          <TextInput
+            label="Barcode"
+            value={field.state.value}
+            onChange={field.handleChange}
+            placeholder="GTIN from package"
             isOptional
           />
         )}

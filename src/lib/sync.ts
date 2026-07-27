@@ -61,6 +61,7 @@ export type QueuedMutationPayloads = {
     fiber_g?: number
     sugar_g?: number
     sodium_mg?: number
+    barcode?: string | null
   }
   createWorkoutSession: {
     name?: string

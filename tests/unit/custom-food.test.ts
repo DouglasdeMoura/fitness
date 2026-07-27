@@ -17,6 +17,7 @@ describe('EMPTY_CUSTOM_FOOD_DRAFT', () => {
       protein: null,
       carbs: null,
       fat: null,
+      barcode: '',
     })
   })
 
@@ -77,6 +78,7 @@ describe('customFoodPayload', () => {
       protein: 18,
       carbs: 9,
       fat: 0,
+      barcode: '',
     }
     expect(customFoodPayload(draft)).toEqual({
       name: 'Greek Yogurt',
@@ -90,7 +92,18 @@ describe('customFoodPayload', () => {
       fiber_g: 0,
       sugar_g: 0,
       sodium_mg: 0,
+      barcode: null,
     })
+  })
+
+  it('persists a trimmed barcode when provided', () => {
+    const draft = {
+      ...EMPTY_CUSTOM_FOOD_DRAFT,
+      name: 'Cereal',
+      calories: 120,
+      barcode: ' 012345678905 ',
+    }
+    expect(customFoodPayload(draft).barcode).toBe('012345678905')
   })
 
   it('stores a null brand when the field is left blank', () => {

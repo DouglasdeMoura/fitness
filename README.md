@@ -9,6 +9,7 @@ A science-backed, installable web app for nutrition and workout tracking. Built 
 - Daily calorie and macro tracking with progress visualization
 - Science-backed macro calculations (Mifflin-St Jeor BMR, evidence-based protein targets)
 - Meal categorization (breakfast, lunch, dinner, snack)
+- Barcode scanning for packaged foods you have logged before (camera or manual entry)
 
 ### Workout Logging
 - Exercise library with 30+ exercises across all muscle groups
@@ -53,6 +54,8 @@ npm run dev
 ```
 
 The app runs at http://localhost:3000
+
+Barcode scanning uses the device camera via `getUserMedia`, which requires **HTTPS** in production. Local development on `http://localhost` is exempt from that restriction.
 
 ## Install as PWA
 
