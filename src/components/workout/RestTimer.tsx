@@ -135,7 +135,6 @@ export function RestTimer() {
       aria-label="Rest timer"
       data-fittrack-rest-timer-slot=""
       data-rest-active={active ? '' : undefined}
-      aria-label="Rest timer"
       variant="section"
       padding={2}
       minHeight="var(--app-rest-timer-reserved-height)"

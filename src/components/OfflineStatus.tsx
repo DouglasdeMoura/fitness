@@ -11,9 +11,18 @@ import {
 } from '~/lib/offline'
 import type { QueuedMutationKind } from '~/lib/sync'
 
+// Every queued mutation kind needs a label — the offline banner names what is
+// waiting to sync, and a missing entry renders `undefined` to the user. The
+// bottom four arrived with the copy-yesterday and meal-template features and
+// were never labelled; only `npm run typecheck` caught it, which was not a
+// dev-loop gate at the time.
 const KIND_LABELS: Record<QueuedMutationKind, string> = {
   addFoodLogEntry: 'Food log entry',
   deleteFoodLogEntry: 'Deleted food entry',
+  deleteFoodLogEntries: 'Deleted food entries',
+  copyMealFromDate: 'Copied meal',
+  copyDayFromDate: 'Copied day',
+  logMealTemplate: 'Logged meal template',
   logBodyweight: 'Bodyweight',
   addFood: 'Custom food',
   createWorkoutSession: 'Workout session',

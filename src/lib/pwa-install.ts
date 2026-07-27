@@ -54,10 +54,19 @@ export function getInstallMode(env: InstallEnvironment): InstallMode {
 /**
  * Read standalone / installed state from a window-like object.
  */
-export function readIsStandalone(win: {
+/**
+ * The parameter is structural so tests can pass a fake, but it must also accept
+ * the real `window`. `Navigator` has no `standalone` (it is a non-standard iOS
+ * Safari property), and a bare `{ standalone?: boolean }` shares no properties
+ * with `Navigator`, so TypeScript rejected `window` outright. Intersecting with
+ * `Navigator` keeps the fake usable while letting the real thing through.
+ */
+export type StandaloneWindowLike = {
   matchMedia: (query: string) => { matches: boolean }
-  navigator: { standalone?: boolean }
-}): boolean {
+  navigator: { standalone?: boolean } & Partial<Navigator>
+}
+
+export function readIsStandalone(win: StandaloneWindowLike): boolean {
   if (win.matchMedia('(display-mode: standalone)').matches) return true
   return win.navigator.standalone === true
 }

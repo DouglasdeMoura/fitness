@@ -1401,18 +1401,20 @@ export const exportData = createServerFn({ method: 'GET' }).handler(async () => 
      WHERE wse.user_id = ?`
   ).all(user.id) as WorkoutSet[]
 
-  const programs = db.prepare('SELECT * FROM programs WHERE user_id = ?').all(user.id)
+  // Typed, not left as unknown[]: createServerFn validates that the payload is
+  // serializable, and `unknown` cannot be proven so — it fails the boundary.
+  const programs = db.prepare('SELECT * FROM programs WHERE user_id = ?').all(user.id) as Program[]
   const program_days = db.prepare(
     `SELECT pd.* FROM program_days pd
      JOIN programs p ON pd.program_id = p.id
      WHERE p.user_id = ?`
-  ).all(user.id)
+  ).all(user.id) as ProgramDay[]
   const program_exercises = db.prepare(
     `SELECT pe.* FROM program_exercises pe
      JOIN program_days pd ON pe.program_day_id = pd.id
      JOIN programs p ON pd.program_id = p.id
      WHERE p.user_id = ?`
-  ).all(user.id)
+  ).all(user.id) as ProgramExercise[]
 
   return {
     exported_at: new Date().toISOString(),

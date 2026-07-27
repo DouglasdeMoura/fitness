@@ -185,6 +185,9 @@ Instructions:
    - Tests must verify the feature actually works as a user would experience it
    - Avoid useless tests - each test should verify meaningful behavior
 7. Run ALL tests and ensure they pass before committing:
+   - npm run typecheck  (tsc — the loop verifies this; `npm run build` uses
+                         vite, which strips types WITHOUT checking them, so a
+                         green build proves nothing about type safety)
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
    - npm run test:e2e   (Playwright — the loop now verifies this too, so a
@@ -390,6 +393,30 @@ TEMPLATE_END
 
   VERIFICATION_PASSED=true
   VERIFICATION_DETAILS=""
+
+  # 0. Typecheck.
+  #
+  # `npm run build` uses vite, which strips types without checking them, so type
+  # errors were invisible to every gate and accumulated silently — 33 of them
+  # across 17 files by the time anyone ran tsc. Several were real defects, not
+  # noise: a duplicate JSX attribute that silently dropped one, four offline
+  # mutation kinds with no user-facing label, and a missing import.
+  #
+  # Cheap (~3s) and runs first so a type error fails before the expensive suites.
+  echo "  ▸ Typechecking (tsc)..."
+  set +e
+  TYPE_OUTPUT=$(set -o pipefail; npm run typecheck 2>&1 | tee /dev/stderr)
+  TYPE_EXIT=$?
+  set -e
+  if [[ $TYPE_EXIT -eq 0 ]]; then
+    echo "    ✅ Typecheck passed"
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}types:passed "
+  else
+    echo "    ❌ Typecheck FAILED"
+    VERIFICATION_PASSED=false
+    VERIFICATION_DETAILS="${VERIFICATION_DETAILS}types:FAILED "
+    echo "$TYPE_OUTPUT" | grep -m 8 -E "error TS" || true
+  fi
 
   # 1. Unit tests
   echo "  ▸ Running unit tests (Vitest)..."

@@ -266,7 +266,9 @@ export function sumNutritionTotals(items: NutritionTotals[]): NutritionTotals {
  * Quick-add rows (null food_id) must be included — see issue #57 regression test.
  */
 export function sumFoodLogEntryTotals(entries: FoodLogMacroSlice[]): NutritionTotals {
-  return entries.reduce(
+  // Explicit generic: without it reduce infers the accumulator as
+  // FoodLogMacroSlice (the element type), which has no fiber_g.
+  return entries.reduce<NutritionTotals>(
     (acc, entry) => ({
       calories: acc.calories + entry.calories,
       protein_g: acc.protein_g + entry.protein_g,

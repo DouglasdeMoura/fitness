@@ -269,11 +269,13 @@ export function getPushUiMode(env: PushEnvironment): PushUiMode {
 }
 
 /** Decode a URL-safe base64 VAPID public key for PushManager.subscribe. */
-export function urlBase64ToUint8Array(base64String: string): Uint8Array {
+export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(base64)
-  const output = new Uint8Array(raw.length)
+  // Backed by a concrete ArrayBuffer so it satisfies BufferSource for
+  // pushManager.subscribe's applicationServerKey.
+  const output = new Uint8Array(new ArrayBuffer(raw.length))
   for (let index = 0; index < raw.length; index += 1) {
     output[index] = raw.charCodeAt(index)
   }

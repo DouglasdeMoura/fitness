@@ -14,6 +14,7 @@ import {
   VStack,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
+import { asTimeValue } from '~/lib/input-values'
 import { updateNotificationPreferences } from '~/lib/api'
 import {
   REMINDERS_CARD_TITLE,
@@ -76,7 +77,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               <VStack key={`${time}-${index}`} gap={2}>
                 <TimeInput
                   label={`Meal time ${index + 1}`}
-                  value={time}
+                  value={asTimeValue(time)}
                   isDisabled={saving}
                   onChange={(value) => {
                     if (!value) {
@@ -134,7 +135,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
             </CheckboxList>
             <TimeInput
               label="Workout reminder time"
-              value={prefs.workout_time ?? undefined}
+              value={asTimeValue(prefs.workout_time)}
               isDisabled={saving}
               onChange={(value) => {
                 if (!value) {
@@ -166,7 +167,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
             />
             <TimeInput
               label="Weekly review time"
-              value={prefs.weekly_review_time ?? undefined}
+              value={asTimeValue(prefs.weekly_review_time)}
               isDisabled={saving}
               onChange={(value) => {
                 if (!value) {
@@ -185,7 +186,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
         </Text>
         <TimeInput
           label="Quiet hours start"
-          value={prefs.quiet_start ?? undefined}
+          value={asTimeValue(prefs.quiet_start)}
           isDisabled={saving}
           hasClear
           onChange={(value) => {
@@ -194,7 +195,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
         />
         <TimeInput
           label="Quiet hours end"
-          value={prefs.quiet_end ?? undefined}
+          value={asTimeValue(prefs.quiet_end)}
           isDisabled={saving}
           hasClear
           onChange={(value) => {

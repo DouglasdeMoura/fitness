@@ -35,6 +35,7 @@ import {
   getProgramDayTargets,
   type ProgramDayTarget,
   type ExerciseSetHistoryRow,
+  type WorkoutSessionSummary,
 } from '~/lib/api'
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
@@ -351,7 +352,7 @@ function WorkoutPageContent() {
       if (sessionId === null) {
         await queueMutation('addWorkoutSet', { ...setFields, session_temp_ref: activeSession.tempRef })
         startRestTimer(set.rpe, Date.now())
-        navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
+        navigate({ to: '/workout', search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
         toast({ body: toastBody, autoHideDuration: TOAST_DURATION_MS.setSaved })
         return
       }
@@ -371,7 +372,7 @@ function WorkoutPageContent() {
         )
       }
       startRestTimer(set.rpe, Date.now())
-      navigate({ search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
+      navigate({ to: '/workout', search: (prev) => ({ ...prev, ...restTimerSearchFromState(Date.now()) }) })
       toast({ body: toastBody, autoHideDuration: TOAST_DURATION_MS.setSaved })
     } catch {
       toast({ body: mutationFailedBody('Save set'), type: 'error' })
@@ -478,6 +479,7 @@ function WorkoutPageContent() {
         selectedDate={selectedDate}
         onDateChange={(nextDate) => {
           navigate({
+            to: '/workout',
             search: (prev) => ({
               ...prev,
               date: nextDate,

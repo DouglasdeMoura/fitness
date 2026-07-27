@@ -1,5 +1,6 @@
 import { Button, DateInput, HStack } from '@astryxdesign/core'
 import { IconButton } from '@astryxdesign/core/IconButton'
+import { asDateValue } from '~/lib/input-values'
 import { addDays, todayString } from '~/lib/nutrition'
 
 type DateNavigationBarProps = {
@@ -28,8 +29,8 @@ export function DateNavigationBar({ selectedDate, onDateChange }: DateNavigation
       <DateInput
         label="Date"
         isLabelHidden
-        value={selectedDate}
-        max={today}
+        value={asDateValue(selectedDate)}
+        max={asDateValue(today)}
         size="sm"
         onChange={(value) => {
           if (value) onDateChange(value)

@@ -157,7 +157,7 @@ function ReviewPageContent() {
             <MetadataList>
               <MetadataListItem label="PRs this week">
                 {review.personalRecordCount > 0 ? (
-                  <Badge variant="success">{review.personalRecordCount}</Badge>
+                  <Badge variant="success" label={review.personalRecordCount} />
                 ) : (
                   'None'
                 )}

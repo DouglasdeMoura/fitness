@@ -94,7 +94,7 @@ function DashboardPageContent() {
         <Card>
           <VStack gap={3}>
             <Text type="label">Today&apos;s Calories</Text>
-            <HStack gap={1} vAlign="baseline">
+            <HStack gap={1} vAlign="end">
               <Text size="4xl" weight="bold">
                 {Math.round(consumed.calories)}
               </Text>
@@ -223,7 +223,7 @@ function DashboardPageContent() {
           <Text type="label">Your Goal</Text>
           <MetadataList>
             <MetadataListItem label="Goal Type">
-              <Badge variant="purple">{user.goal_type.replace(/_/g, ' ')}</Badge>
+              <Badge variant="purple" label={user.goal_type.replace(/_/g, ' ')} />
             </MetadataListItem>
             <MetadataListItem label="Activity Level">
               {user.activity_level.replace(/_/g, ' ')}
@@ -252,7 +252,7 @@ function MacroBar({
   const state = macroProgress(consumed, target, tone)
   return (
     <VStack gap={1}>
-      <HStack justify="between" vAlign="baseline">
+      <HStack justify="between" vAlign="end">
         <Text type="label">{label}</Text>
         <Text type="body" weight="semibold">
           {consumed} / {target} g
