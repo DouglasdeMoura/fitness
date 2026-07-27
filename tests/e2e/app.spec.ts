@@ -159,7 +159,7 @@ test.describe('Nutrition - Food Logging Flow', () => {
 
     await searchInput.clear()
     await expect(page.getByText('Recent')).toBeVisible({ timeout: 10000 })
-    const recentFood = page.getByRole('listitem').filter({ hasText: foodName }).first()
+    const recentFood = page.getByRole('button', { name: new RegExp(`^${foodName} —`) })
     await expect(recentFood).toBeVisible()
 
     let taps = 0

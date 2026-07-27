@@ -395,16 +395,17 @@ function RecentFoodsList({
 }) {
   if (foods.length === 0) return null
   return (
-    <List header={<Text type="label">Recent</Text>} hasDividers>
+    <VStack gap={1}>
+      <Text type="label">Recent</Text>
       {foods.map((food) => (
-        <ListItem
+        <Button
           key={food.id}
-          label={food.name}
-          description={recentFoodDescription(food)}
-          onClick={() => onQuickLog(food)}
+          label={`${food.name} — ${recentFoodDescription(food)}`}
+          variant="ghost"
+          clickAction={() => onQuickLog(food)}
         />
       ))}
-    </List>
+    </VStack>
   )
 }
 
