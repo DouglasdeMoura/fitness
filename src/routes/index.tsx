@@ -11,10 +11,11 @@ import {
   MetadataList,
   MetadataListItem,
   ProgressBar,
+  StatusDot,
   Text,
   VStack,
 } from '@astryxdesign/core'
-import { getDashboardStats } from '~/lib/api'
+import { getConsistency, getDashboardStats } from '~/lib/api'
 import {
   calorieRemainingLabel,
   macroProgress,
@@ -25,7 +26,11 @@ import { DashboardSkeleton } from '~/components/loading/PageSkeletons'
 export const Route = createFileRoute('/')({
   head: () => ({ meta: [{ title: 'Dashboard - FitTrack' }] }),
   loader: async () => {
-    return getDashboardStats()
+    const [stats, consistency] = await Promise.all([
+      getDashboardStats(),
+      getConsistency({ data: {} }),
+    ])
+    return { stats, consistency }
   },
   pendingComponent: DashboardSkeleton,
   component: DashboardPage,
@@ -41,12 +46,16 @@ function DashboardPage() {
 
 function DashboardPageContent() {
   const initialData = Route.useLoaderData()
-  const { data: stats } = useSuspenseQuery({
+  const { data: dashboard } = useSuspenseQuery({
     queryKey: ['dashboard'],
-    queryFn: () => getDashboardStats(),
+    queryFn: async () => ({
+      stats: await getDashboardStats(),
+      consistency: await getConsistency({ data: {} }),
+    }),
     initialData,
   })
 
+  const { stats, consistency } = dashboard
   const { consumed, targets, user, workoutDaysThisMonth } = stats
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -113,6 +122,41 @@ function DashboardPageContent() {
           </VStack>
         </Card>
       </Grid>
+
+      <Card aria-label="Consistency tracking">
+        <VStack gap={3}>
+          <Text type="label">Consistency</Text>
+          <MetadataList>
+            <MetadataListItem label="7-day adherence">
+              {consistency.adherence7}%
+            </MetadataListItem>
+            <MetadataListItem label="28-day adherence">
+              {consistency.adherence28}%
+            </MetadataListItem>
+            <MetadataListItem label="Current streak">
+              {consistency.currentStreak} days
+            </MetadataListItem>
+            <MetadataListItem label="Longest streak">
+              {consistency.longestStreak} days
+            </MetadataListItem>
+          </MetadataList>
+          <HStack gap={2} wrap="wrap">
+            {consistency.last7Days.map((day) => (
+              <VStack key={day.date} gap={1} hAlign="center">
+                <StatusDot
+                  variant={day.logged ? 'success' : 'neutral'}
+                  label={
+                    day.logged
+                      ? `${day.weekday} food logged`
+                      : `${day.weekday} no food log`
+                  }
+                />
+                <Text type="supporting">{day.weekday}</Text>
+              </VStack>
+            ))}
+          </HStack>
+        </VStack>
+      </Card>
 
       <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
         <Card>

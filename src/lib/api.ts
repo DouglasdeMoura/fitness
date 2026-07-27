@@ -31,6 +31,7 @@ import {
   formatSessionVolumeComparison,
   resolveProgramTargets,
 } from './workout'
+import { assembleConsistencyMetrics, type ConsistencyMetrics } from './consistency'
 import { recordKindsBySetId, type ExerciseSetSnapshot } from './records'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
@@ -1450,6 +1451,26 @@ export const getDashboardStats = createServerFn({ method: 'GET' }).handler(async
     recentBodyweight,
   }
 })
+
+// --- Consistency ---
+
+export type { ConsistencyMetrics }
+
+/** Burke et al. 2011: rolling adherence and streak metrics for retention. */
+export const getConsistency = createServerFn({ method: 'GET' })
+  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .handler(async (ctx): Promise<ConsistencyMetrics> => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const asOf = ctx.data.asOf ?? todayString()
+    const windowStart = addDays(asOf, -27)
+
+    const rows = db.prepare(
+      `SELECT DISTINCT date FROM food_log WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date`,
+    ).all(user.id, windowStart, asOf) as { date: string }[]
+
+    return assembleConsistencyMetrics(rows.map((row) => row.date), asOf)
+  })
 
 // --- Offline Support ---
 
