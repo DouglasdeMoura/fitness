@@ -330,3 +330,19 @@ export async function unsubscribeBrowserPush(): Promise<string | null> {
   await subscription.unsubscribe()
   return endpoint
 }
+
+// --- Reminder preferences (issue #66) ---
+
+export {
+  REMINDERS_CARD_TITLE,
+  WEEKDAY_OPTIONS,
+  defaultNotificationPreferences,
+  getNotificationPreferences,
+  upsertNotificationPreferences,
+  isInQuietHours,
+  shouldDeliver,
+  minutesSinceMidnight,
+  type NotificationType,
+  type NotificationPreferences,
+  type NotificationPreferencesUpdate,
+} from './notification-preferences'

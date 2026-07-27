@@ -244,3 +244,19 @@ export type PushSubscription = {
   auth: string
   created_at: string
 }
+
+/** Per-user reminder toggles and schedules (issue #66 / PRD 11 Batch 4). */
+export type NotificationPreferencesRow = {
+  user_id: number
+  rest_timer: number
+  meal_reminders: number
+  meal_times: string | null
+  workout_reminders: number
+  workout_days: string | null
+  workout_time: string | null
+  weekly_review: number
+  weekly_review_day: number | null
+  weekly_review_time: string | null
+  quiet_start: string | null
+  quiet_end: string | null
+}

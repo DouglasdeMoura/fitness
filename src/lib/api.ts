@@ -44,12 +44,16 @@ import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
 import {
   deletePushSubscriptionByEndpoint,
+  getNotificationPreferences,
   hasPushSubscription,
   listPushSubscriptionsForUser,
   readVapidConfig,
   readVapidPublicKey,
   TEST_PUSH_PAYLOAD,
+  upsertNotificationPreferences,
   upsertPushSubscription,
+  type NotificationPreferences,
+  type NotificationPreferencesUpdate,
   type PushSubscriptionInput,
 } from './push'
 
@@ -1999,3 +2003,21 @@ export const sendTestPush = createServerFn({ method: 'POST' }).handler(async () 
     ? { ok: true as const }
     : { ok: false as const, reason: 'delivery-failed' as const }
 })
+
+// --- Reminder preferences (issue #66) ---
+
+export const getReminderPreferences = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<NotificationPreferences> => {
+    const user = await ensureDefaultUser()
+    const db = getDb()
+    return getNotificationPreferences(db, user.id)
+  },
+)
+
+export const updateNotificationPreferences = createServerFn({ method: 'POST' })
+  .validator((data: NotificationPreferencesUpdate) => data)
+  .handler(async (ctx) => {
+    const user = await ensureDefaultUser()
+    const db = getDb()
+    return upsertNotificationPreferences(db, user.id, ctx.data)
+  })

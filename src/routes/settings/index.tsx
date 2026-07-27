@@ -17,7 +17,7 @@ import {
   VStack,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
-import { getUser, updateUser, logBodyweight, exportData, getPushStatus } from '~/lib/api'
+import { getUser, updateUser, logBodyweight, exportData, getPushStatus, getReminderPreferences } from '~/lib/api'
 import { runOrQueue } from '~/lib/offline'
 import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition'
 import {
@@ -40,12 +40,17 @@ import {
 import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
 import { InstallPrompt } from '~/components/InstallPrompt'
 import { PushNotifications } from '~/components/PushNotifications'
+import { ReminderPreferences } from '~/components/ReminderPreferences'
 
 export const Route = createFileRoute('/settings/')({
   head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
   loader: async () => {
-    const [user, pushStatus] = await Promise.all([getUser(), getPushStatus()])
-    return { user, pushStatus }
+    const [user, pushStatus, reminderPreferences] = await Promise.all([
+      getUser(),
+      getPushStatus(),
+      getReminderPreferences(),
+    ])
+    return { user, pushStatus, reminderPreferences }
   },
   pendingComponent: SettingsSkeleton,
   component: SettingsPage,
@@ -236,6 +241,8 @@ function SettingsPageContent() {
         initialPublicKey={loaderData.pushStatus.publicKey}
         initialSubscribed={loaderData.pushStatus.subscribed}
       />
+
+      <ReminderPreferences initialPreferences={loaderData.reminderPreferences} />
 
       <Card>
         <VStack gap={3}>
