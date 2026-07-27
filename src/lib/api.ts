@@ -467,6 +467,41 @@ export const deleteWorkoutSet = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+export type LastPerformanceResult = {
+  weight_kg: number
+  reps: number
+  rpe: number
+  date: string
+}
+
+/** Most recent logged set for an exercise before the active session (PRD 10 Batch 1). */
+export const getLastPerformance = createServerFn({ method: 'GET' })
+  .validator((data: { exerciseId: number; excludeSessionId?: number | null }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const excludeSessionId = ctx.data.excludeSessionId ?? null
+
+    const row = db
+      .prepare(
+        `SELECT ws.weight_kg, ws.reps, ws.rpe, wse.date
+         FROM workout_sets ws
+         JOIN workout_sessions wse ON ws.session_id = wse.id
+         WHERE wse.user_id = ? AND ws.exercise_id = ?
+           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
+           AND (? IS NULL OR ws.session_id != ?)
+         ORDER BY wse.date DESC, ws.id DESC
+         LIMIT 1`,
+      )
+      .get(
+        user.id,
+        ctx.data.exerciseId,
+        excludeSessionId,
+        excludeSessionId,
+      ) as LastPerformanceResult | undefined
+
+    return row ?? null
+  })
 
 // --- Training Programs ---
 

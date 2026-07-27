@@ -27,6 +27,7 @@ import {
   createWorkoutSession,
   addWorkoutSet,
   deleteWorkoutSet,
+  getLastPerformance,
   getProgramDayTargets,
   type ProgramDayTarget,
 } from '~/lib/api'
@@ -40,7 +41,15 @@ import {
   setSavedBody,
   TOAST_DURATION_MS,
 } from '~/lib/toasts'
-import { activeSessionFromUrl, calculateVolume, estimate1RM, type ActiveSession } from '~/lib/workout'
+import {
+  activeSessionFromUrl,
+  buildFreeFormSuggestion,
+  calculateVolume,
+  estimate1RM,
+  formatLastPerformanceLine,
+  NO_HISTORY_GUIDANCE,
+  type ActiveSession,
+} from '~/lib/workout'
 import { WorkoutSkeleton } from '~/components/loading/PageSkeletons'
 
 type WorkoutSearch = {
@@ -129,6 +138,20 @@ function WorkoutPageContent() {
     ? programTargets.find((target) => target.exercise_id === selectedExercise.id)
     : undefined
 
+  const isFreeFormSession = !hasProgramDay
+  const { data: lastPerformance } = useQuery({
+    queryKey: ['last-performance', selectedExercise?.id, activeSession?.id],
+    queryFn: () =>
+      getLastPerformance({
+        data: {
+          exerciseId: selectedExercise!.id,
+          excludeSessionId: activeSession?.id ?? undefined,
+        },
+      }),
+    enabled: selectedExercise != null && isFreeFormSession,
+  })
+  const freeFormSuggestion = buildFreeFormSuggestion(lastPerformance ?? null)
+
   const handleStartWorkout = async () => {
     const tempRef = makeTempRef()
     const outcome = await runOrQueue(
@@ -157,13 +180,16 @@ function WorkoutPageContent() {
   const handleAddSet = () => {
     if (!selectedExercise) return
     const lastSet = sets[sets.length - 1]
-    const suggestedWeight = activeTarget?.suggested_weight_kg
+    const suggestedWeight = activeTarget?.suggested_weight_kg ?? freeFormSuggestion?.weight
+    const suggestedReps = activeTarget
+      ? parseInt(activeTarget.target_reps.split('-')[0] || '8', 10)
+      : freeFormSuggestion?.reps
     setSets([
       ...sets,
       {
-        reps: lastSet?.reps || parseInt(activeTarget?.target_reps.split('-')[0] || '8', 10),
+        reps: lastSet?.reps || suggestedReps || 8,
         weight: lastSet?.weight || suggestedWeight || 20,
-        rpe: lastSet?.rpe || activeTarget?.target_rpe || 7,
+        rpe: lastSet?.rpe || activeTarget?.target_rpe || lastPerformance?.rpe || 7,
       },
     ])
   }
@@ -443,6 +469,17 @@ function WorkoutPageContent() {
                 </HStack>
                 {selectedExercise.instructions ? (
                   <Text type="supporting">{selectedExercise.instructions}</Text>
+                ) : null}
+                {isFreeFormSession && lastPerformance ? (
+                  <Text type="supporting">
+                    {formatLastPerformanceLine(lastPerformance, selectedDate)}
+                  </Text>
+                ) : null}
+                {isFreeFormSession && freeFormSuggestion ? (
+                  <Text type="supporting">{freeFormSuggestion.note}</Text>
+                ) : null}
+                {isFreeFormSession && !lastPerformance ? (
+                  <Text type="supporting">{NO_HISTORY_GUIDANCE}</Text>
                 ) : null}
                 {sets.length > 0 ? (
                   <WorkoutSetsTable

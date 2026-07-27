@@ -55,6 +55,11 @@ function runMigrations(db: Database.Database) {
 
   // Batch 5 (PRD 09, issue #58): barcode lookup on packaged foods.
   db.exec('CREATE INDEX IF NOT EXISTS idx_foods_barcode ON foods(barcode)')
+
+  // Batch 1 (PRD 10): last-performance queries by exercise.
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id, id DESC)',
+  )
 }
 
 export function getDb(): Database.Database {

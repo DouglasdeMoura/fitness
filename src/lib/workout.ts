@@ -138,6 +138,66 @@ export function getDupDayEmphasis(targetReps: string): DupDayEmphasis {
   return 'endurance'
 }
 
+/** Shown when no prior set exists for an exercise (PRD 10 Batch 1). */
+export const NO_HISTORY_GUIDANCE =
+  'Select a weight that reaches the target RPE for all prescribed sets.'
+
+export type LastPerformance = {
+  weight_kg: number
+  reps: number
+  rpe: number
+  date: string
+}
+
+export type FreeFormSuggestion = {
+  weight: number
+  reps: number
+  note: string
+}
+
+const MS_PER_DAY = 86_400_000
+
+/**
+ * Relative day label for last-performance context.
+ * @example formatRelativeDaysAgo('2019-12-20', '2020-01-01') // '12 days ago'
+ */
+export function formatRelativeDaysAgo(sessionDate: string, referenceDate: string): string {
+  const session = new Date(`${sessionDate}T12:00:00`)
+  const reference = new Date(`${referenceDate}T12:00:00`)
+  const days = Math.max(0, Math.floor((reference.getTime() - session.getTime()) / MS_PER_DAY))
+  if (days === 0) return 'today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
+/** Inline last-session line for free-form sets (PRD 10 Batch 1). */
+export function formatLastPerformanceLine(
+  performance: LastPerformance,
+  referenceDate: string,
+): string {
+  const when = formatRelativeDaysAgo(performance.date, referenceDate)
+  return `Last time: ${performance.weight_kg} kg × ${performance.reps} @ RPE ${performance.rpe} (${when})`
+}
+
+/**
+ * Free-form progression suggestion from prior performance.
+ * Delegates to suggestWeightProgression — do not duplicate the maths here.
+ */
+export function buildFreeFormSuggestion(
+  performance: LastPerformance | null,
+  targetReps = 8,
+  incrementPct = 2.5,
+): FreeFormSuggestion | null {
+  if (!performance) return null
+  return suggestWeightProgression(
+    performance.weight_kg,
+    performance.reps,
+    targetReps,
+    performance.rpe,
+    incrementPct,
+  )
+}
+
 /**
  * Linear periodization keeps the same rep/RPE prescription and progresses load
  * when autoregulation criteria are met (2-5% jumps are typical for compounds).
@@ -152,7 +212,7 @@ export function resolveLinearTargets(
     return {
       ...prescription,
       suggested_weight_kg: null,
-      progression_note: 'Select a weight that reaches the target RPE for all prescribed sets.',
+      progression_note: NO_HISTORY_GUIDANCE,
     }
   }
 
@@ -222,20 +282,20 @@ export function suggestWeightProgression(
     return {
       weight: Math.round(lastWeight * multiplier * 10) / 10,
       reps: targetReps,
-      note: `Increase weight ${incrementPct}% (RPE was low, extra reps achieved)`,
+      note: `+${incrementPct}% — last set felt easy at RPE ${rpe}`,
     }
   }
   if (rpe >= 9 && lastReps < targetReps) {
     return {
       weight: lastWeight,
       reps: lastReps,
-      note: 'Keep weight, RPE was high - maintain before progressing',
+      note: `Hold weight — last set was too hard at RPE ${rpe}`,
     }
   }
   return {
     weight: lastWeight,
     reps: targetReps + (lastReps >= targetReps ? 1 : 0),
-    note: 'Maintain or add 1 rep before increasing weight',
+    note: `Add a rep — maintain load at RPE ${rpe}`,
   }
 }
 

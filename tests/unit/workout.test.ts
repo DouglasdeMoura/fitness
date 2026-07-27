@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   activeSessionFromUrl,
+  buildFreeFormSuggestion,
   estimate1RM,
   weightFrom1RM,
   calculateVolume,
@@ -8,6 +9,8 @@ import {
   recommendWeeklyVolume,
   calculateWorkoutStats,
   suggestWeightProgression,
+  formatLastPerformanceLine,
+  formatRelativeDaysAgo,
   VOLUME_GUIDELINES,
   getDupDayEmphasis,
   parseTargetReps,
@@ -106,14 +109,14 @@ describe('Progressive Overload Suggestions', () => {
     const suggestion = suggestWeightProgression(100, 12, 8, 6)
     expect(suggestion.weight).toBeGreaterThan(100)
     expect(suggestion.reps).toBe(8)
-    expect(suggestion.note).toContain('Increase')
+    expect(suggestion.note).toContain('+2.5%')
   })
 
   it('suggests maintaining weight when RPE is high and reps missed', () => {
     const suggestion = suggestWeightProgression(100, 5, 8, 10)
     expect(suggestion.weight).toBe(100)
     expect(suggestion.reps).toBeLessThan(8)
-    expect(suggestion.note).toContain('Keep')
+    expect(suggestion.note).toContain('Hold weight')
   })
 
   it('suggests adding reps in the sweet spot (RPE 7-9, target met)', () => {
@@ -198,6 +201,35 @@ describe('Target rep parsing', () => {
 
   it('defaults to 8 reps when no digits are present', () => {
     expect(parseTargetReps('failure')).toBe(8)
+  })
+})
+
+
+describe('Last-performance formatting (PRD 10 Batch 1)', () => {
+  it('formats relative days ago', () => {
+    expect(formatRelativeDaysAgo('2019-12-20', '2020-01-01')).toBe('12 days ago')
+    expect(formatRelativeDaysAgo('2020-01-01', '2020-01-01')).toBe('today')
+    expect(formatRelativeDaysAgo('2019-12-31', '2020-01-01')).toBe('1 day ago')
+  })
+
+  it('renders the last-time inline line', () => {
+    const line = formatLastPerformanceLine(
+      { weight_kg: 100, reps: 8, rpe: 8, date: '2019-12-20' },
+      '2020-01-01',
+    )
+    expect(line).toBe('Last time: 100 kg × 8 @ RPE 8 (12 days ago)')
+  })
+})
+
+describe('Free-form progression suggestion (issue #59)', () => {
+  it('uses suggestWeightProgression as the source of free-form suggestions', () => {
+    const performance = { weight_kg: 100, reps: 12, rpe: 6, date: '2019-12-20' }
+    const expected = suggestWeightProgression(100, 12, 8, 6, 2.5)
+    expect(buildFreeFormSuggestion(performance)).toEqual(expected)
+  })
+
+  it('returns null when there is no prior performance', () => {
+    expect(buildFreeFormSuggestion(null)).toBeNull()
   })
 })
 
