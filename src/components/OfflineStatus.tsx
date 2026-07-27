@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Banner } from '@astryxdesign/core/Banner'
 import { Button } from '@astryxdesign/core/Button'
+import { Text, VStack } from '@astryxdesign/core'
 import {
   getOfflineState,
   getQueuedMutations,
@@ -88,8 +89,13 @@ export function OfflineStatus() {
 
   const showSyncButton = offline === false && pending > 0
 
+  // Count occurrences of each pending kind for the detail list
+  const counts = pendingKinds.reduce<Partial<Record<QueuedMutationKind, number>>>((acc, kind) => {
+    acc[kind] = (acc[kind] ?? 0) + 1
+    return acc
+  }, {})
   return (
-    <div style={{ marginBottom: '16px' }}>
+    <VStack paddingBlock={4}>
       <Banner
         status={status}
         title={title}
@@ -108,25 +114,17 @@ export function OfflineStatus() {
           ) : undefined
         }
       >
-        {pendingKinds.length > 0 ? <PendingList kinds={pendingKinds} /> : undefined}
+        {pendingKinds.length > 0 ? (
+          <VStack gap={1}>
+            {Object.entries(counts).map(([kind, count]) => (
+              <Text key={kind} type="supporting">
+                {KIND_LABELS[kind as QueuedMutationKind]} &times; {count}
+              </Text>
+            ))}
+          </VStack>
+        ) : undefined}
       </Banner>
-    </div>
+    </VStack>
   )
 }
 
-function PendingList({ kinds }: { kinds: QueuedMutationKind[] }) {
-  const counts = kinds.reduce<Partial<Record<QueuedMutationKind, number>>>((acc, kind) => {
-    acc[kind] = (acc[kind] ?? 0) + 1
-    return acc
-  }, {})
-
-  return (
-    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.8125rem', lineHeight: 1.8 }}>
-      {Object.entries(counts).map(([kind, count]) => (
-        <li key={kind}>
-          {KIND_LABELS[kind as QueuedMutationKind]} &times; {count}
-        </li>
-      ))}
-    </ul>
-  )
-}
