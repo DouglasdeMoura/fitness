@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { useForm } from '@tanstack/react-form'
 import { Suspense, useState } from 'react'
 import {
   Button,
@@ -19,7 +20,6 @@ import {
 import { useToast } from '@astryxdesign/core/Toast'
 import { getUser, updateUser, logBodyweight, exportData, getPushStatus, getReminderPreferences } from '~/lib/api'
 import { runOrQueue } from '~/lib/offline'
-import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition'
 import {
   GOAL_OPTIONS,
   SCIENCE_REFERENCES,
@@ -28,6 +28,8 @@ import {
   buildProfileUpdate,
   exportDownloadFilename,
   parseWeightKg,
+  profileFormDefaults,
+  profileSaveButtonLabel,
   todayISODate,
   toISODate,
 } from '~/lib/settings'
@@ -86,33 +88,22 @@ function SettingsPageContent() {
     initialData: loaderData.user,
   })
 
-  const [name, setName] = useState(user.name)
-  const [heightCm, setHeightCm] = useState<number | null>(user.height_cm ?? null)
-  const [sex, setSex] = useState<Sex>(user.sex)
-  const [activity, setActivity] = useState<ActivityLevel>(
-    user.activity_level as ActivityLevel,
-  )
-  const [goal, setGoal] = useState<GoalType>(user.goal_type as GoalType)
-  const [birthDate, setBirthDate] = useState(user.birth_date || '')
   const [weight, setWeight] = useState<number | null>(null)
 
-  const handleSaveProfile = async () => {
-    try {
-      await updateUser({
-        data: buildProfileUpdate({
-          name,
-          heightCm,
-          sex,
-          activity,
-          goal,
-          birthDate,
-        }),
-      })
-      toast({ body: profileSavedBody() })
-    } catch {
-      toast({ body: mutationFailedBody('Save profile'), type: 'error' })
-    }
-  }
+  const form = useForm({
+    defaultValues: profileFormDefaults(user),
+    onSubmit: async ({ value }) => {
+      try {
+        await updateUser({ data: buildProfileUpdate(value) })
+        toast({ body: profileSavedBody() })
+      } catch {
+        toast({ body: mutationFailedBody('Save profile'), type: 'error' })
+        throw new Error('Save profile failed')
+      }
+    },
+  })
+
+  const handleSaveProfile = () => form.handleSubmit()
 
   const handleLogWeight = async () => {
     const w = parseWeightKg(weight)
@@ -149,48 +140,85 @@ function SettingsPageContent() {
             Field shell (label + description + status). Do not wrap them in Field.
           */}
           <FormLayout>
-            <TextInput label="Name" value={name} onChange={setName} />
-            <NumberInput
-              label="Height (cm)"
-              value={heightCm}
-              onChange={setHeightCm}
-              min={1}
-              max={300}
-              step={1}
-              isIntegerOnly
-              hasClear
-            />
-            <Selector
-              label="Sex (for BMR calculation)"
-              value={sex}
-              onChange={(value) => setSex(value as Sex)}
-              options={SEX_OPTIONS}
-            />
-            <DateInput
-              label="Birth Date"
-              value={toISODate(birthDate) ?? undefined}
-              onChange={(value) => setBirthDate(value ?? '')}
-              hasClear
-              max={todayISODate()}
-            />
-            <Selector
-              label="Activity Level"
-              value={activity}
-              onChange={(value) => setActivity(value as ActivityLevel)}
-              options={activityOptions()}
-            />
-            <Selector
-              label="Primary Goal"
-              value={goal}
-              onChange={(value) => setGoal(value as GoalType)}
-              options={GOAL_OPTIONS}
-            />
+            <form.Field name="name">
+              {(field) => (
+                <TextInput
+                  label="Name"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.Field>
+            <form.Field name="heightCm">
+              {(field) => (
+                <NumberInput
+                  label="Height (cm)"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  min={1}
+                  max={300}
+                  step={1}
+                  isIntegerOnly
+                  hasClear
+                />
+              )}
+            </form.Field>
+            <form.Field name="sex">
+              {(field) => (
+                <Selector
+                  label="Sex (for BMR calculation)"
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value as typeof field.state.value)}
+                  options={SEX_OPTIONS}
+                />
+              )}
+            </form.Field>
+            <form.Field name="birthDate">
+              {(field) => (
+                <DateInput
+                  label="Birth Date"
+                  value={toISODate(field.state.value) ?? undefined}
+                  onChange={(value) => field.handleChange(value ?? '')}
+                  hasClear
+                  max={todayISODate()}
+                />
+              )}
+            </form.Field>
+            <form.Field name="activity">
+              {(field) => (
+                <Selector
+                  label="Activity Level"
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value as typeof field.state.value)}
+                  options={activityOptions()}
+                />
+              )}
+            </form.Field>
+            <form.Field name="goal">
+              {(field) => (
+                <Selector
+                  label="Primary Goal"
+                  value={field.state.value}
+                  onChange={(value) => field.handleChange(value as typeof field.state.value)}
+                  options={GOAL_OPTIONS}
+                />
+              )}
+            </form.Field>
           </FormLayout>
-          <Button
-            label="Save Profile"
-            variant="primary"
-            clickAction={handleSaveProfile}
-          />
+          <form.Subscribe
+            selector={(state) => ({
+              isSubmitting: state.isSubmitting,
+              isSubmitSuccessful: state.isSubmitSuccessful,
+            })}
+          >
+            {({ isSubmitting, isSubmitSuccessful }) => (
+              <Button
+                label={profileSaveButtonLabel({ isSubmitting, isSubmitSuccessful })}
+                variant="primary"
+                clickAction={handleSaveProfile}
+              />
+            )}
+          </form.Subscribe>
         </VStack>
       </Card>
 

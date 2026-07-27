@@ -260,6 +260,22 @@ test.describe('Settings - Profile Configuration', () => {
     await page.keyboard.press('Escape')
   })
 
+  test('user can edit profile name via TanStack Form and save', async ({ page }) => {
+    await openAppPage(page, '/settings')
+    const name = page.getByLabel('Name', { exact: true })
+    await expect(name).toBeVisible({ timeout: 10000 })
+    await name.fill('Form Test User')
+    await page.getByRole('button', { name: 'Save Profile' }).click()
+    await expect(
+      page.getByRole('region', { name: 'Notifications' }).getByRole('status').filter({
+        hasText: 'Profile saved',
+      }),
+    ).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
+    await reloadAppPage(page)
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Form Test User')
+  })
+
   test('user can change activity level and save profile', async ({ page }) => {
     await openAppPage(page, '/settings')
     const activity = page.getByRole('combobox', { name: 'Activity Level' })

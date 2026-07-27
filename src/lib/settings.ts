@@ -6,6 +6,7 @@
  */
 
 import type {ISODateString} from '@astryxdesign/core/Calendar'
+import type { User } from '~/lib/db'
 import {
   ACTIVITY_LABELS,
   type ActivityLevel,
@@ -62,6 +63,21 @@ export function activityOptions(): SelectorOption[] {
   return (Object.entries(ACTIVITY_LABELS) as [ActivityLevel, string][]).map(
     ([value, label]) => ({ value, label }),
   )
+}
+
+/**
+ * Maps a user query row into TanStack Form default values for the profile card.
+ * Keeps the route free of field-by-field mapping and mirrors programFormDefaults.
+ */
+export function profileFormDefaults(user: User): ProfileFormState {
+  return {
+    name: user.name,
+    heightCm: user.height_cm ?? null,
+    sex: user.sex,
+    activity: user.activity_level,
+    goal: user.goal_type,
+    birthDate: user.birth_date || '',
+  }
 }
 
 /**
@@ -128,6 +144,16 @@ export function toISODate(
 /** Primary save button label, including the transient "Saved" confirmation. */
 export function saveProfileButtonLabel(saved: boolean): string {
   return saved ? 'Saved' : 'Save Profile'
+}
+
+/** Derives the save button label from TanStack Form submit lifecycle state. */
+export function profileSaveButtonLabel(formState: {
+  isSubmitting: boolean
+  isSubmitSuccessful: boolean
+}): string {
+  return saveProfileButtonLabel(
+    formState.isSubmitSuccessful && !formState.isSubmitting,
+  )
 }
 
 /**

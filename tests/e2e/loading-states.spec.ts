@@ -92,7 +92,7 @@ test.describe('Loading states', () => {
     })
 
     await openAppPage(page, '/settings')
-    const saveButton = page.getByRole('button', { name: /Save Profile/ })
+    const saveButton = page.getByRole('button', { name: /^(Save Profile|Saved)$/ })
     await clickHydratedButton(saveButton)
     await expect(saveButton).toHaveAttribute('aria-busy', 'true')
     release()

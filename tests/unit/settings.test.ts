@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { User } from '~/lib/db'
 import {
   GOAL_OPTIONS,
   SCIENCE_REFERENCES,
@@ -7,10 +8,54 @@ import {
   buildProfileUpdate,
   exportDownloadFilename,
   parseWeightKg,
+  profileFormDefaults,
+  profileSaveButtonLabel,
   saveProfileButtonLabel,
   todayISODate,
   toISODate,
 } from '~/lib/settings'
+
+const userFixture = (overrides: Partial<User> = {}): User => ({
+  id: 1,
+  name: 'Alex',
+  email: null,
+  birth_date: '1990-05-01',
+  sex: 'male',
+  height_cm: 178,
+  activity_level: 'moderate',
+  goal_type: 'build_muscle',
+  created_at: '2025-01-01T00:00:00Z',
+  updated_at: '2025-01-01T00:00:00Z',
+  ...overrides,
+})
+
+describe('profileFormDefaults', () => {
+  it('maps user query fields onto TanStack Form default values', () => {
+    expect(profileFormDefaults(userFixture())).toEqual({
+      name: 'Alex',
+      heightCm: 178,
+      sex: 'male',
+      activity: 'moderate',
+      goal: 'build_muscle',
+      birthDate: '1990-05-01',
+    })
+  })
+
+  it('normalizes null height and birth date for the form', () => {
+    expect(
+      profileFormDefaults(
+        userFixture({ height_cm: null, birth_date: null }),
+      ),
+    ).toEqual({
+      name: 'Alex',
+      heightCm: null,
+      sex: 'male',
+      activity: 'moderate',
+      goal: 'build_muscle',
+      birthDate: '',
+    })
+  })
+})
 
 describe('buildProfileUpdate', () => {
   it('maps form fields onto the updateUser payload shape', () => {
@@ -108,6 +153,23 @@ describe('saveProfileButtonLabel', () => {
   it('shows a confirmation label after a successful save', () => {
     expect(saveProfileButtonLabel(false)).toBe('Save Profile')
     expect(saveProfileButtonLabel(true)).toBe('Saved')
+  })
+})
+
+describe('profileSaveButtonLabel', () => {
+  it('reflects TanStack Form submit lifecycle on the button label', () => {
+    expect(
+      profileSaveButtonLabel({ isSubmitting: false, isSubmitSuccessful: false }),
+    ).toBe('Save Profile')
+    expect(
+      profileSaveButtonLabel({ isSubmitting: true, isSubmitSuccessful: false }),
+    ).toBe('Save Profile')
+    expect(
+      profileSaveButtonLabel({ isSubmitting: false, isSubmitSuccessful: true }),
+    ).toBe('Saved')
+    expect(
+      profileSaveButtonLabel({ isSubmitting: true, isSubmitSuccessful: true }),
+    ).toBe('Save Profile')
   })
 })
 
