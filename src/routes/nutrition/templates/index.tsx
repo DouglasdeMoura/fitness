@@ -16,6 +16,7 @@ import {
   type TableColumn,
 } from "@astryxdesign/core";
 import { ScrollableTable } from "~/components/ScrollableTable";
+import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -25,7 +26,7 @@ import {
   saveMealTemplate,
   type MealTemplateSummary,
 } from "~/lib/api";
-import { MEAL_TYPE_LABELS, type MealType } from "~/lib/nutrition";
+import { MEAL_TYPE_LABELS, todayString, type MealType } from "~/lib/nutrition";
 
 export const Route = createFileRoute("/nutrition/templates/")({
   head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
@@ -39,8 +40,11 @@ const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) 
 
 type DeleteMealTemplate = (id: number) => Promise<void>;
 
+type LogMealTemplate = (template: MealTemplateSummary) => Promise<void>;
+
 function mealTemplateColumns(
   removeTemplate: DeleteMealTemplate,
+  logTemplate: LogMealTemplate,
 ): TableColumn<MealTemplateSummary>[] {
   return [
     {
@@ -90,6 +94,15 @@ function mealTemplateColumns(
       renderCell: (template) => (
         <HStack gap={2} wrap="wrap">
           <Button
+            label={`Log ${template.name}`}
+            variant="primary"
+            size="sm"
+            clickAction={() => logTemplate(template)}
+            isDisabled={template.item_count === 0}
+          >
+            Log this
+          </Button>
+          <Button
             label={`Edit ${template.name}`}
             href={`/nutrition/templates/${template.id}`}
             variant="secondary"
@@ -114,6 +127,8 @@ function mealTemplateColumns(
 function MealTemplatesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const logDate = todayString();
+  const logTemplate = useLogMealTemplate(logDate);
   const { data: templates } = useSuspenseQuery({
     queryKey: ["meal-templates"],
     queryFn: () => getMealTemplates(),
@@ -214,7 +229,7 @@ function MealTemplatesPage() {
         <ScrollableTable scrollLabel="templates-list">
           <Table
             aria-label="Meal templates"
-          columns={mealTemplateColumns(handleDelete)}
+          columns={mealTemplateColumns(handleDelete, (template) => logTemplate({ templateId: template.id, mealType: template.default_meal_type, expectedKcal: template.totals.calories }))}
           data={templates}
           idKey="id"
           density="compact"

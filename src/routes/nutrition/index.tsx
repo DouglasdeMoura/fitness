@@ -22,6 +22,7 @@ import {
   copyDayFromDate,
   deleteFoodLogEntries,
   getDailyTargets,
+  getMealTemplates,
   getNutritionSummary,
   type DailyTargets,
 } from '~/lib/api'
@@ -52,12 +53,13 @@ export const Route = createFileRoute('/nutrition/')({
   loader: async ({ deps }) => {
     const selectedDate = resolveSelectedDate(deps.date)
     const sourceDate = previousDay(selectedDate)
-    const [summary, sourceSummary, targets] = await Promise.all([
+    const [summary, sourceSummary, targets, mealTemplates] = await Promise.all([
       getNutritionSummary({ data: { date: selectedDate } }),
       getNutritionSummary({ data: { date: sourceDate } }),
       getDailyTargets(),
+      getMealTemplates(),
     ])
-    return { selectedDate, sourceDate, summary, sourceSummary, targets }
+    return { selectedDate, sourceDate, summary, sourceSummary, targets, mealTemplates }
   },
   head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
   pendingComponent: NutritionSkeleton,
@@ -95,6 +97,11 @@ function NutritionPageContent() {
     queryFn: () => getDailyTargets(),
     initialData: loaderData.targets,
   })
+  const { data: mealTemplates } = useSuspenseQuery({
+    queryKey: ['meal-templates'],
+    queryFn: () => getMealTemplates(),
+    initialData: loaderData.mealTemplates,
+  })
   const copyDay = useCopyDayFromYesterday(selectedDate, sourceSummary.entries)
 
   const handleDateChange = (nextDate: string) => {
@@ -122,6 +129,7 @@ function NutritionPageContent() {
         entries={summary.entries}
         sourceDayEntries={sourceSummary.entries}
         selectedDate={selectedDate}
+        mealTemplates={mealTemplates}
         onAddMeal={() => addFoodRef.current?.focusSearch()}
       />
     </VStack>

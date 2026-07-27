@@ -5,7 +5,7 @@ import {
   EmptyState,
   Heading,
   HStack,
-  Table,
+Table,
   Text,
   VStack,
   proportional,
@@ -13,12 +13,14 @@ import {
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
 import { ScrollableTable } from '~/components/ScrollableTable'
+import { useLogMealTemplate } from '~/components/nutrition/useLogMealTemplate'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
 import {
   addFoodLogEntry,
   copyMealFromDate,
   deleteFoodLogEntry,
   deleteFoodLogEntries,
+  type MealTemplateSummary,
 } from '~/lib/api'
 import type { FoodLogEntry } from '~/lib/db'
 import {
@@ -26,6 +28,7 @@ import {
   entriesForMeal,
   previousDay,
 } from '~/lib/food-log-copy'
+import { sortTemplatesForMealSection } from '~/lib/meal-template-log'
 import { MEAL_TYPE_LABELS, MEAL_TYPES, type MealType } from '~/lib/nutrition'
 import { runOrQueue } from '~/lib/offline'
 import {
@@ -76,11 +79,13 @@ export function FoodLogCard({
   entries,
   sourceDayEntries,
   selectedDate,
+  mealTemplates,
   onAddMeal,
 }: {
   entries: FoodLogRow[]
   sourceDayEntries: FoodLogRow[]
   selectedDate: string
+  mealTemplates: MealTemplateSummary[]
   onAddMeal?: () => void
 }) {
   const deleteEntry = useDeleteFoodEntry(selectedDate)
@@ -115,6 +120,8 @@ export function FoodLogCard({
                 key={mealType}
                 mealType={mealType}
                 entries={entriesForMeal(entries, mealType)}
+                mealTemplates={mealTemplates}
+                selectedDate={selectedDate}
                 showCopyAction={canCopyMealFromDate(entries, sourceDayEntries, mealType)}
                 onCopy={() => copyMeal(mealType)}
                 onDelete={deleteEntry}
@@ -130,18 +137,26 @@ export function FoodLogCard({
 function MealLogSection({
   mealType,
   entries,
+  mealTemplates,
+  selectedDate,
   showCopyAction,
   onCopy,
   onDelete,
 }: {
   mealType: MealType
   entries: FoodLogRow[]
+  mealTemplates: MealTemplateSummary[]
+  selectedDate: string
   showCopyAction: boolean
   onCopy: () => void
   onDelete: DeleteFoodEntry
 }) {
   const mealLabel = MEAL_TYPE_LABELS[mealType]
-  if (entries.length === 0 && !showCopyAction) return null
+  const sectionTemplates = sortTemplatesForMealSection(mealTemplates, mealType)
+  const logTemplate = useLogMealTemplate(selectedDate)
+  const hasTemplateActions = sectionTemplates.length > 0
+
+  if (entries.length === 0 && !showCopyAction && !hasTemplateActions) return null
 
   return (
     <VStack gap={2}>
@@ -158,6 +173,25 @@ function MealLogSection({
           </Button>
         ) : undefined}
       </HStack>
+      {hasTemplateActions ? (
+        <VStack gap={1}>
+          <Text type="label">Log a saved meal</Text>
+          {sectionTemplates.map((template) => (
+            <Button
+              key={template.id}
+              label={`${template.name} — ${Math.round(template.totals.calories)} kcal`}
+              variant="ghost"
+              clickAction={() =>
+                logTemplate({
+                  templateId: template.id,
+                  mealType,
+                  expectedKcal: template.totals.calories,
+                })
+              }
+            />
+          ))}
+        </VStack>
+      ) : undefined}
       {entries.length > 0 ? (
         <ScrollableTable scrollLabel={`food-log-${mealType}`}>
           <Table

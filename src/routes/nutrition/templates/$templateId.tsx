@@ -24,12 +24,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
 import { useMemo, useState } from "react";
+import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
 import { getMealTemplate, saveMealTemplate, searchFoods } from "~/lib/api";
 import type { Food } from "~/lib/db";
 import {
   calculateFoodMacros,
   MEAL_TYPE_LABELS,
   sumNutritionTotals,
+  todayString,
   type MealType,
 } from "~/lib/nutrition";
 import { searchCachedFoods } from "~/lib/offline";
@@ -122,6 +124,7 @@ function MealTemplateDetailPage() {
   const { templateId } = Route.useParams();
   const queryClient = useQueryClient();
   const id = Number.parseInt(templateId, 10);
+  const logTemplate = useLogMealTemplate(todayString());
   const { data: template } = useSuspenseQuery({
     queryKey: ["meal-template", id],
     queryFn: () => getMealTemplate({ data: { id } }),
@@ -187,7 +190,22 @@ function MealTemplateDetailPage() {
             variant="secondary"
             size="sm"
           />
-          <Button label={saveLabel} variant="primary" clickAction={form.handleSubmit} />
+          <Button
+            label={`Log ${templateName || "template"}`}
+            variant="primary"
+            size="sm"
+            clickAction={() =>
+              logTemplate({
+                templateId: id,
+                mealType: template.default_meal_type,
+                expectedKcal: previewTotals.calories,
+              })
+            }
+            isDisabled={items.length === 0}
+          >
+            Log this
+          </Button>
+          <Button label={saveLabel} variant="secondary" clickAction={form.handleSubmit} />
         </HStack>
       </HStack>
 

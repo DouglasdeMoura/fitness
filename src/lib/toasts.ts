@@ -44,6 +44,11 @@ export function copyCompletedBody(entryCount: number): string {
   return `Copied ${entryCount} ${label}`
 }
 
+/** Meal-template log confirmation with total kcal (pair with Undo in endContent). */
+export function templateLoggedBody(kcal: number): string {
+  return `Logged ${Math.round(kcal)} kcal`
+}
+
 /** Weight log confirmation including the kg value the user just entered. */
 export function weightLoggedBody(kg: number): string {
   return `Weight logged — ${kg}kg`

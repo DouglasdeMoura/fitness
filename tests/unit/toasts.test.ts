@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   dataExportedBody,
   copyCompletedBody,
+  templateLoggedBody,
   entryDeletedBody,
   foodLoggedBody,
   mutationFailedBody,
@@ -18,6 +19,7 @@ describe('toast copy (issue #24)', () => {
     expect(foodLoggedBody()).toBe('Food logged')
     expect(copyCompletedBody(3)).toBe('Copied 3 entries')
     expect(copyCompletedBody(1)).toBe('Copied 1 entry')
+    expect(templateLoggedBody(165)).toBe('Logged 165 kcal')
     expect(entryDeletedBody()).toBe('Entry deleted')
     expect(setSavedBody()).toBe('Set saved')
     expect(setDeletedBody()).toBe('Set deleted')

@@ -21,6 +21,7 @@ import {
   copyMealEntriesInDb,
   deleteFoodLogEntriesInDb,
 } from './food-log-copy'
+import { logMealTemplateInDb } from './meal-template-log'
 import { resolveProgramTargets } from './workout'
 import { type QueuedMutation, type SyncOutcome, type SyncResult } from './sync'
 
@@ -317,6 +318,15 @@ export const copyDayFromDate = createServerFn({ method: 'POST' })
     const user = await ensureDefaultUser()
     const { fromDate, toDate } = ctx.data
     return copyDayEntriesInDb(db, user.id, fromDate, toDate)
+  })
+
+export const logMealTemplate = createServerFn({ method: 'POST' })
+  .validator((data: { templateId: number; date: string; mealType: MealType }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+    const { templateId, date, mealType } = ctx.data
+    return logMealTemplateInDb(db, user.id, templateId, date, mealType)
   })
 
 export const getNutritionSummary = createServerFn({ method: 'GET' })
@@ -1336,6 +1346,11 @@ export const syncQueuedMutations = createServerFn({ method: 'POST' })
         case 'copyDayFromDate': {
           const d = m.payload
           const result = copyDayEntriesInDb(db, user.id, d.fromDate, d.toDate)
+          return result.entries[0]?.id
+        }
+        case 'logMealTemplate': {
+          const d = m.payload
+          const result = logMealTemplateInDb(db, user.id, d.templateId, d.date, d.mealType)
           return result.entries[0]?.id
         }
         case 'logBodyweight': {

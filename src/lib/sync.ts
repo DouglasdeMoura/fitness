@@ -38,6 +38,11 @@ export type QueuedMutationPayloads = {
     fromDate: string
     toDate: string
   }
+  logMealTemplate: {
+    templateId: number
+    date: string
+    mealType: MealType
+  }
   logBodyweight: {
     weight_kg: number
     body_fat_pct?: number
