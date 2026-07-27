@@ -8,6 +8,7 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { ScrollableTable } from "~/components/ScrollableTable";
 import type { Exercise } from "~/lib/db";
 import type { EditableProgramDay, EditableProgramExercise } from "~/lib/program-form";
 
@@ -51,14 +52,16 @@ export function ProgramExerciseTable({
     );
   }
   return (
-    <Table
+    <ScrollableTable scrollLabel="program-exercises">
+      <Table
       aria-label={`${day.day_name} exercises`}
       columns={programExerciseColumns(day, exercises, updateExercise, removeExercise)}
       data={day.exercises}
       idKey="tempId"
       density="compact"
       hasHover
-    />
+      />
+    </ScrollableTable>
   );
 }
 

@@ -15,6 +15,7 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { ScrollableTable } from "~/components/ScrollableTable";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -210,14 +211,16 @@ function MealTemplatesPage() {
           />
         </Card>
       ) : (
-        <Table
-          aria-label="Meal templates"
+        <ScrollableTable scrollLabel="templates-list">
+          <Table
+            aria-label="Meal templates"
           columns={mealTemplateColumns(handleDelete)}
           data={templates}
           idKey="id"
           density="compact"
           hasHover
-        />
+          />
+        </ScrollableTable>
       )}
     </VStack>
   );

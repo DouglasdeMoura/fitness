@@ -160,15 +160,15 @@ test.describe('Workout - Session Logging Flow', () => {
 
   test('shows start workout prompt when no active session', async ({ page }) => {
     await openAppPage(page, '/workout')
-    await expect(page.locator('text=Ready to train')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('button:has-text("Start Workout")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Ready to train?' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible()
   })
 
   test('user can start a workout session and see exercise selection', async ({ page }) => {
     await openAppPage(page, '/workout')
     // May already have active session from previous test run
-    const startBtn = page.locator('button:has-text("Start Workout")')
-    const finishBtn = page.locator('button:has-text("Finish")')
+    const startBtn = page.getByRole('button', { name: 'Start Workout' })
+    const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
       await page.waitForTimeout(500)
@@ -176,14 +176,14 @@ test.describe('Workout - Session Logging Flow', () => {
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.locator('.card-title:has-text("Active Session")')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Active Session' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible()
   })
 
   test('selecting an exercise shows set logging interface', async ({ page }) => {
     await openAppPage(page, '/workout')
-    const startBtn = page.locator('button:has-text("Start Workout")')
-    const finishBtn = page.locator('button:has-text("Finish")')
+    const startBtn = page.getByRole('button', { name: 'Start Workout' })
+    const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
       await page.waitForTimeout(500)
@@ -191,12 +191,12 @@ test.describe('Workout - Session Logging Flow', () => {
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible({ timeout: 10000 })
-    const exerciseSelect = page.locator('select').first()
+    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({ timeout: 10000 })
+    const exerciseSelect = page.getByRole('combobox', { name: 'Exercise' })
     const options = await exerciseSelect.locator('option').count()
     if (options > 1) {
-      await exerciseSelect.selectOption({ index: 1 })
-      await expect(page.locator('button:has-text("Add Set")')).toBeVisible({ timeout: 10000 })
+      await exerciseSelect.click(); await page.getByRole('option').nth(1).click()
+      await expect(page.getByRole('button', { name: 'Add set' })).toBeVisible({ timeout: 10000 })
     }
   })
 })
@@ -318,22 +318,22 @@ test.describe('Progress - Analytics View', () => {
     // Workout suite's resilient flow. The saved set lands inside the 7-day
     // window getWeeklyVolume reads, so it must surface as a ProgressBar here.
     await openAppPage(page, '/workout')
-    const finishBtn = page.locator('button:has-text("Finish")')
+    const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
       await page.waitForTimeout(500)
     }
-    const startBtn = page.locator('button:has-text("Start Workout")')
+    const startBtn = page.getByRole('button', { name: 'Start Workout' })
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({ timeout: 10000 })
 
-    const exerciseSelect = page.locator('select').first()
+    const exerciseSelect = page.getByRole('combobox', { name: 'Exercise' })
     const optionCount = await exerciseSelect.locator('option').count()
     test.skip(optionCount <= 1, 'no exercisable option available to log a set')
 
-    await exerciseSelect.selectOption({ index: 1 })
+    await exerciseSelect.click(); await page.getByRole('option').nth(1).click()
     await page.getByRole('button', { name: 'Add Set' }).click()
     // Default weight/reps are pre-filled; persist the set so it counts toward volume.
     // The save button's accessible name comes from its Astryx `label` prop, which

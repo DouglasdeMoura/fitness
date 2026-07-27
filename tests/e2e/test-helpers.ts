@@ -107,3 +107,77 @@ export function formatAxeViolations(
     )
     .join('\n')
 }
+
+export const NAMED_TABLE_SCROLL_LABELS = {
+  foodLog: 'food-log',
+  workoutSets: 'workout-sets',
+  programsList: 'programs-list',
+  templatesList: 'templates-list',
+} as const
+
+export type NamedTableScrollLabel = (typeof NAMED_TABLE_SCROLL_LABELS)[keyof typeof NAMED_TABLE_SCROLL_LABELS]
+
+/** Document stays fixed while a named table region scrolls horizontally (issue #53). */
+export async function assertTableScrollsInHost(page: Page, scrollLabel: NamedTableScrollLabel): Promise<void> {
+  const host = page.locator(`[data-fittrack-table-scroll="${scrollLabel}"]`)
+  await expect(host).toBeVisible({ timeout: 15000 })
+
+  const metrics = await host.evaluate((element) => {
+    const doc = document.documentElement
+    return {
+      docOverflow: doc.scrollWidth > doc.clientWidth,
+      hostClientWidth: element.clientWidth,
+      hostScrollWidth: element.scrollWidth,
+    }
+  })
+
+  expect(metrics.docOverflow).toBe(false)
+  expect(metrics.hostScrollWidth).toBeGreaterThan(metrics.hostClientWidth)
+}
+
+const MIN_DESTRUCTIVE_GAP_PX = 8
+
+/** Destructive controls must sit at least 8px from adjacent targets (issue #53). */
+export async function findDestructiveSpacingViolations(page: Page): Promise<string[]> {
+  return page.evaluate((minGap) => {
+    const interactiveSelector = 'button, a[href], input, select'
+    const isVisible = (element: Element): boolean => {
+      const style = window.getComputedStyle(element)
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+        return false
+      }
+      const rect = element.getBoundingClientRect()
+      return rect.width > 0 && rect.height > 0
+    }
+
+    const gapBetween = (a: DOMRect, b: DOMRect): number => {
+      const horizontalGap =
+        a.right <= b.left ? b.left - a.right : b.right <= a.left ? a.left - b.right : 0
+      const verticalGap =
+        a.bottom <= b.top ? b.top - a.bottom : b.bottom <= a.top ? a.top - b.bottom : 0
+      if (horizontalGap > 0 && verticalGap > 0) {
+        return Math.min(horizontalGap, verticalGap)
+      }
+      return Math.max(horizontalGap, verticalGap)
+    }
+
+    const destructiveButtons = [...document.querySelectorAll('button[data-variant="destructive"]')]
+      .filter(isVisible)
+
+    const violations: string[] = []
+    for (const destructive of destructiveButtons) {
+      const destructiveRect = destructive.getBoundingClientRect()
+      const label = destructive.getAttribute('aria-label') ?? destructive.textContent?.trim() ?? 'destructive'
+      for (const other of document.querySelectorAll(interactiveSelector)) {
+        if (other === destructive || destructive.contains(other) || other.contains(destructive) || !isVisible(other)) continue
+        const otherRect = other.getBoundingClientRect()
+        const gap = gapBetween(destructiveRect, otherRect)
+        if (gap > 0 && gap < minGap) {
+          violations.push(`${label} is only ${Math.round(gap)}px from another target`)
+        }
+      }
+    }
+    return violations
+  }, MIN_DESTRUCTIVE_GAP_PX)
+}
+

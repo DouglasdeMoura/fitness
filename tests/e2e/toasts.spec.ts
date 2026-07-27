@@ -91,35 +91,34 @@ test.describe('Toast notifications for mutations', () => {
 
   test('saving and deleting a workout set shows toasts with Undo', async ({ page }) => {
     await openAppPage(page, '/workout')
-    const startBtn = page.locator('button:has-text("Start Workout")')
-    const finishBtn = page.locator('button:has-text("Finish")')
+
+    const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
-      await page.waitForTimeout(500)
-    }
-    if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await startBtn.click()
     }
 
-    await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible({
+    await clickHydratedButton(page.getByRole('button', { name: 'Start Workout' }))
+    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
       timeout: 10000,
     })
-    const exerciseSelect = page.locator('select').first()
-    const options = await exerciseSelect.locator('option').count()
-    test.skip(options <= 1, 'No exercises seeded for set logging')
 
-    await exerciseSelect.selectOption({ index: 1 })
-    await clickHydratedButton(page.locator('button:has-text("Add Set")'))
-    await clickHydratedButton(page.getByRole('button', { name: /Save set 1/ }))
+    const exerciseField = page.getByRole('combobox', { name: 'Exercise' })
+    await exerciseField.click()
+    const options = await page.getByRole('option').count()
+    test.skip(options === 0, 'No exercises seeded for set logging')
+    await page.getByRole('option').first().click()
+
+    await clickHydratedButton(page.getByRole('button', { name: 'Add set' }))
+    await clickHydratedButton(page.getByRole('button', { name: /Save set 1 of/ }))
     await expect(infoToast(page, 'Set saved')).toBeVisible({ timeout: 10000 })
 
-    await clickHydratedButton(page.getByRole('button', { name: /Delete set 1/ }))
+    await clickHydratedButton(page.getByRole('button', { name: /Delete set 1 of/ }))
     const deletedToast = infoToast(page, 'Set deleted')
     await expect(deletedToast).toBeVisible({ timeout: 10000 })
-    await expect(page.getByRole('button', { name: /Save set 1/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Save set 1 of/ })).toHaveCount(0)
 
     await clickHydratedButton(deletedToast.getByRole('button', { name: 'Undo' }))
-    await expect(page.getByRole('button', { name: /Save set 1/ })).toBeVisible({
+    await expect(page.getByRole('button', { name: /Save set 1 of/ })).toBeVisible({
       timeout: 10000,
     })
   })

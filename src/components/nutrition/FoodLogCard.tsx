@@ -12,6 +12,7 @@ import {
   type TableColumn,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
+import { ScrollableTable } from '~/components/ScrollableTable'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
 import { addFoodLogEntry, deleteFoodLogEntry } from '~/lib/api'
 import type { FoodLogEntry } from '~/lib/db'
@@ -112,14 +113,16 @@ function FoodLogContent({
     )
   }
   return (
-    <Table
-      aria-label="Today's food log"
-      columns={foodLogColumns(onDelete)}
-      data={entries}
-      idKey="id"
-      density="compact"
-      hasHover
-    />
+    <ScrollableTable scrollLabel="food-log">
+      <Table
+        aria-label="Today's food log"
+        columns={foodLogColumns(onDelete)}
+        data={entries}
+        idKey="id"
+        density="compact"
+        hasHover
+      />
+    </ScrollableTable>
   )
 }
 

@@ -16,6 +16,7 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { ScrollableTable } from "~/components/ScrollableTable";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -262,14 +263,16 @@ function ProgramsPage() {
           />
         </Card>
       ) : (
-        <Table
-          aria-label="Training programs"
+        <ScrollableTable scrollLabel="programs-list">
+          <Table
+            aria-label="Training programs"
           columns={programColumns(handleSetActive, handleDelete)}
           data={programs}
           idKey="id"
           density="compact"
           hasHover
-        />
+          />
+        </ScrollableTable>
       )}
     </VStack>
   );

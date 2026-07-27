@@ -467,3 +467,13 @@ section[data-fittrack-rest-timer-slot] {
   }
 }
 
+/* issue #53: wide tables scroll inside their host, not the document */
+[data-fittrack-table-scroll] {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+[data-fittrack-table-scroll-inner] {
+  min-width: 640px;
+}
+

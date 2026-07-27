@@ -1,9 +1,4 @@
 {
-  "src/routes/workout/index.tsx": {
-    "inlineStyle": 21,
-    "className": 21,
-    "layoutDiv": 19
-  },
   "src/components/OfflineStatus.tsx": {
     "inlineStyle": 2,
     "layoutDiv": 1
