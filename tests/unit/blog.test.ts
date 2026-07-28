@@ -160,11 +160,13 @@ Intro.`,
     );
   });
 
-  it("loads the placeholder post from content/blog", () => {
+  it("loads published articles from content/blog", () => {
     const posts = loadBlogPosts();
+    expect(posts.length).toBeGreaterThanOrEqual(5);
     expect(posts.some((post) => post.slug === "protein-for-hypertrophy")).toBe(
       true
     );
+    expect(posts.some((post) => post.slug === "macros-101")).toBe(true);
   });
 });
 
