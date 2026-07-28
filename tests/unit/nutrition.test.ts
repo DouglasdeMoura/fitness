@@ -13,7 +13,31 @@ import {
   parseSearchDate,
   resolveSelectedDate,
   formatDisplayDate,
+  groupEntriesByMeal,
+  mealSubtotals,
+  type MealType,
 } from '~/lib/nutrition'
+import type { FoodLogEntry } from '~/lib/db'
+
+function makeEntry(
+  overrides: Partial<FoodLogEntry> & { meal_type: MealType; calories: number },
+): FoodLogEntry {
+  return {
+    id: 1,
+    user_id: 1,
+    food_id: null,
+    custom_name: null,
+    date: '2026-07-25',
+    meal_type: overrides.meal_type,
+    servings: 1,
+    calories: overrides.calories,
+    protein_g: overrides.protein_g ?? 0,
+    carbs_g: overrides.carbs_g ?? 0,
+    fat_g: overrides.fat_g ?? 0,
+    notes: null,
+    created_at: '2026-07-25T08:00:00Z',
+  }
+}
 
 describe('BMR - Mifflin-St Jeor Equation', () => {
   it('calculates BMR for a 30-year-old male (validated against published reference)', () => {
@@ -307,5 +331,53 @@ describe('Date search param helpers', () => {
   it('formats display dates for the navigation bar', () => {
     expect(formatDisplayDate('2026-07-25')).toContain('Jul')
     expect(formatDisplayDate('2026-07-25')).toContain('2026')
+  })
+})
+
+
+describe('Meal grouping and subtotals (PRD 06 Batch 2)', () => {
+  it('groups entries by meal type preserving MEAL_TYPES order', () => {
+    const entries = [
+      makeEntry({ meal_type: 'lunch', calories: 400, id: 1 }),
+      makeEntry({ meal_type: 'breakfast', calories: 300, id: 2 }),
+      makeEntry({ meal_type: 'breakfast', calories: 200, id: 3 }),
+      makeEntry({ meal_type: 'dinner', calories: 600, id: 4 }),
+    ]
+    const groups = groupEntriesByMeal(entries)
+    const groupTypes = Object.keys(groups)
+    expect(groupTypes).toEqual(['breakfast', 'lunch', 'dinner', 'snack'])
+    expect(groups.breakfast).toHaveLength(2)
+    expect(groups.lunch).toHaveLength(1)
+    expect(groups.dinner).toHaveLength(1)
+    expect(groups.snack).toHaveLength(0)
+  })
+
+  it('returns empty arrays for every meal type when there are no entries', () => {
+    const groups = groupEntriesByMeal([])
+    expect(Object.keys(groups)).toEqual(['breakfast', 'lunch', 'dinner', 'snack'])
+    expect(groups.breakfast).toEqual([])
+    expect(groups.lunch).toEqual([])
+    expect(groups.dinner).toEqual([])
+    expect(groups.snack).toEqual([])
+  })
+
+  it('calculates per-meal subtotals from entry macros', () => {
+    const entries = [
+      makeEntry({ meal_type: 'breakfast', calories: 300, protein_g: 20, carbs_g: 40, fat_g: 8 }),
+      makeEntry({ meal_type: 'breakfast', calories: 200, protein_g: 10, carbs_g: 30, fat_g: 5 }),
+    ]
+    const subtotals = mealSubtotals(entries)
+    expect(subtotals.calories).toBe(500)
+    expect(subtotals.protein_g).toBe(30)
+    expect(subtotals.carbs_g).toBe(70)
+    expect(subtotals.fat_g).toBe(13)
+  })
+
+  it('returns zero subtotals for an empty meal', () => {
+    const subtotals = mealSubtotals([])
+    expect(subtotals.calories).toBe(0)
+    expect(subtotals.protein_g).toBe(0)
+    expect(subtotals.carbs_g).toBe(0)
+    expect(subtotals.fat_g).toBe(0)
   })
 })

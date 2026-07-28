@@ -5,12 +5,15 @@ import {
   Badge,
   Button,
   Card,
+  Collapsible,
   Dialog,
   DialogHeader,
   FormLayout,
   Grid,
   Heading,
   HStack,
+  MetadataList,
+  MetadataListItem,
   NumberInput,
   Table,
   Text,
@@ -41,16 +44,18 @@ import {
   MEAL_TYPES,
   buildQuickAddDraft,
   isApproximateFoodLogEntry,
+  mealSubtotals,
   type MealType,
+  type NutritionTotals,
   type QuickAddInput,
 } from '~/lib/nutrition'
-import { runOrQueue } from '~/lib/offline'
 import {
   copyCompletedBody,
   foodLoggedBody,
   mutationFailedBody,
   TOAST_DURATION_MS,
 } from '~/lib/toasts'
+import { runOrQueue } from '~/lib/offline'
 
 type RequestDeleteFoodEntry = (entry: FoodLogEntry) => void
 type CopyMealFromYesterday = (mealType: MealType) => Promise<void>
@@ -77,33 +82,33 @@ export function FoodLogCard({
   const copyMeal = useCopyMealFromYesterday(selectedDate, sourceDayEntries)
 
   return (
-    <Card>
-      <VStack gap={4}>
-        <Heading level={2}>Today&apos;s Food Log</Heading>
-        {entries.length === 0 ? (
-          <Text type="supporting">
-            No food logged yet. Search above or quick add an approximate entry per meal.
-          </Text>
-        ) : undefined}
-        <VStack gap={4}>
-          {MEAL_TYPES.map((mealType) => (
-            <MealLogSection
-              key={mealType}
-              mealType={mealType}
-              entries={entriesForMeal(entries, mealType)}
-              mealTemplates={mealTemplates}
-              selectedDate={selectedDate}
-              showCopyAction={canCopyMealFromDate(entries, sourceDayEntries, mealType)}
-              onCopy={() => copyMeal(mealType)}
-              onDelete={onDeleteEntry}
-            />
-          ))}
-        </VStack>
-      </VStack>
-    </Card>
+    <VStack gap={5}>
+      {entries.length === 0 ? (
+        <Text type="supporting">
+          No food logged yet. Use the quick-add or log-food buttons to get started.
+        </Text>
+      ) : undefined}
+      {MEAL_TYPES.map((mealType) => (
+        <MealLogSection
+          key={mealType}
+          mealType={mealType}
+          entries={entriesForMeal(entries, mealType)}
+          mealTemplates={mealTemplates}
+          selectedDate={selectedDate}
+          showCopyAction={canCopyMealFromDate(entries, sourceDayEntries, mealType)}
+          onCopy={() => copyMeal(mealType)}
+          onDelete={onDeleteEntry}
+        />
+      ))}
+    </VStack>
   )
 }
 
+/**
+ * Collapsible section for one meal type showing a calorie-subtotal trigger,
+ * per-meal macro MetadataList, and the entry table with quick-add/template
+ * actions (PRD 06 Batch 2).
+ */
 function MealLogSection({
   mealType,
   entries,
@@ -127,11 +132,43 @@ function MealLogSection({
   const logTemplate = useLogMealTemplate(selectedDate)
   const logQuickAdd = useQuickAddFood(selectedDate, mealType)
   const hasTemplateActions = sectionTemplates.length > 0
+  const subtotals = mealSubtotals(entries)
+  const hasEntries = entries.length > 0
+
+  const triggerContent = (
+    <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} vAlign="end">
+        <Heading level={3}>{mealLabel}</Heading>
+        {hasEntries ? (
+          <Text type="supporting" hasTabularNumbers>
+            {Math.round(subtotals.calories)} kcal
+          </Text>
+        ) : (
+          <Text type="supporting">0 kcal</Text>
+        )}
+      </HStack>
+    </HStack>
+  )
 
   return (
-    <VStack gap={2}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
-        <Heading level={3}>{mealLabel}</Heading>
+    <Collapsible trigger={triggerContent} defaultIsOpen={hasEntries}>
+      <VStack gap={3}>
+        {hasEntries ? (
+          <MetadataList>
+            <MetadataListItem label="Calories">
+              <Text hasTabularNumbers>{Math.round(subtotals.calories)} kcal</Text>
+            </MetadataListItem>
+            <MetadataListItem label="Protein">
+              <Text hasTabularNumbers>{Math.round(subtotals.protein_g)} g</Text>
+            </MetadataListItem>
+            <MetadataListItem label="Carbs">
+              <Text hasTabularNumbers>{Math.round(subtotals.carbs_g)} g</Text>
+            </MetadataListItem>
+            <MetadataListItem label="Fat">
+              <Text hasTabularNumbers>{Math.round(subtotals.fat_g)} g</Text>
+            </MetadataListItem>
+          </MetadataList>
+        ) : undefined}
         <HStack gap={2} wrap="wrap">
           <Button
             label={`Quick add to ${mealLabel.toLowerCase()}`}
@@ -152,48 +189,48 @@ function MealLogSection({
             </Button>
           ) : undefined}
         </HStack>
-      </HStack>
-      {hasTemplateActions ? (
-        <VStack gap={1}>
-          <Text type="label">Log a saved meal</Text>
-          {sectionTemplates.map((template) => (
-            <Button
-              key={template.id}
-              label={`${template.name} — ${Math.round(template.totals.calories)} kcal`}
-              variant="ghost"
-              size="lg"
-              clickAction={() =>
-                logTemplate({
-                  templateId: template.id,
-                  mealType,
-                  expectedKcal: template.totals.calories,
-                })
-              }
+        {hasTemplateActions ? (
+          <VStack gap={1}>
+            <Text type="label">Log a saved meal</Text>
+            {sectionTemplates.map((template) => (
+              <Button
+                key={template.id}
+                label={`${template.name} — ${Math.round(template.totals.calories)} kcal`}
+                variant="ghost"
+                size="lg"
+                clickAction={() =>
+                  logTemplate({
+                    templateId: template.id,
+                    mealType,
+                    expectedKcal: template.totals.calories,
+                  })
+                }
+              />
+            ))}
+          </VStack>
+        ) : undefined}
+        {hasEntries ? (
+          <ScrollableTable scrollLabel={`food-log-${mealType}`}>
+            <Table
+              aria-label={`${mealLabel} food log`}
+              columns={foodLogColumns(onDelete)}
+              data={entries}
+              idKey="id"
+              density="compact"
+              hasHover
             />
-          ))}
-        </VStack>
-      ) : undefined}
-      {entries.length > 0 ? (
-        <ScrollableTable scrollLabel={`food-log-${mealType}`}>
-          <Table
-            aria-label={`${mealLabel} food log`}
-            columns={foodLogColumns(onDelete)}
-            data={entries}
-            idKey="id"
-            density="compact"
-            hasHover
+          </ScrollableTable>
+        ) : undefined}
+        {quickAddOpen ? (
+          <QuickAddDialog
+            mealLabel={mealLabel}
+            isOpen={quickAddOpen}
+            onOpenChange={setQuickAddOpen}
+            onSubmit={logQuickAdd}
           />
-        </ScrollableTable>
-      ) : undefined}
-      {quickAddOpen ? (
-        <QuickAddDialog
-          mealLabel={mealLabel}
-          isOpen={quickAddOpen}
-          onOpenChange={setQuickAddOpen}
-          onSubmit={logQuickAdd}
-        />
-      ) : undefined}
-    </VStack>
+        ) : undefined}
+      </VStack>
+    </Collapsible>
   )
 }
 

@@ -4,6 +4,7 @@
 // - Morton RW et al. "A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength." Br J Sports Med. 2018
 // - Helms ER et al. "A systematic review of dietary protein during caloric restriction in resistance-trained lean athletes." Int J Sport Nutr Exerc Metab. 2014
 
+import type { FoodLogEntry } from './db'
 export type Sex = 'male' | 'female' | 'other'
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
 export type GoalType = 'lose_fat' | 'build_muscle' | 'maintain' | 'recomp'
@@ -279,6 +280,35 @@ export function sumFoodLogEntryTotals(entries: FoodLogMacroSlice[]): NutritionTo
     emptyTotals(),
   )
 }
+
+/**
+ * Group food-log entries by meal type, preserving MEAL_TYPES order.
+ * Every meal type is present in the result even when it has zero entries
+ * so every collapsible section renders (PRD 06 Batch 2).
+ */
+export function groupEntriesByMeal(
+  entries: FoodLogEntry[],
+): Record<MealType, FoodLogEntry[]> {
+  const groups: Record<MealType, FoodLogEntry[]> = {
+    breakfast: [],
+    lunch: [],
+    dinner: [],
+    snack: [],
+  }
+  for (const entry of entries) {
+    const mealType = entry.meal_type
+    if (mealType in groups) {
+      groups[mealType].push(entry)
+    }
+  }
+  return groups
+}
+
+/** Calorie/macro subtotals for a single meal's entries. */
+export function mealSubtotals(entries: FoodLogEntry[]): NutritionTotals {
+  return sumFoodLogEntryTotals(entries)
+}
+
 
 /** Quick-add entries omit food_id; they still count toward daily progress. */
 export function isApproximateFoodLogEntry(entry: { food_id: number | null }): boolean {

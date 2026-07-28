@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
 import {
@@ -9,21 +9,16 @@ import {
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Button,
-  Card,
-  Grid,
   Heading,
   HStack,
-  MetadataList,
-  MetadataListItem,
-  ProgressBar,
-  Text,
   VStack,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
 import { DeleteConfirmationDialog } from '~/components/DeleteConfirmationDialog'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
-import { AddFoodCard, type AddFoodCardHandle } from '~/components/nutrition/AddFoodCard'
 import { FoodLogCard } from '~/components/nutrition/FoodLogCard'
+import { FoodLogDialog } from '~/components/nutrition/FoodLogDialog'
+import { StickyMacroHeader } from '~/components/nutrition/StickyMacroHeader'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
 import {
   addFoodLogEntry,
@@ -33,16 +28,13 @@ import {
   getDailyTargets,
   getMealTemplates,
   getNutritionSummary,
-  type DailyTargets,
 } from '~/lib/api'
 import { deleteFoodEntryTitle } from '~/lib/delete-confirmation'
-import { macroProgress } from '~/lib/dashboard'
 import { canCopyDayFromDate, previousDay } from '~/lib/food-log-copy'
 import type { FoodLogEntry } from '~/lib/db'
 import {
   parseSearchDate,
   resolveSelectedDate,
-  type NutritionTotals,
 } from '~/lib/nutrition'
 import { NutritionSkeleton } from '~/components/loading/PageSkeletons'
 import { runOrQueue } from '~/lib/offline'
@@ -87,8 +79,8 @@ function NutritionPageContent() {
   const loaderData = Route.useLoaderData()
   const selectedDate = resolveSelectedDate(dateFromSearch)
   const navigate = useNavigate({ from: Route.fullPath })
-  const addFoodRef = useRef<AddFoodCardHandle>(null)
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<FoodLogEntry | null>(null)
+  const [foodLogDialogOpen, setFoodLogDialogOpen] = useState(false)
   const confirmDeleteEntry = useConfirmDeleteFoodEntry(selectedDate)
 
   const sourceDate = previousDay(selectedDate)
@@ -161,17 +153,22 @@ function NutritionPageContent() {
         showCopyDay={canCopyDayFromDate(summary.entries, sourceSummary.entries)}
         onCopyDay={copyDay}
       />
-      <Grid columns={{ minWidth: 320, max: 2, repeat: 'fit' }} gap={4}>
-        <DailySummaryCard totals={summary.totals} targets={targets} />
-        <AddFoodCard ref={addFoodRef} selectedDate={selectedDate} />
-      </Grid>
+      <StickyMacroHeader
+        totals={summary.totals}
+        targets={targets}
+        onLogFood={() => setFoodLogDialogOpen(true)}
+      />
       <FoodLogCard
         entries={summary.entries}
         sourceDayEntries={sourceSummary.entries}
         selectedDate={selectedDate}
         mealTemplates={mealTemplates}
-        onAddMeal={() => addFoodRef.current?.focusSearch()}
         onDeleteEntry={setPendingDeleteEntry}
+      />
+      <FoodLogDialog
+        isOpen={foodLogDialogOpen}
+        onOpenChange={setFoodLogDialogOpen}
+        selectedDate={selectedDate}
       />
       <DeleteConfirmationDialog
         isOpen={pendingDeleteEntry != null}
@@ -341,55 +338,3 @@ function useCopyDayFromYesterday(
   }
 }
 
-function DailySummaryCard({
-  totals,
-  targets,
-}: {
-  totals: NutritionTotals
-  targets: DailyTargets
-}) {
-  const calorieState = macroProgress(totals.calories, targets.calories, 'accent')
-  return (
-    <Card>
-      <VStack gap={3}>
-        <Heading level={2}>Daily Summary</Heading>
-        <HStack gap={1} vAlign="end">
-          <Text size="4xl" weight="bold" hasTabularNumbers>
-            {Math.round(totals.calories)}
-          </Text>
-          <Text type="supporting">/ {targets.calories} kcal</Text>
-        </HStack>
-        <ProgressBar
-          label="Calories consumed today"
-          value={calorieState.value}
-          max={calorieState.max}
-          variant={calorieState.variant}
-          isLabelHidden
-        />
-        <MacroSummary totals={totals} targets={targets} />
-      </VStack>
-    </Card>
-  )
-}
-
-function MacroSummary({
-  totals,
-  targets,
-}: {
-  totals: NutritionTotals
-  targets: DailyTargets
-}) {
-  return (
-    <MetadataList>
-      <MetadataListItem label="Protein">
-        {Math.round(totals.protein_g)} / {targets.protein_g} g
-      </MetadataListItem>
-      <MetadataListItem label="Carbs">
-        {Math.round(totals.carbs_g)} / {targets.carbs_g} g
-      </MetadataListItem>
-      <MetadataListItem label="Fat">
-        {Math.round(totals.fat_g)} / {targets.fat_g} g
-      </MetadataListItem>
-    </MetadataList>
-  )
-}
