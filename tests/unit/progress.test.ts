@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { MuscleVolume } from "~/lib/api";
 import type { BodyLog } from "~/lib/db";
@@ -223,7 +223,14 @@ describe(movingAverage, () => {
   it("returns null for first (window-1) entries where SMA is incomplete", () => {
     const result = movingAverage([80, 81, 82, 83, 84, 85, 86], 7);
     // First 6 entries lack a full 7-day window
-    expect(result.slice(0, 6)).toStrictEqual([null, null, null, null, null, null]);
+    expect(result.slice(0, 6)).toStrictEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
     // 7th entry has full window: avg of all 7 = 83
     expect(result[6]).toBe(83);
   });

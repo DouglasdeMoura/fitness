@@ -14,23 +14,25 @@ export function isFoodSearchPending(
   minLength: number = FOOD_SEARCH_MIN_LENGTH
 ): boolean {
   const trimmed = query.trim();
-  if (trimmed.length < minLength) {return false;}
+  if (trimmed.length < minLength) {
+    return false;
+  }
   return query !== debouncedQuery || isFetching;
 }
 
 /** Per-food logging history used to boost and badge search results. */
 export interface FoodLogHistory {
   food_id: number;
-  log_count: number;
-  last_servings: number;
   last_meal_type: MealType;
+  last_servings: number;
+  log_count: number;
 }
 
 export interface RankedFoodSearchResult {
   food: Food;
-  logCount: number | null;
-  lastServings: number | null;
   lastMealType: MealType | null;
+  lastServings: number | null;
+  logCount: number | null;
 }
 
 /**
@@ -63,10 +65,14 @@ export function rankFoodSearchResults(
   });
 
   ranked.sort((a, b) => {
-    if (a.hasHistory !== b.hasHistory) {return a.hasHistory ? -1 : 1;}
+    if (a.hasHistory !== b.hasHistory) {
+      return a.hasHistory ? -1 : 1;
+    }
     if (a.hasHistory && b.hasHistory) {
       const countDiff = (b.logCount ?? 0) - (a.logCount ?? 0);
-      if (countDiff !== 0) {return countDiff;}
+      if (countDiff !== 0) {
+        return countDiff;
+      }
     }
     return a.index - b.index;
   });

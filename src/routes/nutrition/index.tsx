@@ -55,12 +55,12 @@ export const Route = createFileRoute("/nutrition/")({
       getMealTemplates(),
     ]);
     return {
+      mealTemplates,
       selectedDate,
       sourceDate,
-      summary,
       sourceSummary,
+      summary,
       targets,
-      mealTemplates,
     };
   },
   loaderDeps: ({ search: { date } }) => ({ date }),
@@ -135,8 +135,8 @@ function NutritionPageContent() {
     return (
       <DataLoadErrorView
         heading="Nutrition"
-        title="Failed to load nutrition data"
         query={failedQuery}
+        title="Failed to load nutrition data"
       />
     );
   }
@@ -158,22 +158,22 @@ function NutritionPageContent() {
   return (
     <VStack as="main" gap={6}>
       <NutritionHeader
-        selectedDate={selectedDate}
-        onDateChange={handleDateChange}
-        showCopyDay={canCopyDayFromDate(summary.entries, sourceSummary.entries)}
         onCopyDay={copyDay}
+        onDateChange={handleDateChange}
+        selectedDate={selectedDate}
+        showCopyDay={canCopyDayFromDate(summary.entries, sourceSummary.entries)}
       />
       <StickyMacroHeader
-        totals={summary.totals}
-        targets={targets}
         onLogFood={() => setFoodLogDialogOpen(true)}
+        targets={targets}
+        totals={summary.totals}
       />
       <FoodLogCard
         entries={summary.entries}
-        sourceDayEntries={sourceSummary.entries}
-        selectedDate={selectedDate}
         mealTemplates={mealTemplates}
         onDeleteEntry={setPendingDeleteEntry}
+        selectedDate={selectedDate}
+        sourceDayEntries={sourceSummary.entries}
       />
       <FoodLogDialog
         isOpen={foodLogDialogOpen}
@@ -181,16 +181,20 @@ function NutritionPageContent() {
         selectedDate={selectedDate}
       />
       <DeleteConfirmationDialog
-        isOpen={pendingDeleteEntry != null}
-        onOpenChange={(open) => {
-          if (!open) {setPendingDeleteEntry(null);}
-        }}
-        title={deleteFoodEntryTitle()}
+        isOpen={pendingDeleteEntry !== null}
         onConfirm={async () => {
-          if (!pendingDeleteEntry) {return;}
+          if (!pendingDeleteEntry) {
+            return;
+          }
           await confirmDeleteEntry(pendingDeleteEntry);
           setPendingDeleteEntry(null);
         }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteEntry(null);
+          }
+        }}
+        title={deleteFoodEntryTitle()}
       />
     </VStack>
   );
@@ -209,26 +213,26 @@ function NutritionHeader({
 }) {
   return (
     <VStack gap={2}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
         <Heading level={1}>Nutrition</Heading>
         <HStack gap={2} wrap="wrap">
           {showCopyDay ? (
             <Button
-              label="Copy yesterday"
-              variant="primary"
-              size="sm"
               clickAction={onCopyDay}
+              label="Copy yesterday"
+              size="sm"
+              variant="primary"
             >
               Copy yesterday
             </Button>
-          ) : undefined}
-          <Button label="Templates" href="/nutrition/templates" size="sm" />
-          <Button label="Weekly Plan" href="/nutrition/planning" size="sm" />
+          ) : null}
+          <Button href="/nutrition/templates" label="Templates" size="sm" />
+          <Button href="/nutrition/planning" label="Weekly Plan" size="sm" />
         </HStack>
       </HStack>
       <DateNavigationBar
-        selectedDate={selectedDate}
         onDateChange={onDateChange}
+        selectedDate={selectedDate}
       />
     </VStack>
   );
@@ -273,7 +277,9 @@ function useConfirmDeleteFoodEntry(selectedDate: string) {
         await invalidateFoodLog();
       }
 
-      let dismiss = () => {};
+      let dismiss = () => {
+        /* assigned below */
+      };
       dismiss = toast({
         autoHideDuration: TOAST_DURATION_MS.undo,
         body: entryDeletedBody(),
@@ -324,7 +330,9 @@ function useCopyDayFromYesterday(
       if (!outcome.queued) {
         await invalidateFoodLog();
         const entryIds = outcome.result.entries.map((entry) => entry.id);
-        let dismiss = () => {};
+        let dismiss = () => {
+          /* assigned below */
+        };
         dismiss = toast({
           autoHideDuration: TOAST_DURATION_MS.undo,
           body: copyCompletedBody(entryIds.length),

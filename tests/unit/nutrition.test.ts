@@ -1,8 +1,24 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { FoodLogEntry } from "~/lib/db";
-import { calculateBMR, calculateTDEE, calculateMacroTargets, calculateAge, ACTIVITY_MULTIPLIERS, mealTypeForHour, buildFoodLogDraft, calculateFoodMacros, sumNutritionTotals, addDays, parseSearchDate, resolveSelectedDate, formatDisplayDate, groupEntriesByMeal, mealSubtotals } from '~/lib/nutrition';
-import type { MealType } from '~/lib/nutrition';
+import type { MealType } from "~/lib/nutrition";
+import {
+  ACTIVITY_MULTIPLIERS,
+  addDays,
+  buildFoodLogDraft,
+  calculateAge,
+  calculateBMR,
+  calculateFoodMacros,
+  calculateMacroTargets,
+  calculateTDEE,
+  formatDisplayDate,
+  groupEntriesByMeal,
+  mealSubtotals,
+  mealTypeForHour,
+  parseSearchDate,
+  resolveSelectedDate,
+  sumNutritionTotals,
+} from "~/lib/nutrition";
 
 function makeEntry(
   overrides: Partial<FoodLogEntry> & { meal_type: MealType; calories: number }

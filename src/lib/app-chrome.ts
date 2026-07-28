@@ -1,5 +1,7 @@
 export function getStoredTheme(): "light" | "dark" {
-  if (typeof localStorage === "undefined") {return "light";}
+  if (typeof localStorage === "undefined") {
+    return "light";
+  }
   const stored = localStorage.getItem("fittrack-theme");
   return stored === "dark" ? "dark" : "light";
 }
@@ -24,7 +26,9 @@ export function isNavSelected(
   href: string,
   exact?: boolean
 ): boolean {
-  if (exact) {return pathname === href;}
+  if (exact) {
+    return pathname === href;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -33,7 +37,9 @@ export function navValueFromPath(
   pathname: string,
   items: readonly { href: string }[]
 ): string {
-  if (pathname === "/") {return "/";}
+  if (pathname === "/") {
+    return "/";
+  }
   const match = items.find(
     (item) =>
       item.href !== "/" &&

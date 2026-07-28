@@ -11,12 +11,12 @@ export function ToastUndoButton({
 }) {
   return (
     <Button
-      label="Undo"
-      variant="secondary"
-      size="sm"
       clickAction={() => {
-        void onUndo();
+        onUndo();
       }}
+      label="Undo"
+      size="sm"
+      variant="secondary"
     />
   );
 }

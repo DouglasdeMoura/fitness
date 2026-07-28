@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import type { BodyLog } from "~/lib/db";
-import { assembleWeeklyReview, formatCalorieAverageVersusTarget, formatVolumeWeekDelta, formatWeightTrendDelta, generateWeeklyReviewHeadline, hasReviewableWeek, headlineSoundsFalselyPositive, lastCompleteWeekRange, movingAverageWeightKg, priorWeekRange, weightMovingAverageDelta } from '~/lib/weekly-review';
-import type { WeeklyReviewFacts } from '~/lib/weekly-review';
+import type { WeeklyReviewFacts } from "~/lib/weekly-review";
+import {
+  assembleWeeklyReview,
+  formatCalorieAverageVersusTarget,
+  formatVolumeWeekDelta,
+  formatWeightTrendDelta,
+  generateWeeklyReviewHeadline,
+  hasReviewableWeek,
+  headlineSoundsFalselyPositive,
+  lastCompleteWeekRange,
+  movingAverageWeightKg,
+  priorWeekRange,
+  weightMovingAverageDelta,
+} from "~/lib/weekly-review";
 
 // Re-export helper for tests only — use assembleWeeklyReview inputs instead
 function bodyLog(date: string, weightKg: number): BodyLog {

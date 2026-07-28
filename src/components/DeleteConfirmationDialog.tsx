@@ -7,12 +7,12 @@ import {
 } from "@astryxdesign/core";
 
 export interface DeleteConfirmationDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  subtitle?: string;
-  onConfirm: () => void | Promise<void>;
   isConfirming?: boolean;
+  isOpen: boolean;
+  onConfirm: () => void | Promise<void>;
+  onOpenChange: (open: boolean) => void;
+  subtitle?: string;
+  title: string;
 }
 
 /**
@@ -41,26 +41,28 @@ export function DeleteConfirmationDialog({
       width={360}
     >
       <DialogHeader
-        title={title}
-        subtitle={subtitle}
         onOpenChange={onOpenChange}
+        subtitle={subtitle}
+        title={title}
       />
       <VStack gap={3}>
         <HStack gap={2} hAlign="end" wrap="wrap">
           <Button
-            label="Cancel delete"
-            variant="secondary"
-            size="lg"
             clickAction={() => onOpenChange(false)}
+            label="Cancel delete"
+            size="lg"
+            variant="secondary"
           >
             Cancel
           </Button>
           <Button
-            label="Confirm delete"
-            variant="destructive"
-            size="lg"
-            clickAction={() => void onConfirm()}
+            clickAction={() => {
+              onConfirm();
+            }}
             isDisabled={isConfirming}
+            label="Confirm delete"
+            size="lg"
+            variant="destructive"
           >
             Delete
           </Button>

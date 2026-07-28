@@ -8,9 +8,9 @@ import { estimate1RM } from "./workout";
 
 export interface ExerciseSetSnapshot {
   id?: number;
+  reps: number;
   session_id: number;
   weight_kg: number;
-  reps: number;
 }
 
 export type RecordKind = "estimated_1rm" | "rep" | "volume";
@@ -122,7 +122,7 @@ export function recordKindsBySetId(
 
   for (let index = 0; index < chronologicalSets.length; index++) {
     const set = chronologicalSets[index];
-    if (set.id == null) {
+    if (set.id === null) {
       continue;
     }
     const prior = chronologicalSets.slice(0, index);

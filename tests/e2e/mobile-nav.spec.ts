@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import {
   installDeterministicClock,
@@ -132,6 +131,6 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
     const itemBox = await lastItem.boundingBox();
     expect(navBox).not.toBeNull();
     expect(itemBox).not.toBeNull();
-    expect(itemBox!.y + itemBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
+    expect(itemBox?.y + itemBox?.height).toBeLessThanOrEqual(navBox?.y + 1);
   });
 });

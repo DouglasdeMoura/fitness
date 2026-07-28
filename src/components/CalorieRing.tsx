@@ -1,5 +1,3 @@
-import React from "react";
-
 /**
  * SVG circular progress ring for the dashboard calorie display.
  *
@@ -35,11 +33,11 @@ export function CalorieRing({ consumed, target }: CalorieRingProps) {
 
   return (
     <svg
-      viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
-      width="180"
+      aria-label={`Calorie progress: ${Math.round(consumed)} of ${target} kcal`}
       height="180"
       role="img"
-      aria-label={`Calorie progress: ${Math.round(consumed)} of ${target} kcal`}
+      viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+      width="180"
     >
       {/*
        * Scoped style for the fill arc transition.
@@ -59,24 +57,24 @@ export function CalorieRing({ consumed, target }: CalorieRingProps) {
       <circle
         cx={CENTER}
         cy={CENTER}
-        r={RADIUS}
         fill="none"
+        r={RADIUS}
         stroke="var(--color-track)"
         strokeWidth={STROKE_WIDTH}
       />
 
       {/* Foreground fill arc — starts at 12 o'clock (rotated -90°), fills clockwise */}
       <circle
-        id="calorie-ring-fill"
         cx={CENTER}
         cy={CENTER}
-        r={RADIUS}
         fill="none"
+        id="calorie-ring-fill"
+        r={RADIUS}
         stroke={strokeColor}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
         strokeDasharray={CIRCUMFERENCE}
         strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        strokeWidth={STROKE_WIDTH}
         transform={`rotate(-90 ${CENTER} ${CENTER})`}
       />
     </svg>

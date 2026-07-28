@@ -5,8 +5,8 @@ import { asDateValue } from "~/lib/input-values";
 import { addDays, todayString } from "~/lib/nutrition";
 
 interface DateNavigationBarProps {
-  selectedDate: string;
   onDateChange: (date: string) => void;
+  selectedDate: string;
 }
 
 /**
@@ -23,37 +23,39 @@ export function DateNavigationBar({
   return (
     <HStack gap={2} vAlign="center" wrap="wrap">
       <IconButton
-        label="Previous day"
-        tooltip="Previous day"
         icon={<span aria-hidden>←</span>}
-        variant="secondary"
-        size="sm"
+        label="Previous day"
         onClick={() => onDateChange(addDays(selectedDate, -1))}
+        size="sm"
+        tooltip="Previous day"
+        variant="secondary"
       />
       <DateInput
-        label="Date"
         isLabelHidden
-        value={asDateValue(selectedDate)}
+        label="Date"
         max={asDateValue(today)}
-        size="sm"
         onChange={(value) => {
-          if (value) {onDateChange(value);}
+          if (value) {
+            onDateChange(value);
+          }
         }}
+        size="sm"
+        value={asDateValue(selectedDate)}
       />
       <IconButton
-        label="Next day"
-        tooltip="Next day"
         icon={<span aria-hidden>→</span>}
-        variant="secondary"
-        size="sm"
         isDisabled={isToday}
+        label="Next day"
         onClick={() => onDateChange(addDays(selectedDate, 1))}
+        size="sm"
+        tooltip="Next day"
+        variant="secondary"
       />
       <Button
-        label="Today"
-        size="sm"
         isDisabled={isToday}
+        label="Today"
         onClick={() => onDateChange(today)}
+        size="sm"
       />
     </HStack>
   );

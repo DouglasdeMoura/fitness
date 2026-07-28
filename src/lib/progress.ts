@@ -15,12 +15,12 @@ import type { BodyLog } from "./db";
 export type ProgressVariant = "accent" | "success" | "warning" | "error";
 
 export interface WeightTrend {
+  /** `last - first`. Positive = weight gained, negative = weight lost. */
+  change: number;
   /** Earliest weight in the window (kg). */
   first: number;
   /** Most recent weight in the window (kg). */
   last: number;
-  /** `last - first`. Positive = weight gained, negative = weight lost. */
-  change: number;
   /** Highest weight in the window (kg). */
   max: number;
   /** Lowest weight in the window (kg). */
@@ -43,9 +43,11 @@ export function weightTrend(logs: BodyLog[]): WeightTrend | null {
     .filter(
       (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
     )
-    .sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-  if (weighted.length === 0) {return null;}
+  if (weighted.length === 0) {
+    return null;
+  }
 
   const weights = weighted.map((log) => log.weight_kg);
   const first = weighted[0].weight_kg;
@@ -70,7 +72,9 @@ export function weightTrend(logs: BodyLog[]): WeightTrend | null {
  * TODO: make goal-aware so `build_muscle` flips the tone (tracked separately).
  */
 export function weightChangeTone(change: number): "success" | "error" | null {
-  if (!Number.isFinite(change) || change === 0) {return null;}
+  if (!Number.isFinite(change) || change === 0) {
+    return null;
+  }
   return change < 0 ? "success" : "error";
 }
 
@@ -85,7 +89,9 @@ export function workoutsPerWeek(
   sessionCount: number,
   windowDays: number
 ): number {
-  if (windowDays <= 0) {return 0;}
+  if (windowDays <= 0) {
+    return 0;
+  }
   return sessionCount / (windowDays / 7);
 }
 
@@ -99,8 +105,12 @@ export function workoutsPerWeek(
  * fatigue accumulation (over-reaching).
  */
 export function volumeVariant(status: MuscleVolume["status"]): ProgressVariant {
-  if (status === "optimal") {return "success";}
-  if (status === "under") {return "warning";}
+  if (status === "optimal") {
+    return "success";
+  }
+  if (status === "under") {
+    return "warning";
+  }
   return "error"; // 'high'
 }
 
@@ -109,20 +119,24 @@ export function volumeStatusBadge(status: MuscleVolume["status"]): {
   label: string;
   variant: "success" | "warning" | "error";
 } {
-  if (status === "optimal") {return { label: "Optimal", variant: "success" };}
-  if (status === "under") {return { label: "Under", variant: "warning" };}
+  if (status === "optimal") {
+    return { label: "Optimal", variant: "success" };
+  }
+  if (status === "under") {
+    return { label: "Under", variant: "warning" };
+  }
   return { label: "High", variant: "error" };
 }
 
 export interface VolumeBarState {
-  /** Sets this week, clamped to the recommended max so the fill never overflows. */
-  value: number;
   /** Recommended weekly max; used as the bar maximum (>= 1 to avoid /0). */
   max: number;
-  /** Semantic tone derived from the status bucket. */
-  variant: ProgressVariant;
   /** 0–100 percentage for the optional value label. */
   percent: number;
+  /** Sets this week, clamped to the recommended max so the fill never overflows. */
+  value: number;
+  /** Semantic tone derived from the status bucket. */
+  variant: ProgressVariant;
 }
 
 /**
@@ -143,14 +157,14 @@ export function volumeProgress(mv: MuscleVolume): VolumeBarState {
 }
 
 export interface ChartGeometry {
-  /** Plot width in viewBox units. */
-  width: number;
   /** Plot height in viewBox units. */
   height: number;
   /** Top inset so the highest point isn't clipped. */
   topPadding: number;
   /** Total viewBox height (plot + top + bottom gutters). */
   viewBoxHeight: number;
+  /** Plot width in viewBox units. */
+  width: number;
 }
 
 /**
@@ -228,7 +242,9 @@ export function movingAverage(
   weights: number[],
   window: number
 ): (number | null)[] {
-  if (window <= 0) {return weights.map(() => null);}
+  if (window <= 0) {
+    return weights.map(() => null);
+  }
   const result: (number | null)[] = [];
   let sum = 0;
   let count = 0;
@@ -264,7 +280,9 @@ export function areaChartPath(
   points: ChartPoint[],
   geometry: ChartGeometry
 ): string {
-  if (points.length === 0) {return "";}
+  if (points.length === 0) {
+    return "";
+  }
   const top = points.map((p) => `${p.x},${p.y}`).join(" L ");
   const bottomY = geometry.viewBoxHeight;
   const lastX = points.at(-1).x;

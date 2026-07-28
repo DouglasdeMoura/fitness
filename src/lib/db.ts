@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 import Database from "better-sqlite3";
 
@@ -95,191 +94,191 @@ export function getDb(): Database.Database {
 }
 
 export interface User {
+  activity_level: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  birth_date: string | null;
+  created_at: string;
+  email: string | null;
+  goal_type: "lose_fat" | "build_muscle" | "maintain" | "recomp";
+  height_cm: number | null;
   id: number;
   name: string;
-  email: string | null;
-  birth_date: string | null;
   sex: "male" | "female" | "other";
-  height_cm: number | null;
-  activity_level: "sedentary" | "light" | "moderate" | "active" | "very_active";
-  goal_type: "lose_fat" | "build_muscle" | "maintain" | "recomp";
-  created_at: string;
   updated_at: string;
 }
 
 export interface BodyLog {
-  id: number;
-  user_id: number;
-  date: string;
-  weight_kg: number | null;
   body_fat_pct: number | null;
-  muscle_mass_kg: number | null;
-  waist_cm: number | null;
-  notes: string | null;
   created_at: string;
+  date: string;
+  id: number;
+  muscle_mass_kg: number | null;
+  notes: string | null;
+  user_id: number;
+  waist_cm: number | null;
+  weight_kg: number | null;
 }
 
 export interface Food {
-  id: number;
-  name: string;
+  barcode: string | null;
   brand: string | null;
-  serving_size: number;
-  serving_unit: string;
   calories_per_serving: number;
-  protein_g: number;
   carbs_g: number;
+  created_at: string;
   fat_g: number;
   fiber_g: number;
-  sugar_g: number;
+  id: number;
+  name: string;
+  protein_g: number;
+  serving_size: number;
+  serving_unit: string;
   sodium_mg: number;
-  barcode: string | null;
   source: string;
-  created_at: string;
+  sugar_g: number;
 }
 
 export interface FoodLogEntry {
-  id: number;
-  user_id: number;
-  food_id: number | null;
+  calories: number;
+  carbs_g: number;
+  created_at: string;
   custom_name: string | null;
   date: string;
-  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
-  servings: number;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
   fat_g: number;
+  food_id: number | null;
+  id: number;
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
   notes: string | null;
-  created_at: string;
+  protein_g: number;
+  servings: number;
+  user_id: number;
 }
 
 export interface Exercise {
-  id: number;
-  name: string;
   category: "compound" | "isolation" | "bodyweight" | "cardio" | "mobility";
-  muscle_group: string;
-  equipment: string | null;
-  instructions: string | null;
   created_at: string;
+  equipment: string | null;
+  id: number;
+  instructions: string | null;
+  muscle_group: string;
+  name: string;
 }
 
 export interface WorkoutSession {
-  id: number;
-  user_id: number;
-  date: string;
-  name: string | null;
-  duration_minutes: number | null;
-  notes: string | null;
-  program_id: number | null;
-  program_day_id: number | null;
   created_at: string;
+  date: string;
+  duration_minutes: number | null;
+  id: number;
+  name: string | null;
+  notes: string | null;
+  program_day_id: number | null;
+  program_id: number | null;
+  user_id: number;
 }
 
 export interface WorkoutSet {
-  id: number;
-  session_id: number;
-  exercise_id: number;
-  set_number: number;
-  reps: number | null;
-  weight_kg: number | null;
-  rpe: number;
-  rest_seconds: number | null;
-  notes: string | null;
   created_at: string;
+  exercise_id: number;
+  id: number;
+  notes: string | null;
+  reps: number | null;
+  rest_seconds: number | null;
+  rpe: number;
+  session_id: number;
+  set_number: number;
+  weight_kg: number | null;
 }
 
 export type PeriodizationType = "linear" | "dup";
 
 export interface Program {
-  id: number;
-  user_id: number;
-  name: string;
+  created_at: string;
   description: string | null;
   frequency_per_week: number;
+  id: number;
+  is_active: number;
+  name: string;
   periodization_type: PeriodizationType;
   progression_increment_pct: number;
-  is_active: number;
-  created_at: string;
+  user_id: number;
 }
 
 export interface ProgramDay {
+  created_at: string;
+  day_name: string;
   id: number;
   program_id: number;
-  day_name: string;
   sort_order: number;
-  created_at: string;
 }
 
 export interface ProgramExercise {
+  created_at: string;
+  exercise_id: number;
   id: number;
   program_day_id: number;
-  exercise_id: number;
-  target_sets: number | null;
-  target_reps: string | null;
-  target_rpe: number | null;
   rest_seconds: number | null;
   sort_order: number;
-  created_at: string;
+  target_reps: string | null;
+  target_rpe: number | null;
+  target_sets: number | null;
 }
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface MealTemplate {
-  id: number;
-  user_id: number;
-  name: string;
-  description: string | null;
-  default_meal_type: MealType;
   created_at: string;
+  default_meal_type: MealType;
+  description: string | null;
+  id: number;
+  name: string;
+  user_id: number;
 }
 
 export interface MealTemplateItem {
-  id: number;
-  template_id: number;
+  created_at: string;
   food_id: number;
+  id: number;
   servings: number;
   sort_order: number;
-  created_at: string;
+  template_id: number;
 }
 
 export interface MealPlan {
-  id: number;
-  user_id: number;
+  created_at: string;
   date: string;
+  id: number;
   meal_type: MealType;
   template_id: number;
-  created_at: string;
+  user_id: number;
 }
 
 export interface PushSubscription {
-  id: number;
-  user_id: number;
-  endpoint: string;
-  p256dh: string;
   auth: string;
   created_at: string;
+  endpoint: string;
+  id: number;
+  p256dh: string;
+  user_id: number;
 }
 
 /** Per-user reminder toggles and schedules (issue #66 / PRD 11 Batch 4). */
 export interface NotificationPreferencesRow {
-  user_id: number;
-  rest_timer: number;
   meal_reminders: number;
   meal_times: string | null;
-  workout_reminders: number;
-  workout_days: string | null;
-  workout_time: string | null;
+  quiet_end: string | null;
+  quiet_start: string | null;
+  rest_timer: number;
+  user_id: number;
   weekly_review: number;
   weekly_review_day: number | null;
   weekly_review_time: string | null;
-  quiet_start: string | null;
-  quiet_end: string | null;
+  workout_days: string | null;
+  workout_reminders: number;
+  workout_time: string | null;
 }
 
 /** One successful scheduled reminder send per user/type/slot (issue #67). */
 export interface NotificationDeliveryRow {
-  user_id: number;
-  type: string;
-  slot: string;
   delivered_at: string;
+  slot: string;
+  type: string;
+  user_id: number;
 }

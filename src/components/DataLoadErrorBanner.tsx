@@ -5,10 +5,10 @@ import { Button } from "@astryxdesign/core/Button";
 import type { DataLoadQueryResult } from "~/lib/data-load-query";
 
 interface DataLoadErrorBannerProps {
-  title: string;
   description?: string;
-  onRetry: () => void;
   isRetrying?: boolean;
+  onRetry: () => void;
+  title: string;
 }
 
 /** Persistent load failure with a Retry action (PRD 05 §5, issue #29). */
@@ -20,26 +20,26 @@ export function DataLoadErrorBanner({
 }: DataLoadErrorBannerProps) {
   return (
     <Banner
-      status="error"
-      title={title}
       description={description}
       endContent={
         <Button
-          label="Retry"
-          variant="secondary"
-          size="sm"
-          isLoading={isRetrying}
           clickAction={() => onRetry()}
+          isLoading={isRetrying}
+          label="Retry"
+          size="sm"
+          variant="secondary"
         />
       }
+      status="error"
+      title={title}
     />
   );
 }
 
 interface DataLoadErrorViewProps {
   heading: string;
-  title: string;
   query: DataLoadQueryResult<unknown>;
+  title: string;
 }
 
 /** Full-page error state: heading + banner with Retry wired to the failed query. */
@@ -52,9 +52,9 @@ export function DataLoadErrorView({
     <VStack as="main" gap={6}>
       <Heading level={1}>{heading}</Heading>
       <DataLoadErrorBanner
-        title={title}
-        onRetry={() => query.refetch()}
         isRetrying={query.isFetching}
+        onRetry={() => query.refetch()}
+        title={title}
       />
     </VStack>
   );

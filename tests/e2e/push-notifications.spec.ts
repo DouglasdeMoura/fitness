@@ -1,9 +1,6 @@
-import { expect, test } from 'vitest';
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import { expect, test } from "@playwright/test";
 
 import {
   PUSH_CARD_TITLE,
@@ -25,7 +22,9 @@ async function openSettings(page: Page) {
 
 async function registerServiceWorker(page: Page): Promise<void> {
   const registered = await page.evaluate(async () => {
-    if (!("serviceWorker" in navigator)) {return false;}
+    if (!("serviceWorker" in navigator)) {
+      return false;
+    }
     const registration = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     return Boolean(

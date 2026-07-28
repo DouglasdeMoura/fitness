@@ -26,9 +26,9 @@ export function FoodLogDialog({
       width={480}
     >
       <DialogHeader
-        title="Log food"
-        subtitle="Search the catalog or quick-add by calories."
         onOpenChange={onOpenChange}
+        subtitle="Search the catalog or quick-add by calories."
+        title="Log food"
       />
       <AddFoodCard selectedDate={selectedDate} />
     </Dialog>

@@ -1,5 +1,20 @@
-import { Badge, Button, Card, EmptyState, FormLayout, Heading, HStack, Selector, Table, Text, TextArea, TextInput, VStack, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FormLayout,
+  Heading,
+  HStack,
+  proportional,
+  Selector,
+  Table,
+  Text,
+  TextArea,
+  TextInput,
+  VStack,
+} from "@astryxdesign/core";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -11,8 +26,12 @@ import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
 import { ScrollableTable } from "~/components/ScrollableTable";
-import { deleteMealTemplate, getMealTemplates, saveMealTemplate } from '~/lib/api';
-import type { MealTemplateSummary } from '~/lib/api';
+import type { MealTemplateSummary } from "~/lib/api";
+import {
+  deleteMealTemplate,
+  getMealTemplates,
+  saveMealTemplate,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
@@ -23,8 +42,8 @@ import {
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
 import { formatDisplayInteger } from "~/lib/format-number";
-import { MEAL_TYPE_LABELS, todayString } from '~/lib/nutrition';
-import type { MealType } from '~/lib/nutrition';
+import type { MealType } from "~/lib/nutrition";
+import { MEAL_TYPE_LABELS, todayString } from "~/lib/nutrition";
 import {
   buildCreateTemplatePayload,
   CREATE_TEMPLATE_FORM_DEFAULTS,
@@ -91,7 +110,7 @@ function mealTemplateColumns(
       header: "Macros per serving",
       key: "totals",
       renderCell: (template) => (
-        <Text type="supporting" hasTabularNumbers>
+        <Text hasTabularNumbers type="supporting">
           {formatDisplayInteger(template.totals.calories)} kcal · P{" "}
           {formatDisplayInteger(template.totals.protein_g)}g · C{" "}
           {formatDisplayInteger(template.totals.carbs_g)}g · F{" "}
@@ -106,27 +125,27 @@ function mealTemplateColumns(
       renderCell: (template) => (
         <HStack gap={2} wrap="wrap">
           <Button
-            label={`Log ${template.name}`}
-            variant="primary"
-            size="sm"
             clickAction={() => logTemplate(template)}
             isDisabled={template.item_count === 0}
+            label={`Log ${template.name}`}
+            size="sm"
+            variant="primary"
           >
             Log this
           </Button>
           <Button
-            label={`Edit ${template.name}`}
             href={`/nutrition/templates/${template.id}`}
-            variant="secondary"
+            label={`Edit ${template.name}`}
             size="sm"
+            variant="secondary"
           >
             Edit
           </Button>
           <Button
-            label={`Delete ${template.name}`}
-            variant="destructive"
-            size="sm"
             clickAction={() => removeTemplate(template.id)}
+            label={`Delete ${template.name}`}
+            size="sm"
+            variant="destructive"
           >
             Delete
           </Button>
@@ -177,8 +196,8 @@ function MealTemplatesPage() {
     return (
       <DataLoadErrorView
         heading="Meal Templates"
-        title="Failed to load meal templates"
         query={failedQuery}
+        title="Failed to load meal templates"
       />
     );
   }
@@ -202,7 +221,9 @@ function MealTemplatesPage() {
   };
 
   const confirmDelete = async () => {
-    if (pendingDeleteId == null) {return;}
+    if (pendingDeleteId === null) {
+      return;
+    }
     setIsDeleting(true);
     try {
       await deleteMealTemplate({ data: { id: pendingDeleteId } });
@@ -219,25 +240,25 @@ function MealTemplatesPage() {
 
   return (
     <VStack gap={4}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
         <Heading level={1}>Meal Templates</Heading>
         <HStack gap={2} wrap="wrap">
           <Button
-            label="Back"
             href="/nutrition"
-            variant="secondary"
+            label="Back"
             size="sm"
+            variant="secondary"
           />
           <Button
-            label="Weekly Planner"
             href="/nutrition/planning"
-            variant="secondary"
+            label="Weekly Planner"
             size="sm"
+            variant="secondary"
           />
           <Button
+            clickAction={() => (showCreate ? cancelCreate() : openCreate())}
             label={showCreate ? "Cancel" : "New Template"}
             variant="primary"
-            clickAction={() => (showCreate ? cancelCreate() : openCreate())}
           />
         </HStack>
       </HStack>
@@ -261,9 +282,9 @@ function MealTemplatesPage() {
                 {(field) => (
                   <TextInput
                     label="Name"
-                    value={field.state.value}
                     onChange={field.handleChange}
                     placeholder="e.g. High-protein breakfast"
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -271,9 +292,9 @@ function MealTemplatesPage() {
                 {(field) => (
                   <Selector
                     label="Default meal"
-                    value={field.state.value}
                     onChange={(value) => field.handleChange(value as MealType)}
                     options={MEAL_TYPE_OPTIONS}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -281,8 +302,8 @@ function MealTemplatesPage() {
                 {(field) => (
                   <TextArea
                     label="Description"
-                    value={field.state.value}
                     onChange={field.handleChange}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -292,9 +313,9 @@ function MealTemplatesPage() {
             >
               {({ isSubmitting }) => (
                 <Button
+                  clickAction={handleCreate}
                   label={isSubmitting ? "Creating..." : "Create & Edit Foods"}
                   variant="primary"
-                  clickAction={handleCreate}
                 />
               )}
             </form.Subscribe>
@@ -305,17 +326,17 @@ function MealTemplatesPage() {
       {templates.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<TemplateIcon />}
-            title="No meal templates"
-            description="Create a reusable meal to start building your weekly plan."
             actions={
               <Button
+                clickAction={openCreate}
                 label="Create a template"
                 variant="primary"
-                clickAction={openCreate}
               />
             }
+            description="Create a reusable meal to start building your weekly plan."
             headingLevel={2}
+            icon={<TemplateIcon />}
+            title="No meal templates"
           />
         </Card>
       ) : (
@@ -330,21 +351,23 @@ function MealTemplatesPage() {
               })
             )}
             data={templates}
-            idKey="id"
             density="compact"
             hasHover
+            idKey="id"
           />
         </ScrollableTable>
       )}
       <DeleteConfirmationDialog
-        isOpen={pendingDeleteId != null}
-        onOpenChange={(open) => {
-          if (!open) {setPendingDeleteId(null);}
-        }}
-        title={deleteNamedEntityTitle(pendingTemplate?.name ?? "template")}
-        subtitle={deleteCannotBeUndoneSubtitle()}
-        onConfirm={confirmDelete}
         isConfirming={isDeleting}
+        isOpen={pendingDeleteId !== null}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteId(null);
+          }
+        }}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        title={deleteNamedEntityTitle(pendingTemplate?.name ?? "template")}
       />
     </VStack>
   );

@@ -31,24 +31,24 @@ export type EditableProgramDay = Omit<ProgramDayInput, "exercises"> & {
 };
 
 export interface ProgramFormValues {
-  name: string;
+  days: EditableProgramDay[];
   description: string;
   frequency: number;
-  periodizationType: PeriodizationType;
   incrementPct: number;
   isActive: boolean;
-  days: EditableProgramDay[];
+  name: string;
+  periodizationType: PeriodizationType;
 }
 
 export interface ProgramSavePayload {
-  id: number;
-  name: string;
+  days: ProgramDayInput[];
   description?: string;
   frequency_per_week: number;
+  id: number;
+  is_active: boolean;
+  name: string;
   periodization_type: PeriodizationType;
   progression_increment_pct: number;
-  is_active: boolean;
-  days: ProgramDayInput[];
 }
 
 /** Empty form values used while the program query is still loading. */
@@ -76,19 +76,19 @@ export function makeTempId(): string {
 export function programFormDefaults(program: ProgramDetail): ProgramFormValues {
   return {
     days: program.days.map((day) => ({
-      tempId: `day-${day.id}`,
-      persistedId: day.id,
       day_name: day.day_name,
-      sort_order: day.sort_order,
       exercises: day.exercises.map((exercise) => ({
-        tempId: `ex-${exercise.id}`,
         exercise_id: exercise.exercise_id,
-        target_sets: exercise.target_sets ?? 3,
-        target_reps: exercise.target_reps ?? "8-12",
-        target_rpe: exercise.target_rpe ?? 8,
         rest_seconds: exercise.rest_seconds ?? 90,
         sort_order: exercise.sort_order,
+        target_reps: exercise.target_reps ?? "8-12",
+        target_rpe: exercise.target_rpe ?? 8,
+        target_sets: exercise.target_sets ?? 3,
+        tempId: `ex-${exercise.id}`,
       })),
+      persistedId: day.id,
+      sort_order: day.sort_order,
+      tempId: `day-${day.id}`,
     })),
     description: program.description ?? "",
     frequency: program.frequency_per_week,
@@ -106,7 +106,7 @@ export function programFormDefaults(program: ProgramDetail): ProgramFormValues {
  */
 export function newProgramDay(dayCount: number): EditableProgramDay {
   return {
-    day_name: `Day ${String.fromCharCode(65 + dayCount)}`,
+    day_name: `Day ${String.fromCodePoint(65 + dayCount)}`,
     exercises: [],
     sort_order: dayCount + 1,
     tempId: makeTempId(),
@@ -147,15 +147,15 @@ export function buildProgramSavePayload(
   return {
     days: values.days.map((day, dayIndex) => ({
       day_name: day.day_name,
-      sort_order: dayIndex + 1,
       exercises: day.exercises.map((exercise, exerciseIndex) => ({
         exercise_id: exercise.exercise_id,
-        target_sets: exercise.target_sets,
-        target_reps: exercise.target_reps,
-        target_rpe: exercise.target_rpe,
         rest_seconds: exercise.rest_seconds,
         sort_order: exerciseIndex + 1,
+        target_reps: exercise.target_reps,
+        target_rpe: exercise.target_rpe,
+        target_sets: exercise.target_sets,
       })),
+      sort_order: dayIndex + 1,
     })),
     description: description || undefined,
     frequency_per_week: values.frequency,
@@ -176,9 +176,13 @@ export function buildProgramSavePayload(
 export function validateProgramDays(
   days: EditableProgramDay[]
 ): string | undefined {
-  if (days.length > 7) {return "A program can have at most 7 training days.";}
+  if (days.length > 7) {
+    return "A program can have at most 7 training days.";
+  }
   for (const day of days) {
-    if (!day.day_name.trim()) {return "Every training day needs a name.";}
+    if (!day.day_name.trim()) {
+      return "Every training day needs a name.";
+    }
     for (const exercise of day.exercises) {
       if (!exercise.target_sets || exercise.target_sets < 1) {
         return `${day.day_name}: every exercise needs at least 1 set.`;
@@ -188,14 +192,13 @@ export function validateProgramDays(
       }
     }
   }
-  return undefined;
 }
 
 /** Fields collected on the programs list create card (src/routes/workout/programs/index.tsx). */
 export interface CreateProgramFormValues {
-  name: string;
   description: string;
   frequency: number;
+  name: string;
   periodizationType: PeriodizationType;
 }
 
@@ -208,8 +211,9 @@ export const CREATE_PROGRAM_FORM_DEFAULTS: CreateProgramFormValues = {
 
 /** Returns an error message when the name is blank; otherwise `undefined`. */
 export function validateCreateProgramName(name: string): string | undefined {
-  if (!name.trim()) {return "Program name is required.";}
-  return undefined;
+  if (!name.trim()) {
+    return "Program name is required.";
+  }
 }
 
 /**
@@ -221,7 +225,7 @@ export function buildCreateProgramPayload(
   options: { activateIfFirst: boolean }
 ): Omit<ProgramSavePayload, "id" | "progression_increment_pct"> {
   return {
-    days: [{ day_name: "Day A", sort_order: 1, exercises: [] }],
+    days: [{ day_name: "Day A", exercises: [], sort_order: 1 }],
     description: values.description.trim() || undefined,
     frequency_per_week: values.frequency,
     is_active: options.activateIfFirst,

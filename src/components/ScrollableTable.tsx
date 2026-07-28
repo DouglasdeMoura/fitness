@@ -2,9 +2,9 @@ import { Section } from "@astryxdesign/core/Section";
 import type { ReactNode } from "react";
 
 interface ScrollableTableProps {
+  children: ReactNode;
   /** Stable id for e2e scroll assertions (issue #53). */
   scrollLabel: string;
-  children: ReactNode;
 }
 
 /**
@@ -18,15 +18,15 @@ export function ScrollableTable({
 }: ScrollableTableProps) {
   return (
     <Section
-      variant="transparent"
-      padding={0}
-      data-fittrack-table-scroll={scrollLabel}
       aria-label={`${scrollLabel} scroll region`}
+      data-fittrack-table-scroll={scrollLabel}
+      padding={0}
+      variant="transparent"
     >
       <Section
-        variant="transparent"
-        padding={0}
         data-fittrack-table-scroll-inner=""
+        padding={0}
+        variant="transparent"
       >
         {children}
       </Section>

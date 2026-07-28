@@ -1,11 +1,10 @@
-import { expect, test } from 'vitest';
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import {
-  INSTALL_CARD_TITLE,
   INSTALL_BUTTON_LABEL,
-  IOS_INSTALL_STEPS,
+  INSTALL_CARD_TITLE,
   INSTALLED_MESSAGE,
+  IOS_INSTALL_STEPS,
   UNAVAILABLE_MESSAGE,
 } from "../../src/lib/pwa-install";
 
@@ -150,16 +149,24 @@ test.describe("Install affordance in Settings (issue #48)", () => {
       window.matchMedia = (query: string) => {
         if (query.includes("display-mode: standalone")) {
           return {
-            addEventListener() {},
-            addListener() {},
+            addEventListener() {
+              /* stub */
+            },
+            addListener() {
+              /* stub */
+            },
             dispatchEvent() {
               return false;
             },
             matches: true,
             media: query,
             onchange: null,
-            removeEventListener() {},
-            removeListener() {},
+            removeEventListener() {
+              /* stub */
+            },
+            removeListener() {
+              /* stub */
+            },
           } as MediaQueryList;
         }
         return original(query);
@@ -182,7 +189,9 @@ const APP_SHELL_ROUTES = [
 
 async function registerServiceWorker(page: Page): Promise<void> {
   const registered = await page.evaluate(async () => {
-    if (!("serviceWorker" in navigator)) {return false;}
+    if (!("serviceWorker" in navigator)) {
+      return false;
+    }
     const registration = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     return Boolean(

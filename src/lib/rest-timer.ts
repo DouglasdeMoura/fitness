@@ -21,13 +21,13 @@ export const REST_MS_NEAR_MAX = 3 * MS_PER_MINUTE;
 const DEFAULT_RPE = 7;
 
 export interface RestTimerUrlState {
-  restEnd?: number;
   restDur?: number;
+  restEnd?: number;
 }
 
 export interface RestTimerSnapshot {
-  endAtMs: number | null;
   durationMs: number | null;
+  endAtMs: number | null;
   lastRpe: number | null;
 }
 
@@ -78,7 +78,7 @@ function persistSnapshot(): void {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(snapshot));
 }
 
-function restorePersistedSnapshot(): void {
+function _restorePersistedSnapshot(): void {
   const persisted = readPersistedSnapshot();
   if (!persisted) {
     return;
@@ -157,7 +157,6 @@ function parseSearchInt(value: unknown): number | undefined {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
-  return undefined;
 }
 
 export function getRestTimerSnapshot(): RestTimerSnapshot {
@@ -174,7 +173,7 @@ export function hydrateRestTimerFromUrl(
   url: RestTimerUrlState,
   nowMs: number
 ): void {
-  if (url.restEnd == null || url.restDur == null) {
+  if (url.restEnd === null || url.restDur === null) {
     return;
   }
   if (url.restEnd <= nowMs) {
@@ -199,7 +198,7 @@ export function startRestTimer(rpe: number, nowMs: number): void {
 }
 
 export function stopRestTimer(): void {
-  if (snapshot.endAtMs == null) {
+  if (snapshot.endAtMs === null) {
     return;
   }
   snapshot = { ...snapshot, endAtMs: null };
@@ -254,7 +253,7 @@ export function resetRestTimerModule(): void {
 }
 
 export function restTimerSearchFromState(nowMs: number): RestTimerUrlState {
-  if (snapshot.endAtMs == null || snapshot.durationMs == null) {
+  if (snapshot.endAtMs === null || snapshot.durationMs === null) {
     return {};
   }
   if (snapshot.endAtMs <= nowMs) {
@@ -267,7 +266,7 @@ export function restTimerSearchFromState(nowMs: number): RestTimerUrlState {
 }
 
 export function isRestTimerActive(nowMs: number): boolean {
-  return snapshot.endAtMs != null && snapshot.endAtMs > nowMs;
+  return snapshot.endAtMs !== null && snapshot.endAtMs > nowMs;
 }
 
 /** Optional completion cue — failures are ignored (issue #60). */

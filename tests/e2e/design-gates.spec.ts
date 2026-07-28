@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   DESIGN_GATE_ROUTES,
@@ -10,8 +9,13 @@ import {
   measureLowBodyContrastSamples,
   measureMainSectionGap,
 } from "./design-gate-helpers";
-import { installDeterministicClock, openAppRoute, prepareTheme, routeWithStableQuery } from './test-helpers';
-import type { ColorMode } from './test-helpers';
+import type { ColorMode } from "./test-helpers";
+import {
+  installDeterministicClock,
+  openAppRoute,
+  prepareTheme,
+  routeWithStableQuery,
+} from "./test-helpers";
 
 const MIGRATED_ROUTES = DESIGN_GATE_ROUTES;
 
@@ -31,12 +35,12 @@ for (const route of MIGRATED_ROUTES) {
 
       const hero = await measureHeroMetricRatio(page);
       if (!hero) {
-        test.skip(true, "No hero metric with data-size on this route");
+        test(true, "No hero metric with data-size on this route");
       }
 
       expect(
-        hero!.ratio,
-        `Hero "${hero!.text}" token size ${hero!.heroPx}px vs body ${hero!.bodyPx}px = ${hero!.ratio.toFixed(2)}× (need >= ${DESIGN_GATE_THRESHOLDS.minHeroRatio}×)`
+        hero?.ratio,
+        `Hero "${hero?.text}" token size ${hero?.heroPx}px vs body ${hero?.bodyPx}px = ${hero?.ratio.toFixed(2)}× (need >= ${DESIGN_GATE_THRESHOLDS.minHeroRatio}×)`
       ).toBeGreaterThanOrEqual(DESIGN_GATE_THRESHOLDS.minHeroRatio);
     });
 

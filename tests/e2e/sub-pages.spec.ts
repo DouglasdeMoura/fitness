@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);

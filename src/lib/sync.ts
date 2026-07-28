@@ -11,44 +11,6 @@ export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
  * Shapes mirror the validators of the matching server functions in api.ts.
  */
 export interface QueuedMutationPayloads {
-  addFoodLogEntry: {
-    food_id?: number;
-    custom_name?: string;
-    date?: string;
-    meal_type: MealType;
-    servings: number;
-    calories: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    notes?: string;
-  };
-  deleteFoodLogEntry: {
-    id: number;
-  };
-  deleteFoodLogEntries: {
-    ids: number[];
-  };
-  copyMealFromDate: {
-    fromDate: string;
-    toDate: string;
-    mealType: MealType;
-  };
-  copyDayFromDate: {
-    fromDate: string;
-    toDate: string;
-  };
-  logMealTemplate: {
-    templateId: number;
-    date: string;
-    mealType: MealType;
-  };
-  logBodyweight: {
-    weight_kg: number;
-    body_fat_pct?: number;
-    notes?: string;
-    date?: string;
-  };
   addFood: {
     name: string;
     brand?: string | null;
@@ -63,11 +25,17 @@ export interface QueuedMutationPayloads {
     sodium_mg?: number;
     barcode?: string | null;
   };
-  createWorkoutSession: {
-    name?: string;
+  addFoodLogEntry: {
+    food_id?: number;
+    custom_name?: string;
     date?: string;
-    /** Placeholder id the device uses until the server assigns a real one. */
-    temp_ref: string;
+    meal_type: MealType;
+    servings: number;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    notes?: string;
   };
   addWorkoutSet: {
     /** Set on a session that already existed server-side. */
@@ -81,6 +49,38 @@ export interface QueuedMutationPayloads {
     rpe?: number;
     rest_seconds?: number;
     notes?: string;
+  };
+  copyDayFromDate: {
+    fromDate: string;
+    toDate: string;
+  };
+  copyMealFromDate: {
+    fromDate: string;
+    toDate: string;
+    mealType: MealType;
+  };
+  createWorkoutSession: {
+    name?: string;
+    date?: string;
+    /** Placeholder id the device uses until the server assigns a real one. */
+    temp_ref: string;
+  };
+  deleteFoodLogEntries: {
+    ids: number[];
+  };
+  deleteFoodLogEntry: {
+    id: number;
+  };
+  logBodyweight: {
+    weight_kg: number;
+    body_fat_pct?: number;
+    notes?: string;
+    date?: string;
+  };
+  logMealTemplate: {
+    templateId: number;
+    date: string;
+    mealType: MealType;
   };
 }
 
@@ -104,11 +104,11 @@ export type QueuedMutation<K extends QueuedMutationKind = QueuedMutationKind> =
 
 export interface SyncOutcome {
   client_id: string;
+  error?: string;
   kind: QueuedMutationKind;
-  status: "applied" | "duplicate" | "failed";
   /** Primary key of the affected row, when the mutation produced one. */
   result_id?: number;
-  error?: string;
+  status: "applied" | "duplicate" | "failed";
 }
 
 export interface SyncResult {

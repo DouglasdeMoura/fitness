@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
-
-import { customFoodPayload, EMPTY_CUSTOM_FOOD_DRAFT, isCustomFoodDraftValid } from '~/lib/custom-food';
-import type { CustomFoodDraft } from '~/lib/custom-food';
+import { describe, expect, it } from "vitest";
+import type { CustomFoodDraft } from "~/lib/custom-food";
+import {
+  customFoodPayload,
+  EMPTY_CUSTOM_FOOD_DRAFT,
+  isCustomFoodDraftValid,
+} from "~/lib/custom-food";
 
 describe(EMPTY_CUSTOM_FOOD_DRAFT, () => {
   it("seeds a sensible starting point for the custom-food form", () => {

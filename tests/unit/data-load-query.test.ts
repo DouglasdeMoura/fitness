@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-
-import { isDataLoadPending, pickFailedDataLoadQuery } from '~/lib/data-load-query';
-import type { DataLoadQueryResult } from '~/lib/data-load-query';
+import type { DataLoadQueryResult } from "~/lib/data-load-query";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+} from "~/lib/data-load-query";
 
 function mockQuery<T>(
   partial: Partial<DataLoadQueryResult<T>> &

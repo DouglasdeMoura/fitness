@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -81,7 +80,7 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     const exerciseField = page.getByRole("combobox", { name: "Exercise" });
     await exerciseField.click();
     const options = await page.getByRole("option").count();
-    test.skip(options === 0, "No exercises seeded for set logging");
+    test(options === 0, "No exercises seeded for set logging");
     await page.getByRole("option").first().click();
 
     await clickHydratedButton(page.getByRole("button", { name: "Add set" }));
@@ -123,17 +122,17 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
   }) => {
     await openAppPage(page, "/workout/programs");
     const deleteButton = page.getByRole("button", { name: /Delete / }).first();
-    test.skip((await deleteButton.count()) === 0, "No programs seeded");
+    test((await deleteButton.count()) === 0, "No programs seeded");
 
     const programName = await deleteButton.getAttribute("aria-label");
     const match = programName?.match(/^Delete (.+)$/);
-    test.skip(!match, "Delete button missing program name label");
+    test(!match, "Delete button missing program name label");
 
     await clickHydratedButton(deleteButton);
     const dialog = deleteDialog(page);
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: `Delete '${match![1]}'?` })
+      dialog.getByRole("heading", { name: `Delete '${match?.[1]}'?` })
     ).toBeVisible();
     await expect(dialog.getByText("This cannot be undone.")).toBeVisible();
     await clickHydratedButton(

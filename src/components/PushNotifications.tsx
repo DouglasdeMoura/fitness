@@ -18,9 +18,24 @@ import {
   subscribePush,
   unsubscribePush,
 } from "~/lib/api";
-import { getPushUiMode, PUSH_CARD_TITLE, PUSH_DENIED_MESSAGE, PUSH_DISABLE_BUTTON, PUSH_ENABLE_BUTTON, PUSH_IOS_INSTALL_MESSAGE, PUSH_NOT_CONFIGURED_MESSAGE, PUSH_SUBSCRIBED_MESSAGE, PUSH_TEST_BUTTON, PUSH_TEST_FAILURE_MESSAGE, PUSH_TEST_SUCCESS_MESSAGE, PUSH_UNSUPPORTED_MESSAGE, subscribeBrowserPush, unsubscribeBrowserPush } from '~/lib/push';
-import type { PushUiMode } from '~/lib/push';
-import { readIsStandalone, IOS_INSTALL_STEPS } from "~/lib/pwa-install";
+import type { PushUiMode } from "~/lib/push";
+import {
+  getPushUiMode,
+  PUSH_CARD_TITLE,
+  PUSH_DENIED_MESSAGE,
+  PUSH_DISABLE_BUTTON,
+  PUSH_ENABLE_BUTTON,
+  PUSH_IOS_INSTALL_MESSAGE,
+  PUSH_NOT_CONFIGURED_MESSAGE,
+  PUSH_SUBSCRIBED_MESSAGE,
+  PUSH_TEST_BUTTON,
+  PUSH_TEST_FAILURE_MESSAGE,
+  PUSH_TEST_SUCCESS_MESSAGE,
+  PUSH_UNSUPPORTED_MESSAGE,
+  subscribeBrowserPush,
+  unsubscribeBrowserPush,
+} from "~/lib/push";
+import { IOS_INSTALL_STEPS, readIsStandalone } from "~/lib/pwa-install";
 
 interface PushNotificationsProps {
   initialConfigured: boolean;
@@ -131,7 +146,7 @@ export function PushNotifications({
     }
   };
 
-  if (mode == null) {
+  if (mode === null) {
     return null;
   }
 
@@ -140,10 +155,10 @@ export function PushNotifications({
       <VStack gap={3}>
         <Heading level={2}>{PUSH_CARD_TITLE}</Heading>
         <PushNotificationsBody
-          mode={mode}
           busy={busy}
-          onEnable={handleEnable}
+          mode={mode}
           onDisable={handleDisable}
+          onEnable={handleEnable}
           onTest={handleTest}
         />
       </VStack>
@@ -194,16 +209,16 @@ function PushNotificationsBody({
       <VStack gap={3}>
         <Text type="supporting">{PUSH_SUBSCRIBED_MESSAGE}</Text>
         <Button
+          clickAction={onTest}
+          isLoading={busy}
           label={PUSH_TEST_BUTTON}
           variant="primary"
-          isLoading={busy}
-          clickAction={onTest}
         />
         <Button
+          clickAction={onDisable}
+          isLoading={busy}
           label={PUSH_DISABLE_BUTTON}
           variant="secondary"
-          isLoading={busy}
-          clickAction={onDisable}
         />
       </VStack>
     );
@@ -216,10 +231,10 @@ function PushNotificationsBody({
         updates.
       </Text>
       <Button
+        clickAction={onEnable}
+        isLoading={busy}
         label={PUSH_ENABLE_BUTTON}
         variant="primary"
-        isLoading={busy}
-        clickAction={onEnable}
       />
     </VStack>
   );

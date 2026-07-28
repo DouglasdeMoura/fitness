@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -140,7 +139,7 @@ test.describe("Toast notifications for mutations", () => {
     const exerciseField = page.getByRole("combobox", { name: "Exercise" });
     await exerciseField.click();
     const options = await page.getByRole("option").count();
-    test.skip(options === 0, "No exercises seeded for set logging");
+    test(options === 0, "No exercises seeded for set logging");
     await page.getByRole("option").first().click();
 
     await clickHydratedButton(page.getByRole("button", { name: "Add set" }));

@@ -5,30 +5,30 @@
 import type { BodyLog } from "./db";
 import { formatDisplayDecimal, formatDisplayInteger } from "./format-number";
 import { addDays, getWeekStart } from "./nutrition";
-import { compareSessionVolumes, computeSessionVolumeStats } from './workout';
-import type { SessionVolumeSet } from './workout';
+import type { SessionVolumeSet } from "./workout";
+import { compareSessionVolumes, computeSessionVolumeStats } from "./workout";
 
 export interface WeekRange {
-  start: string;
   end: string;
+  start: string;
 }
 
 export interface WeekNutritionMetrics {
-  logAdherencePct: number;
-  proteinTargetDays: number;
   avgDailyCalories: number;
   calorieTarget: number;
+  logAdherencePct: number;
   loggedDays: number;
+  proteinTargetDays: number;
 }
 
 export interface WeekTrainingMetrics {
-  totalVolume: number;
-  setCount: number;
+  priorSetCount: number;
+  priorTotalVolume: number;
   sessionCount: number;
+  setCount: number;
+  totalVolume: number;
   volumeDeltaPct: number | null;
   volumeDirection: "more" | "less" | "same" | "first";
-  priorTotalVolume: number;
-  priorSetCount: number;
 }
 
 export interface WeekWeightTrend {
@@ -37,11 +37,11 @@ export interface WeekWeightTrend {
 }
 
 export interface WeeklyReviewFacts {
-  week: WeekRange;
   nutrition: WeekNutritionMetrics;
-  training: WeekTrainingMetrics;
-  weight: WeekWeightTrend;
   personalRecordCount: number;
+  training: WeekTrainingMetrics;
+  week: WeekRange;
+  weight: WeekWeightTrend;
 }
 
 export type WeeklyReviewPayload = WeeklyReviewFacts & {
@@ -163,7 +163,7 @@ function summarizeTrainingForWeek(
 function weightByDate(logs: BodyLog[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const log of logs) {
-    if (log.weight_kg == null) {
+    if (log.weight_kg === null) {
       continue;
     }
     map.set(log.date, log.weight_kg);
@@ -184,7 +184,7 @@ export function movingAverageWeightKg(
   for (let offset = 0; offset < windowDays; offset++) {
     const sampleDate = addDays(date, -offset);
     const weight = weightsByDate.get(sampleDate);
-    if (weight != null) {
+    if (typeof weight === "number") {
       samples.push(weight);
     }
   }
@@ -203,7 +203,7 @@ export function weightMovingAverageDelta(
   const startAvg = movingAverageWeightKg(weights, range.start);
   const endAvg = movingAverageWeightKg(weights, range.end);
 
-  if (startAvg == null || endAvg == null) {
+  if (startAvg === null || endAvg === null) {
     return { movingAvgDeltaKg: null };
   }
 
@@ -234,7 +234,7 @@ export function generateWeeklyReviewHeadline(facts: WeeklyReviewFacts): string {
   const proteinDays = nutrition.proteinTargetDays;
   const volumePct = training.volumeDeltaPct;
   const volumeUp =
-    training.volumeDirection === "more" && volumePct != null && volumePct >= 8;
+    training.volumeDirection === "more" && volumePct !== null && volumePct >= 8;
   const hasActivity =
     nutrition.loggedDays > 0 ||
     training.sessionCount > 0 ||
@@ -296,7 +296,7 @@ export function assembleWeeklyReview(input: {
     ...foodDates,
     ...input.sessionDates,
     ...input.bodyLogs
-      .filter((log) => log.weight_kg != null)
+      .filter((log) => log.weight_kg !== null)
       .map((log) => log.date),
   ];
 
@@ -334,7 +334,7 @@ export function assembleWeeklyReview(input: {
 
 /** Format signed weight delta for display. */
 export function formatWeightTrendDelta(deltaKg: number | null): string {
-  if (deltaKg == null) {
+  if (deltaKg === null) {
     return "—";
   }
   const sign = deltaKg > 0 ? "+" : "";
@@ -346,7 +346,7 @@ export function formatVolumeWeekDelta(
   direction: WeekTrainingMetrics["volumeDirection"],
   percent: number | null
 ): string {
-  if (direction === "first" || percent == null) {
+  if (direction === "first" || percent === null) {
     return "First week with logged sets";
   }
   if (direction === "same") {

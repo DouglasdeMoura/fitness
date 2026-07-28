@@ -9,12 +9,11 @@ import {
   VStack,
 } from "@astryxdesign/core";
 import { useToast } from "@astryxdesign/core/Toast";
-import { useRouterState, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import {
   clearRestTimer,
-  restTimerSearchFromState,
   formatRestCountdown,
   getRestTimerSnapshot,
   isRestComplete,
@@ -23,9 +22,10 @@ import {
   playRestCompleteCue,
   remainingRestMs,
   resetRestTimer,
-  restProgressPercent,
-  stopRestTimer,
   restoreRestTimerFromSession,
+  restProgressPercent,
+  restTimerSearchFromState,
+  stopRestTimer,
   subscribeRestTimer,
 } from "~/lib/rest-timer";
 import { restCompleteBody, TOAST_DURATION_MS } from "~/lib/toasts";
@@ -98,14 +98,14 @@ export function RestTimer() {
   const toast = useToast();
   const reducedMotion = usePrefersReducedMotion();
 
-  const running = snapshot.endAtMs != null;
+  const running = snapshot.endAtMs !== null;
   const nowMs = useNowTicker(running);
   const remaining =
-    snapshot.endAtMs == null
+    snapshot.endAtMs === null
       ? (snapshot.durationMs ?? 0)
       : remainingRestMs(snapshot.endAtMs, nowMs);
   const active = isRestTimerActive(nowMs);
-  const hasContext = snapshot.lastRpe != null || snapshot.durationMs != null;
+  const hasContext = snapshot.lastRpe !== null || snapshot.durationMs !== null;
 
   const clearUrlParams = useCallback(() => {
     if (!pathname.startsWith("/workout")) {
@@ -114,8 +114,8 @@ export function RestTimer() {
     navigate({
       search: (prev) => {
         const next = { ...prev };
-        delete next.restEnd;
-        delete next.restDur;
+        next.restEnd = undefined;
+        next.restDur = undefined;
         return next;
       },
       to: "/workout",
@@ -123,7 +123,7 @@ export function RestTimer() {
   }, [navigate, pathname]);
 
   useEffect(() => {
-    if (!running || snapshot.endAtMs == null) {
+    if (!running || snapshot.endAtMs === null) {
       return;
     }
     if (!isRestComplete(snapshot.endAtMs, nowMs)) {
@@ -148,65 +148,65 @@ export function RestTimer() {
 
   return (
     <Section
-      role="region"
       aria-label="Rest timer"
       data-fittrack-rest-timer-slot=""
       data-rest-active={active ? "" : undefined}
-      variant="section"
-      padding={2}
       minHeight="var(--app-rest-timer-reserved-height)"
+      padding={2}
+      role="region"
+      variant="section"
     >
       {showControls ? (
         <VStack gap={2}>
-          <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+          <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
             <VStack gap={0}>
               <Text type="label">Rest</Text>
-              <Text size="2xl" weight="bold" hasTabularNumbers>
+              <Text hasTabularNumbers size="2xl" weight="bold">
                 {active ? formatRestCountdown(remaining) : "Stopped"}
               </Text>
             </VStack>
             {active &&
             !reducedMotion &&
-            snapshot.endAtMs != null &&
-            snapshot.durationMs != null ? (
+            snapshot.endAtMs !== null &&
+            snapshot.durationMs !== null ? (
               <ProgressBar
+                hasValueLabel={false}
+                isLabelHidden
                 label="Rest progress"
+                max={100}
                 value={restProgressPercent(
                   snapshot.endAtMs,
                   snapshot.durationMs,
                   nowMs
                 )}
-                max={100}
-                hasValueLabel={false}
-                isLabelHidden
                 variant="accent"
               />
             ) : null}
           </HStack>
           <HStack gap={2} wrap="wrap">
             <Button
-              label="Start rest"
-              variant="primary"
-              size="lg"
               clickAction={() => {
                 manualStartRestTimer(Date.now());
                 syncRestTimerUrl(navigate, pathname);
               }}
+              label="Start rest"
+              size="lg"
+              variant="primary"
             />
             <Button
-              label="Stop rest"
-              variant="secondary"
-              size="lg"
               clickAction={() => stopRestTimer()}
+              label="Stop rest"
+              size="lg"
+              variant="secondary"
             />
             <Button
-              label="Reset rest"
-              variant="secondary"
-              size="lg"
               clickAction={() => {
                 resetRestTimer(Date.now());
                 syncRestTimerUrl(navigate, pathname);
               }}
+              label="Reset rest"
+              size="lg"
+              variant="secondary"
             />
           </HStack>
         </VStack>

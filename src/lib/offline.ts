@@ -7,17 +7,21 @@
 
 import { getOfflineBundle, syncQueuedMutations } from "./api";
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
-import { MAX_SYNC_ATTEMPTS, makeClientId } from './sync';
-import type { QueuedMutation, QueuedMutationKind, QueuedMutationPayloads } from './sync';
+import type {
+  QueuedMutation,
+  QueuedMutationKind,
+  QueuedMutationPayloads,
+} from "./sync";
+import { MAX_SYNC_ATTEMPTS, makeClientId } from "./sync";
 
 export type OfflineBundle = Awaited<ReturnType<typeof getOfflineBundle>>;
 
 export interface OfflineState {
+  lastError: string | null;
+  lastSyncedAt: string | null;
   online: boolean;
   pending: number;
   syncing: boolean;
-  lastSyncedAt: string | null;
-  lastError: string | null;
 }
 
 const DB_NAME = "fittrack-offline";
@@ -78,7 +82,9 @@ function request<T>(
 
 /** Fetch the latest bundle and store it for offline reads. */
 export async function refreshOfflineBundle(): Promise<OfflineBundle | null> {
-  if (!isBrowser()) {return null;}
+  if (!isBrowser()) {
+    return null;
+  }
   try {
     const bundle = await getOfflineBundle();
     await request(KV_STORE, "readwrite", (store) =>
@@ -92,7 +98,9 @@ export async function refreshOfflineBundle(): Promise<OfflineBundle | null> {
 }
 
 export async function readOfflineBundle(): Promise<OfflineBundle | null> {
-  if (!isBrowser()) {return null;}
+  if (!isBrowser()) {
+    return null;
+  }
   try {
     const row = await request<
       { key: string; value: OfflineBundle } | undefined
@@ -113,9 +121,13 @@ export async function searchCachedFoods(
   limit = 20
 ): Promise<OfflineBundle["foods"]> {
   const bundle = await readOfflineBundle();
-  if (!bundle) {return [];}
+  if (!bundle) {
+    return [];
+  }
   const needle = query.trim().toLowerCase();
-  if (needle.length === 0) {return [];}
+  if (needle.length === 0) {
+    return [];
+  }
   return bundle.foods
     .filter(
       (food) =>
@@ -130,13 +142,17 @@ export async function getCachedFoodByBarcode(
   barcode: string
 ): Promise<OfflineBundle["foods"][number] | null> {
   const bundle = await readOfflineBundle();
-  if (!bundle) {return null;}
+  if (!bundle) {
+    return null;
+  }
   const normalized = normalizeBarcode(barcode);
-  if (!normalized) {return null;}
+  if (!normalized) {
+    return null;
+  }
   const variants = new Set(barcodeLookupVariants(normalized));
   return (
     bundle.foods.find(
-      (food) => food.barcode != null && variants.has(food.barcode)
+      (food) => food.barcode !== null && variants.has(food.barcode)
     ) ?? null
   );
 }
@@ -146,14 +162,18 @@ export async function getCachedFoodLog(
   date: string
 ): Promise<OfflineBundle["food_log"]> {
   const bundle = await readOfflineBundle();
-  if (!bundle) {return [];}
+  if (!bundle) {
+    return [];
+  }
   return bundle.food_log.filter((entry) => entry.date === date);
 }
 
 // --- Mutation outbox ---
 
 export async function getQueuedMutations(): Promise<QueuedMutation[]> {
-  if (!isBrowser()) {return [];}
+  if (!isBrowser()) {
+    return [];
+  }
   try {
     const all = await request<QueuedMutation[]>(
       OUTBOX_STORE,
@@ -168,7 +188,9 @@ export async function getQueuedMutations(): Promise<QueuedMutation[]> {
 }
 
 export async function getQueueSize(): Promise<number> {
-  if (!isBrowser()) {return 0;}
+  if (!isBrowser()) {
+    return 0;
+  }
   try {
     return await request<number>(OUTBOX_STORE, "readonly", (store) =>
       store.count()
@@ -197,12 +219,16 @@ export async function queueMutation<K extends QueuedMutationKind>(
 }
 
 async function removeFromOutbox(clientIds: string[]): Promise<void> {
-  if (clientIds.length === 0) {return;}
+  if (clientIds.length === 0) {
+    return;
+  }
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(OUTBOX_STORE, "readwrite");
     const store = transaction.objectStore(OUTBOX_STORE);
-    for (const id of clientIds) {store.delete(id);}
+    for (const id of clientIds) {
+      store.delete(id);
+    }
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -214,7 +240,9 @@ async function recordFailure(clientId: string, message: string): Promise<void> {
     "readonly",
     (store) => store.get(clientId)
   );
-  if (!existing) {return;}
+  if (!existing) {
+    return;
+  }
 
   const attempts = existing.attempts + 1;
   if (attempts >= MAX_SYNC_ATTEMPTS) {
@@ -244,11 +272,14 @@ export async function syncOutbox(): Promise<{
   applied: number;
   failed: number;
 }> {
-  if (!isBrowser() || syncing || !navigator.onLine)
-    {return { applied: 0, failed: 0 };}
+  if (!isBrowser() || syncing || !navigator.onLine) {
+    return { applied: 0, failed: 0 };
+  }
 
   const queued = await getQueuedMutations();
-  if (queued.length === 0) {return { applied: 0, failed: 0 };}
+  if (queued.length === 0) {
+    return { applied: 0, failed: 0 };
+  }
 
   syncing = true;
   lastError = null;
@@ -280,7 +311,9 @@ export async function syncOutbox(): Promise<{
     }
 
     // Recent logs just changed server-side; pull a fresh copy for offline use.
-    if (result.applied > 0) {await refreshOfflineBundle();}
+    if (result.applied > 0) {
+      await refreshOfflineBundle();
+    }
 
     return { applied: result.applied, failed: result.failed };
   } catch (error) {
@@ -312,14 +345,18 @@ export async function runOrQueue<K extends QueuedMutationKind, T>(
   try {
     return { queued: false, result: await perform() };
   } catch (error) {
-    if (!isNetworkError(error)) {throw error;}
+    if (!isNetworkError(error)) {
+      throw error;
+    }
     await queueMutation(kind, payload);
     return { queued: true };
   }
 }
 
 function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError) {return true;}
+  if (error instanceof TypeError) {
+    return true;
+  }
   const message = error instanceof Error ? error.message : String(error);
   return /failed to fetch|networkerror|load failed|network request failed/i.test(
     message
@@ -327,7 +364,9 @@ function isNetworkError(error: unknown): boolean {
 }
 
 async function requestBackgroundSync(): Promise<void> {
-  if (!isBrowser() || !("serviceWorker" in navigator)) {return;}
+  if (!(isBrowser() && "serviceWorker" in navigator)) {
+    return;
+  }
   try {
     // getRegistration settles immediately when no worker is installed, unlike
     // serviceWorker.ready, which simply never resolves.
@@ -369,7 +408,9 @@ export function subscribeToOfflineState(listener: Listener): () => void {
 }
 
 async function publishState(): Promise<void> {
-  if (!isBrowser()) {return;}
+  if (!isBrowser()) {
+    return;
+  }
   state = {
     lastError,
     lastSyncedAt,
@@ -389,7 +430,9 @@ let started = false;
  * Idempotent, so it can be called from any component that mounts.
  */
 export function startOfflineSupport(): void {
-  if (!isBrowser() || started) {return;}
+  if (!isBrowser() || started) {
+    return;
+  }
   started = true;
 
   void publishState();
@@ -421,7 +464,9 @@ export function startOfflineSupport(): void {
     navigator.serviceWorker.addEventListener(
       "message",
       (event: MessageEvent) => {
-        if (event.data?.type === "fittrack:sync-requested") {void syncOutbox();}
+        if (event.data?.type === "fittrack:sync-requested") {
+          void syncOutbox();
+        }
       }
     );
   }

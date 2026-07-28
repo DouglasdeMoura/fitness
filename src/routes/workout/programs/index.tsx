@@ -1,5 +1,21 @@
-import { Badge, Button, Card, EmptyState, FormLayout, Heading, HStack, NumberInput, Selector, Table, Text, TextArea, TextInput, VStack, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FormLayout,
+  Heading,
+  HStack,
+  NumberInput,
+  proportional,
+  Selector,
+  Table,
+  Text,
+  TextArea,
+  TextInput,
+  VStack,
+} from "@astryxdesign/core";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -10,8 +26,13 @@ import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog"
 import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
 import { ScrollableTable } from "~/components/ScrollableTable";
-import { deleteProgram, getPrograms, saveProgram, setActiveProgram } from '~/lib/api';
-import type { ProgramSummary } from '~/lib/api';
+import type { ProgramSummary } from "~/lib/api";
+import {
+  deleteProgram,
+  getPrograms,
+  saveProgram,
+  setActiveProgram,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
@@ -89,7 +110,7 @@ function programColumns(
           <Text hasTabularNumbers>
             {program.day_count} training day{program.day_count === 1 ? "" : "s"}
           </Text>
-          <Text type="supporting" hasTabularNumbers>
+          <Text hasTabularNumbers type="supporting">
             {program.frequency_per_week}x/week
           </Text>
         </VStack>
@@ -100,7 +121,7 @@ function programColumns(
       header: "Progression",
       key: "progression_increment_pct",
       renderCell: (program) => (
-        <Text type="supporting" hasTabularNumbers>
+        <Text hasTabularNumbers type="supporting">
           {program.periodization_type === "linear"
             ? `+${program.progression_increment_pct}% load`
             : "Rotating rep zones"}
@@ -113,29 +134,29 @@ function programColumns(
       key: "actions",
       renderCell: (program) => (
         <HStack gap={2} wrap="wrap">
-          {!program.is_active ? (
+          {program.is_active ? null : (
             <Button
-              label={`Set ${program.name} active`}
-              variant="secondary"
-              size="sm"
               clickAction={() => activateProgram(program.id)}
+              label={`Set ${program.name} active`}
+              size="sm"
+              variant="secondary"
             >
               Set Active
             </Button>
-          ) : null}
+          )}
           <Button
-            label={`Edit ${program.name}`}
             href={`/workout/programs/${program.id}`}
-            variant="secondary"
+            label={`Edit ${program.name}`}
             size="sm"
+            variant="secondary"
           >
             Edit
           </Button>
           <Button
-            label={`Delete ${program.name}`}
-            variant="destructive"
-            size="sm"
             clickAction={() => removeProgram(program.id)}
+            label={`Delete ${program.name}`}
+            size="sm"
+            variant="destructive"
           >
             Delete
           </Button>
@@ -186,8 +207,8 @@ function ProgramsPage() {
     return (
       <DataLoadErrorView
         heading="Training Programs"
-        title="Failed to load programs"
         query={failedQuery}
+        title="Failed to load programs"
       />
     );
   }
@@ -216,7 +237,9 @@ function ProgramsPage() {
   };
 
   const confirmDelete = async () => {
-    if (pendingDeleteId == null) {return;}
+    if (pendingDeleteId === null) {
+      return;
+    }
     setIsDeleting(true);
     try {
       await deleteProgram({ data: { id: pendingDeleteId } });
@@ -233,20 +256,20 @@ function ProgramsPage() {
 
   return (
     <VStack gap={4}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
         <Heading level={1}>Training Programs</Heading>
         <HStack gap={2} wrap="wrap">
           <Button
-            label="Back to Workout"
             href="/workout"
-            variant="secondary"
+            label="Back to Workout"
             size="sm"
+            variant="secondary"
           />
           <Button
-            label={showCreate ? "Cancel" : "New Program"}
-            variant="primary"
-            size="sm"
             clickAction={() => (showCreate ? cancelCreate() : openCreate())}
+            label={showCreate ? "Cancel" : "New Program"}
+            size="sm"
+            variant="primary"
           />
         </HStack>
       </HStack>
@@ -274,22 +297,22 @@ function ProgramsPage() {
                 {(field) => (
                   <TextInput
                     label="Name"
-                    value={field.state.value}
                     onChange={field.handleChange}
                     placeholder="e.g. Upper/Lower Split"
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
               <form.Field name="frequency">
                 {(field) => (
                   <NumberInput
-                    label="Frequency (days/week)"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value ?? 3)}
-                    min={1}
-                    max={7}
-                    step={1}
                     isIntegerOnly
+                    label="Frequency (days/week)"
+                    max={7}
+                    min={1}
+                    onChange={(value) => field.handleChange(value ?? 3)}
+                    step={1}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -297,11 +320,11 @@ function ProgramsPage() {
                 {(field) => (
                   <Selector
                     label="Periodization"
-                    value={field.state.value}
                     onChange={(value) =>
                       field.handleChange(value as PeriodizationType)
                     }
                     options={PERIODIZATION_OPTIONS}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -309,9 +332,9 @@ function ProgramsPage() {
                 {(field) => (
                   <TextArea
                     label="Description"
-                    value={field.state.value}
                     onChange={field.handleChange}
                     placeholder="Optional program notes"
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -321,9 +344,9 @@ function ProgramsPage() {
             >
               {({ isSubmitting }) => (
                 <Button
+                  clickAction={handleCreate}
                   label={isSubmitting ? "Creating..." : "Create Program"}
                   variant="primary"
-                  clickAction={handleCreate}
                 />
               )}
             </form.Subscribe>
@@ -334,17 +357,17 @@ function ProgramsPage() {
       {programs.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<TemplateIcon />}
-            title="No training programs"
-            description="Create your first training program to structure your workouts."
             actions={
               <Button
+                clickAction={openCreate}
                 label="Create a program"
                 variant="primary"
-                clickAction={openCreate}
               />
             }
+            description="Create your first training program to structure your workouts."
             headingLevel={2}
+            icon={<TemplateIcon />}
+            title="No training programs"
           />
         </Card>
       ) : (
@@ -353,21 +376,23 @@ function ProgramsPage() {
             aria-label="Training programs"
             columns={programColumns(handleSetActive, requestDelete)}
             data={programs}
-            idKey="id"
             density="compact"
             hasHover
+            idKey="id"
           />
         </ScrollableTable>
       )}
       <DeleteConfirmationDialog
-        isOpen={pendingDeleteId != null}
-        onOpenChange={(open) => {
-          if (!open) {setPendingDeleteId(null);}
-        }}
-        title={deleteNamedEntityTitle(pendingProgram?.name ?? "program")}
-        subtitle={deleteCannotBeUndoneSubtitle()}
-        onConfirm={confirmDelete}
         isConfirming={isDeleting}
+        isOpen={pendingDeleteId !== null}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteId(null);
+          }
+        }}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        title={deleteNamedEntityTitle(pendingProgram?.name ?? "program")}
       />
     </VStack>
   );

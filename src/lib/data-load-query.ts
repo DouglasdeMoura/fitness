@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import type { UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import type { UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 /** Query result for page data loads that surface a Banner + Retry on failure (issue #29). */
 export type DataLoadQueryResult<T> = UseQueryResult<T, Error>;

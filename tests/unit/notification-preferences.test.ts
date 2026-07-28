@@ -3,9 +3,13 @@ import { join } from "node:path";
 
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-
-import { defaultNotificationPreferences, getNotificationPreferences, isInQuietHours, shouldDeliver } from '~/lib/push';
-import type { NotificationPreferences } from '~/lib/push';
+import type { NotificationPreferences } from "~/lib/push";
+import {
+  defaultNotificationPreferences,
+  getNotificationPreferences,
+  isInQuietHours,
+  shouldDeliver,
+} from "~/lib/push";
 
 function createTestDb(): Database.Database {
   const schema = readFileSync(
@@ -48,14 +52,24 @@ describe(isInQuietHours, () => {
   const end = "07:00";
 
   it("suppresses inside a midnight-crossing window including start boundary", () => {
-    expect(isInQuietHours(new Date("2026-01-01T22:00:00"), start, end)).toBeTruthy();
-    expect(isInQuietHours(new Date("2026-01-01T03:00:00"), start, end)).toBeTruthy();
-    expect(isInQuietHours(new Date("2026-01-01T06:59:00"), start, end)).toBeTruthy();
+    expect(
+      isInQuietHours(new Date("2026-01-01T22:00:00"), start, end)
+    ).toBeTruthy();
+    expect(
+      isInQuietHours(new Date("2026-01-01T03:00:00"), start, end)
+    ).toBeTruthy();
+    expect(
+      isInQuietHours(new Date("2026-01-01T06:59:00"), start, end)
+    ).toBeTruthy();
   });
 
   it("allows immediately before start and at end boundary", () => {
-    expect(isInQuietHours(new Date("2026-01-01T21:59:00"), start, end)).toBeFalsy();
-    expect(isInQuietHours(new Date("2026-01-01T07:00:00"), start, end)).toBeFalsy();
+    expect(
+      isInQuietHours(new Date("2026-01-01T21:59:00"), start, end)
+    ).toBeFalsy();
+    expect(
+      isInQuietHours(new Date("2026-01-01T07:00:00"), start, end)
+    ).toBeFalsy();
   });
 
   it("handles same-day windows with inclusive start and exclusive end", () => {

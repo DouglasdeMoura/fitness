@@ -1,25 +1,77 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
-import { assembleConsistencyMetrics } from './consistency';
-import type { ConsistencyMetrics } from './consistency';
-import { getDb } from './db';
-import type { User, Food, FoodLogEntry, Exercise, WorkoutSession, WorkoutSet, BodyLog, Program, ProgramDay, ProgramExercise, PeriodizationType, MealTemplate, MealTemplateItem, MealPlan, MealType } from './db';
+import type { ConsistencyMetrics } from "./consistency";
+import { assembleConsistencyMetrics } from "./consistency";
+import type {
+  BodyLog,
+  Exercise,
+  Food,
+  FoodLogEntry,
+  MealPlan,
+  MealTemplate,
+  MealTemplateItem,
+  MealType,
+  PeriodizationType,
+  Program,
+  ProgramDay,
+  ProgramExercise,
+  User,
+  WorkoutSession,
+  WorkoutSet,
+} from "./db";
+import { getDb } from "./db";
 import {
   copyDayEntriesInDb,
   copyMealEntriesInDb,
   deleteFoodLogEntriesInDb,
 } from "./food-log-copy";
 import { logMealTemplateInDb } from "./meal-template-log";
-import { calculateBMR, calculateTDEE, calculateAge, calculateMacroTargets, calculateFoodMacros, sumNutritionTotals, sumFoodLogEntryTotals, getWeekStart, addDays, todayString, emptyTotals } from './nutrition';
-import type { ActivityLevel, GoalType, MacroTargets, NutritionTotals } from './nutrition';
-import { deletePushSubscriptionByEndpoint, getNotificationPreferences, hasPushSubscription, listPushSubscriptionsForUser, readVapidConfig, readVapidPublicKey, TEST_PUSH_PAYLOAD, upsertNotificationPreferences, upsertPushSubscription } from './push';
-import type { NotificationPreferences, NotificationPreferencesUpdate, PushSubscriptionInput } from './push';
-import { recordKindsBySetId } from './records';
-import type { ExerciseSetSnapshot } from './records';
+import type {
+  ActivityLevel,
+  GoalType,
+  MacroTargets,
+  NutritionTotals,
+} from "./nutrition";
+import {
+  addDays,
+  calculateAge,
+  calculateBMR,
+  calculateFoodMacros,
+  calculateMacroTargets,
+  calculateTDEE,
+  emptyTotals,
+  getWeekStart,
+  sumFoodLogEntryTotals,
+  sumNutritionTotals,
+  todayString,
+} from "./nutrition";
+import type {
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+  PushSubscriptionInput,
+} from "./push";
+import {
+  deletePushSubscriptionByEndpoint,
+  getNotificationPreferences,
+  hasPushSubscription,
+  listPushSubscriptionsForUser,
+  readVapidConfig,
+  readVapidPublicKey,
+  TEST_PUSH_PAYLOAD,
+  upsertNotificationPreferences,
+  upsertPushSubscription,
+} from "./push";
+import type { ExerciseSetSnapshot } from "./records";
+import { recordKindsBySetId } from "./records";
 import type { QueuedMutation, SyncOutcome, SyncResult } from "./sync";
-import { assembleWeeklyReview, hasReviewableWeek, lastCompleteWeekRange, priorWeekRange } from './weekly-review';
-import type { WeeklyReviewPayload } from './weekly-review';
+import type { WeeklyReviewPayload } from "./weekly-review";
+import {
+  assembleWeeklyReview,
+  hasReviewableWeek,
+  lastCompleteWeekRange,
+  priorWeekRange,
+} from "./weekly-review";
 import {
   compareSessionVolumes,
   computeSessionVolumeStats,
@@ -49,8 +101,8 @@ export const ensureDefaultUser = createServerFn({ method: "GET" }).handler(
 
 // --- User ---
 
-export const getUser = createServerFn({ method: "GET" }).handler(async () => 
-  await ensureDefaultUser()
+export const getUser = createServerFn({ method: "GET" }).handler(
+  async () => await ensureDefaultUser()
 );
 
 export const updateUser = createServerFn({ method: "POST" })
@@ -62,12 +114,16 @@ export const updateUser = createServerFn({ method: "POST" })
     const fields = Object.keys(updates).filter(
       (k) => k !== "id" && k !== "created_at" && k !== "updated_at"
     );
-    if (fields.length === 0) {return user;}
+    if (fields.length === 0) {
+      return user;
+    }
 
     const setClause = fields.map((f) => `${f} = @${f}`).join(", ");
     const params: Record<string, unknown> = { id: user.id };
-    for (const f of fields) {params[f] = (updates as Record<string, unknown>)[f];}
-    params["updated_at"] = new Date().toISOString();
+    for (const f of fields) {
+      params[f] = (updates as Record<string, unknown>)[f];
+    }
+    params.updated_at = new Date().toISOString();
 
     db.prepare(
       `UPDATE users SET ${setClause}, updated_at = @updated_at WHERE id = @id`
@@ -144,7 +200,7 @@ export type DailyTargets = MacroTargets & {
 
 export const getDailyTargets = createServerFn({ method: "GET" }).handler(
   async (): Promise<DailyTargets> => {
-    const db = getDb();
+    const _db = getDb();
     const user = await ensureDefaultUser();
     const bw = await getLatestBodyweight();
     const weightKg = bw?.weight_kg || 75;
@@ -257,9 +313,9 @@ export type LoggedFoodSummary = Food & {
 
 export interface FoodLogStats {
   food_id: number;
-  log_count: number;
-  last_servings: number;
   last_meal_type: MealType;
+  last_servings: number;
+  log_count: number;
 }
 
 const LATEST_FOOD_LOG_CTE = `
@@ -526,7 +582,9 @@ export const getWorkoutSession = createServerFn({ method: "GET" })
     const session = db
       .prepare("SELECT * FROM workout_sessions WHERE id = ?")
       .get(ctx.data.id) as WorkoutSession | undefined;
-    if (!session) {return null;}
+    if (!session) {
+      return null;
+    }
     const sets = db
       .prepare(
         `SELECT ws.*, e.name as exercise_name, e.muscle_group
@@ -614,20 +672,20 @@ export const deleteWorkoutSet = createServerFn({ method: "POST" })
   });
 
 export interface WorkoutSessionSummary {
-  sessionId: number;
-  name: string;
-  date: string;
-  totalVolume: number;
-  setCount: number;
-  exerciseCount: number;
-  durationMinutes: number | null;
-  personalRecordCount: number;
   comparisonSentence: string;
+  date: string;
+  durationMinutes: number | null;
+  exerciseCount: number;
+  name: string;
+  personalRecordCount: number;
+  sessionId: number;
+  setCount: number;
+  totalVolume: number;
 }
 
 interface SessionSetRow {
-  id: number;
   exercise_id: number;
+  id: number;
   reps: number | null;
   weight_kg: number | null;
 }
@@ -675,7 +733,9 @@ function countSessionPersonalRecords(
     const chronological = loadExerciseHistory(db, userId, exerciseId);
     const kindsBySetId = recordKindsBySetId(chronological);
     for (const set of sets) {
-      if (set.exercise_id !== exerciseId) {continue;}
+      if (set.exercise_id !== exerciseId) {
+        continue;
+      }
       if ((kindsBySetId.get(set.id) ?? []).length > 0) {
         prSetCount += 1;
       }
@@ -780,10 +840,10 @@ export const getWorkoutSessionSummary = createServerFn({ method: "GET" })
   });
 
 export interface LastPerformanceResult {
-  weight_kg: number;
+  date: string;
   reps: number;
   rpe: number;
-  date: string;
+  weight_kg: number;
 }
 
 /** Most recent logged set for an exercise before the active session (PRD 10 Batch 1). */
@@ -816,9 +876,9 @@ export const getLastPerformance = createServerFn({ method: "GET" })
 
 export interface ExerciseSetHistoryRow {
   id: number;
+  reps: number;
   session_id: number;
   weight_kg: number;
-  reps: number;
 }
 
 /** Chronological set history for an exercise — feeds pure PR detection (issue #61). */
@@ -846,28 +906,26 @@ export const getExerciseSetHistory = createServerFn({ method: "GET" })
 
 export interface ProgramExerciseInput {
   exercise_id: number;
-  target_sets: number;
-  target_reps: string;
-  target_rpe: number;
   rest_seconds?: number;
   sort_order: number;
+  target_reps: string;
+  target_rpe: number;
+  target_sets: number;
 }
 
 export interface ProgramDayInput {
   day_name: string;
-  sort_order: number;
   exercises: ProgramExerciseInput[];
+  sort_order: number;
 }
 
 export type ProgramDetail = Program & {
   days: (ProgramDay & {
-      exercises: Array<
-        ProgramExercise & {
-          exercise_name: string;
-          muscle_group: string;
-        }
-      >;
+    exercises: (ProgramExercise & {
+      exercise_name: string;
+      muscle_group: string;
     })[];
+  })[];
 };
 
 export type ProgramSummary = Program & {
@@ -875,17 +933,17 @@ export type ProgramSummary = Program & {
 };
 
 export interface ProgramDayTarget {
-  program_exercise_id: number;
+  dup_emphasis?: "strength" | "hypertrophy" | "endurance";
   exercise_id: number;
   exercise_name: string;
   muscle_group: string;
-  target_sets: number;
-  target_reps: string;
-  target_rpe: number;
+  program_exercise_id: number;
+  progression_note: string;
   rest_seconds: number | null;
   suggested_weight_kg: number | null;
-  progression_note: string;
-  dup_emphasis?: "strength" | "hypertrophy" | "endurance";
+  target_reps: string;
+  target_rpe: number;
+  target_sets: number;
 }
 
 function loadProgramDetail(
@@ -896,7 +954,9 @@ function loadProgramDetail(
   const program = db
     .prepare("SELECT * FROM programs WHERE id = ? AND user_id = ?")
     .get(programId, userId) as Program | undefined;
-  if (!program) {return null;}
+  if (!program) {
+    return null;
+  }
 
   const days = db
     .prepare(
@@ -913,7 +973,10 @@ function loadProgramDetail(
      WHERE pd.program_id = ?
      ORDER BY pd.sort_order, pe.sort_order`
     )
-    .all(programId) as (ProgramExercise & { exercise_name: string; muscle_group: string })[];
+    .all(programId) as (ProgramExercise & {
+    exercise_name: string;
+    muscle_group: string;
+  })[];
 
   return {
     ...program,
@@ -1090,12 +1153,16 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
     const program = db
       .prepare("SELECT * FROM programs WHERE id = ? AND user_id = ?")
       .get(ctx.data.programId, user.id) as Program | undefined;
-    if (!program) {return null;}
+    if (!program) {
+      return null;
+    }
 
     const day = db
       .prepare("SELECT * FROM program_days WHERE id = ? AND program_id = ?")
       .get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined;
-    if (!day) {return null;}
+    if (!day) {
+      return null;
+    }
 
     const exercises = db
       .prepare(
@@ -1105,7 +1172,10 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
        WHERE pe.program_day_id = ?
        ORDER BY pe.sort_order`
       )
-      .all(ctx.data.programDayId) as (ProgramExercise & { exercise_name: string; muscle_group: string })[];
+      .all(ctx.data.programDayId) as (ProgramExercise & {
+      exercise_name: string;
+      muscle_group: string;
+    })[];
 
     const targets: ProgramDayTarget[] = exercises.map((exercise) => {
       const lastSet = db
@@ -1172,7 +1242,9 @@ export const startWorkoutFromProgram = createServerFn({ method: "POST" })
     const day = db
       .prepare("SELECT * FROM program_days WHERE id = ? AND program_id = ?")
       .get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined;
-    if (!day) {throw new Error("Program day not found");}
+    if (!day) {
+      throw new Error("Program day not found");
+    }
 
     const date = todayString();
     const result = db
@@ -1212,14 +1284,14 @@ export interface MealTemplateItemInput {
 
 export type MealTemplateDetail = MealTemplate & {
   items: (MealTemplateItem & {
-      food_name: string;
-      serving_unit: string;
-      calories_per_serving: number;
-      protein_g: number;
-      carbs_g: number;
-      fat_g: number;
-      fiber_g: number;
-    })[];
+    food_name: string;
+    serving_unit: string;
+    calories_per_serving: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    fiber_g: number;
+  })[];
   totals: NutritionTotals;
 };
 
@@ -1230,24 +1302,24 @@ export type MealTemplateSummary = MealTemplate & {
 
 export interface MealPlanSlot {
   date: string;
+  macros: NutritionTotals;
   meal_type: MealType;
   plan_id: number | null;
   template_id: number | null;
   template_name: string | null;
-  macros: NutritionTotals;
 }
 
 export interface WeekMealPlan {
-  start_date: string;
-  end_date: string;
-  days: Array<{
+  days: {
     date: string;
     day_label: string;
     slots: MealPlanSlot[];
     day_totals: NutritionTotals;
-  }>;
-  week_totals: NutritionTotals;
+  }[];
+  end_date: string;
+  start_date: string;
   targets: Awaited<ReturnType<typeof getDailyTargets>>;
+  week_totals: NutritionTotals;
 }
 
 function loadMealTemplateDetail(
@@ -1258,7 +1330,9 @@ function loadMealTemplateDetail(
   const template = db
     .prepare("SELECT * FROM meal_templates WHERE id = ? AND user_id = ?")
     .get(templateId, userId) as MealTemplate | undefined;
-  if (!template) {return null;}
+  if (!template) {
+    return null;
+  }
 
   const items = db
     .prepare(
@@ -1409,7 +1483,9 @@ export const getWeekMealPlan = createServerFn({ method: "GET" })
        JOIN meal_templates mt ON mp.template_id = mt.id
        WHERE mp.user_id = ? AND mp.date >= ? AND mp.date <= ?`
       )
-      .all(user.id, startDate, endDate) as (MealPlan & { template_name: string })[];
+      .all(user.id, startDate, endDate) as (MealPlan & {
+      template_name: string;
+    })[];
 
     const mealTypes: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
     const days = [];
@@ -1442,9 +1518,9 @@ export const getWeekMealPlan = createServerFn({ method: "GET" })
       days.push({
         date,
         day_label: new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
           day: "numeric",
+          month: "short",
+          weekday: "short",
         }),
         day_totals: dayTotals,
         slots,
@@ -1472,7 +1548,9 @@ export const setMealPlan = createServerFn({ method: "POST" })
     const template = db
       .prepare("SELECT id FROM meal_templates WHERE id = ? AND user_id = ?")
       .get(d.template_id, user.id);
-    if (!template) {throw new Error("Meal template not found");}
+    if (!template) {
+      throw new Error("Meal template not found");
+    }
 
     db.prepare(
       `INSERT INTO meal_plans (user_id, date, meal_type, template_id)
@@ -1505,10 +1583,14 @@ export const logMealFromPlan = createServerFn({ method: "POST" })
       )
       .get(user.id, ctx.data.date, ctx.data.meal_type) as MealPlan | undefined;
 
-    if (!plan) {throw new Error("No meal planned for this slot");}
+    if (!plan) {
+      throw new Error("No meal planned for this slot");
+    }
 
     const template = loadMealTemplateDetail(db, plan.template_id, user.id);
-    if (!template) {throw new Error("Meal template not found");}
+    if (!template) {
+      throw new Error("Meal template not found");
+    }
 
     const insert = db.prepare(
       `INSERT INTO food_log (user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes)
@@ -1542,12 +1624,12 @@ export const logMealFromPlan = createServerFn({ method: "POST" })
 // Based on Schoenfeld et al. 2017: 10-20 sets per muscle group per week for hypertrophy
 
 export interface MuscleVolume {
+  max_recommended: number;
+  min_recommended: number;
   muscle_group: string;
+  status: "under" | "optimal" | "high";
   total_sets: number;
   total_volume: number;
-  min_recommended: number;
-  max_recommended: number;
-  status: "under" | "optimal" | "high";
 }
 
 export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
@@ -1586,9 +1668,9 @@ export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
       const status: MuscleVolume["status"] =
         r.total_sets < g.min
           ? "under"
-          : (r.total_sets > g.max
+          : r.total_sets > g.max
             ? "high"
-            : "optimal");
+            : "optimal";
       return { ...r, max_recommended: g.max, min_recommended: g.min, status };
     }) as MuscleVolume[];
   }
@@ -1597,15 +1679,16 @@ export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
 // --- Weekly Nutrition Reports ---
 
 export interface WeeklyNutritionDay {
-  date: string;
   calories: number;
-  protein_g: number;
   carbs_g: number;
-  fat_g: number;
+  date: string;
   entries: number;
+  fat_g: number;
+  protein_g: number;
 }
 
 export interface WeeklyNutritionReport {
+  avg: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
   daily: WeeklyNutritionDay[];
   totals: {
     calories: number;
@@ -1614,7 +1697,6 @@ export interface WeeklyNutritionReport {
     fat_g: number;
     days: number;
   };
-  avg: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
 
 export const getWeeklyNutrition = createServerFn({ method: "GET" }).handler(
@@ -2074,7 +2156,7 @@ export const getConsistency = createServerFn({ method: "GET" })
 
     const rows = db
       .prepare(
-        `SELECT DISTINCT date FROM food_log WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date`
+        "SELECT DISTINCT date FROM food_log WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date"
       )
       .all(user.id, windowStart, asOf) as { date: string }[];
 
@@ -2368,19 +2450,25 @@ export const syncQueuedMutations = createServerFn({ method: "POST" })
     const resolveSessionId = (
       m: Extract<QueuedMutation, { kind: "addWorkoutSet" }>
     ): number => {
-      if (typeof m.payload.session_id === "number") {return m.payload.session_id;}
+      if (typeof m.payload.session_id === "number") {
+        return m.payload.session_id;
+      }
       const ref = m.payload.session_temp_ref;
-      if (!ref)
-        {throw new Error(
+      if (!ref) {
+        throw new Error(
           "workout set is missing both session_id and session_temp_ref"
-        );}
+        );
+      }
       const inBatch = sessionIds.get(ref);
-      if (inBatch) {return inBatch;}
+      if (inBatch) {
+        return inBatch;
+      }
       const stored = findByTempRef.get(ref) as
         | { result_id: number | null }
         | undefined;
-      if (!stored?.result_id)
-        {throw new Error(`unknown workout session reference "${ref}"`);}
+      if (!stored?.result_id) {
+        throw new Error(`unknown workout session reference "${ref}"`);
+      }
       return stored.result_id;
     };
 
@@ -2606,7 +2694,9 @@ export const getSyncedClientIds = createServerFn({ method: "POST" })
   .validator((data: { client_ids: string[] }) => data)
   .handler(async (ctx) => {
     const ids = ctx.data?.client_ids ?? [];
-    if (ids.length === 0) {return { client_ids: [] as string[] };}
+    if (ids.length === 0) {
+      return { client_ids: [] as string[] };
+    }
     const db = getDb();
     const placeholders = ids.map(() => "?").join(", ");
     const rows = db
@@ -2632,7 +2722,7 @@ export const getPushStatus = createServerFn({ method: "GET" }).handler(
     const user = await ensureDefaultUser();
     const db = getDb();
     return {
-      configured: publicKey != null,
+      configured: publicKey !== null,
       publicKey,
       subscribed: hasPushSubscription(db, user.id),
     };

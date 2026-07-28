@@ -1,19 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { User } from "~/lib/db";
 import {
-  GOAL_CARD_OPTIONS,
-  GOAL_OPTIONS,
-  SCIENCE_REFERENCES,
-  SEX_OPTIONS,
   activityOptions,
   buildProfileUpdate,
   buildWeightChartPoints,
   exportDownloadFilename,
+  GOAL_CARD_OPTIONS,
+  GOAL_OPTIONS,
   parseImportFile,
   parseWeightKg,
   profileFormDefaults,
   profileSaveButtonLabel,
+  SCIENCE_REFERENCES,
+  SEX_OPTIONS,
   saveProfileButtonLabel,
   todayISODate,
   toISODate,

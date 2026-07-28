@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   installDeterministicClock,
@@ -16,7 +15,7 @@ test.describe("Keyboard shortcuts (issue #35)", () => {
   test("? opens the shortcuts help dialog and shows kbd elements", async ({
     page,
   }) => {
-    test.skip(
+    test(
       test.info().project.name !== "chromium",
       "Keyboard shortcuts only on desktop"
     );
@@ -48,7 +47,7 @@ test.describe("Keyboard shortcuts (issue #35)", () => {
   });
 
   test("/ key does not fire inside text inputs", async ({ page }) => {
-    test.skip(
+    test(
       test.info().project.name !== "chromium",
       "Keyboard shortcuts only on desktop"
     );
@@ -68,7 +67,7 @@ test.describe("Keyboard shortcuts (issue #35)", () => {
   });
 
   test("n key triggers food log dialog on nutrition page", async ({ page }) => {
-    test.skip(
+    test(
       test.info().project.name !== "chromium",
       "Keyboard shortcuts only on desktop"
     );
@@ -87,7 +86,7 @@ test.describe("Keyboard shortcuts (issue #35)", () => {
       .catch(() => false);
 
     if (!buttonIsVisible) {
-      test.skip(
+      test(
         true,
         "Log food button not visible on this page (may need seed data)"
       );

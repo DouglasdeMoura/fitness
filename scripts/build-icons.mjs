@@ -8,8 +8,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 const PUBLIC = join(ROOT, "public");
@@ -97,7 +96,7 @@ function buildScreenshot(outPath, width, height, label) {
     [
       "-size",
       `${width}x${height}`,
-      `xc:#f5f5f5`,
+      "xc:#f5f5f5",
       "-fill",
       BRAND,
       "-draw",

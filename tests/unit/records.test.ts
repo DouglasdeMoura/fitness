@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-
-import { detectPersonalRecords, personalRecordToastFragment, recordKindsBySetId, sessionSetVolume } from '~/lib/records';
-import type { ExerciseSetSnapshot } from '~/lib/records';
+import type { ExerciseSetSnapshot } from "~/lib/records";
+import {
+  detectPersonalRecords,
+  personalRecordToastFragment,
+  recordKindsBySetId,
+  sessionSetVolume,
+} from "~/lib/records";
 import { estimate1RM } from "~/lib/workout";
 
 const bench = (

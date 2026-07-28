@@ -13,12 +13,12 @@ export type InstallMode =
   | "unavailable";
 
 export interface InstallEnvironment {
-  userAgent: string;
-  platform: string;
-  maxTouchPoints: number;
+  hasDeferredPrompt: boolean;
   /** true when display-mode is standalone, or iOS navigator.standalone */
   isStandalone: boolean;
-  hasDeferredPrompt: boolean;
+  maxTouchPoints: number;
+  platform: string;
+  userAgent: string;
 }
 
 /**
@@ -33,7 +33,9 @@ export function isIosDevice(env: {
   maxTouchPoints: number;
 }): boolean {
   const ua = env.userAgent;
-  if (/iPhone|iPad|iPod/i.test(ua)) {return true;}
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return true;
+  }
   // iPadOS 13+ reports as MacIntel but remains a touch tablet.
   return env.platform === "MacIntel" && env.maxTouchPoints > 1;
 }
@@ -45,9 +47,15 @@ export function isIosDevice(env: {
  * getInstallMode({ …, isStandalone: false, hasDeferredPrompt: true }) // 'prompt'
  */
 export function getInstallMode(env: InstallEnvironment): InstallMode {
-  if (env.isStandalone) {return "installed";}
-  if (env.hasDeferredPrompt) {return "prompt";}
-  if (isIosDevice(env)) {return "ios-instructions";}
+  if (env.isStandalone) {
+    return "installed";
+  }
+  if (env.hasDeferredPrompt) {
+    return "prompt";
+  }
+  if (isIosDevice(env)) {
+    return "ios-instructions";
+  }
   return "unavailable";
 }
 
@@ -67,7 +75,9 @@ export interface StandaloneWindowLike {
 }
 
 export function readIsStandalone(win: StandaloneWindowLike): boolean {
-  if (win.matchMedia("(display-mode: standalone)").matches) {return true;}
+  if (win.matchMedia("(display-mode: standalone)").matches) {
+    return true;
+  }
   return win.navigator.standalone === true;
 }
 

@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  resetRestTimerModule,
   computeEndAtMs,
   formatRestCountdown,
   getRestTimerSnapshot,
   hydrateRestTimerFromUrl,
-  remainingRestMs,
-  restProgressPercent,
   REST_MS_APPROACHING_FAILURE,
   REST_MS_NEAR_MAX,
   REST_MS_SUBMAXIMAL,
+  remainingRestMs,
+  resetRestTimerModule,
+  restProgressPercent,
   restTimerSearchFromState,
   startRestTimer,
   stopRestTimer,

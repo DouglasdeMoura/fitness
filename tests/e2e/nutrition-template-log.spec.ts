@@ -1,8 +1,6 @@
-import { expect, test } from 'vitest';
 import { join } from "node:path";
+import { expect, test } from "@playwright/test";
 
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
 import Database from "better-sqlite3";
 
 import { FIXED_E2E_DATE, installDeterministicClock } from "./test-helpers";
@@ -37,7 +35,7 @@ function seedMealTemplates(): void {
   const food = db
     .prepare("SELECT id FROM foods WHERE name = 'Chicken Breast (raw)' LIMIT 1")
     .get() as { id: number } | undefined;
-  if (!user || !food) {
+  if (!(user && food)) {
     db.close();
     throw new Error(
       "Seed user or Chicken Breast food missing from fittrack.db"

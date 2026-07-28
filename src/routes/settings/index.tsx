@@ -30,14 +30,14 @@ import { SettingsSkeleton } from "~/components/loading/PageSkeletons";
 import { PushNotifications } from "~/components/PushNotifications";
 import { ReminderPreferences } from "~/components/ReminderPreferences";
 import {
-  getUser,
-  updateUser,
-  logBodyweight,
   exportData,
-  importData,
   getBodyLogs,
   getPushStatus,
   getReminderPreferences,
+  getUser,
+  importData,
+  logBodyweight,
+  updateUser,
 } from "~/lib/api";
 import { getStoredTheme, persistTheme } from "~/lib/app-chrome";
 import {
@@ -45,10 +45,25 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { GoalType, ActivityLevel } from "~/lib/nutrition";
+import type { ActivityLevel } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
-import { GOAL_CARD_OPTIONS, SCIENCE_REFERENCES, SEX_OPTIONS, activityOptions, buildProfileUpdate, buildWeightChartPoints, exportDownloadFilename, parseImportFile, parseWeightKg, profileFormDefaults, profileSaveButtonLabel, todayISODate, toISODate, weightChartPolyline } from '~/lib/settings';
-import type { GoalCardOption, WeightChartPoint } from '~/lib/settings';
+import type { GoalCardOption, WeightChartPoint } from "~/lib/settings";
+import {
+  activityOptions,
+  buildProfileUpdate,
+  buildWeightChartPoints,
+  exportDownloadFilename,
+  GOAL_CARD_OPTIONS,
+  parseImportFile,
+  parseWeightKg,
+  profileFormDefaults,
+  profileSaveButtonLabel,
+  SCIENCE_REFERENCES,
+  SEX_OPTIONS,
+  todayISODate,
+  toISODate,
+  weightChartPolyline,
+} from "~/lib/settings";
 import {
   dataExportedBody,
   dataImportedBody,
@@ -73,7 +88,7 @@ export const Route = createFileRoute("/settings/")({
         getReminderPreferences(),
       ]
     );
-    return { user, bodyLogs, pushStatus, reminderPreferences };
+    return { bodyLogs, pushStatus, reminderPreferences, user };
   },
   pendingComponent: SettingsSkeleton,
 });
@@ -114,7 +129,9 @@ function SettingsPageContent() {
 
   const [weight, setWeight] = useState<number | null>(null);
   const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === "undefined") {return false;}
+    if (typeof window === "undefined") {
+      return false;
+    }
     return getStoredTheme() === "dark";
   });
 
@@ -140,13 +157,13 @@ function SettingsPageContent() {
     return (
       <DataLoadErrorView
         heading="Settings"
-        title="Failed to load settings"
         query={failedQuery}
+        title="Failed to load settings"
       />
     );
   }
 
-  const user = userQuery.data!;
+  const _user = userQuery.data!;
   const bodyLogs = bodyLogsQuery.data ?? [];
   const chartPoints: WeightChartPoint[] = buildWeightChartPoints(
     bodyLogs,
@@ -159,7 +176,9 @@ function SettingsPageContent() {
 
   const handleLogWeight = async () => {
     const w = parseWeightKg(weight);
-    if (w == null) {return;}
+    if (w === null) {
+      return;
+    }
     try {
       await runOrQueue("logBodyweight", { weight_kg: w }, () =>
         logBodyweight({ data: { weight_kg: w } })
@@ -189,7 +208,9 @@ function SettingsPageContent() {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file) {return;}
+    if (!file) {
+      return;
+    }
 
     try {
       const text = await file.text();
@@ -209,7 +230,9 @@ function SettingsPageContent() {
       toast({ body: mutationFailedBody("Import data"), type: "error" });
     } finally {
       // Reset the input so the same file can be re-imported
-      if (fileInputRef.current) {fileInputRef.current.value = "";}
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -242,22 +265,22 @@ function SettingsPageContent() {
               {(field) => (
                 <TextInput
                   label="Name"
-                  value={field.state.value}
                   onChange={field.handleChange}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
             <form.Field name="heightCm">
               {(field) => (
                 <NumberInput
-                  label="Height (cm)"
-                  value={field.state.value}
-                  onChange={field.handleChange}
-                  min={1}
-                  max={300}
-                  step={1}
-                  isIntegerOnly
                   hasClear
+                  isIntegerOnly
+                  label="Height (cm)"
+                  max={300}
+                  min={1}
+                  onChange={field.handleChange}
+                  step={1}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -265,22 +288,22 @@ function SettingsPageContent() {
               {(field) => (
                 <Selector
                   label="Sex (for BMR calculation)"
-                  value={field.state.value}
                   onChange={(value) =>
                     field.handleChange(value as typeof field.state.value)
                   }
                   options={SEX_OPTIONS}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
             <form.Field name="birthDate">
               {(field) => (
                 <DateInput
-                  label="Birth Date"
-                  value={toISODate(field.state.value) ?? undefined}
-                  onChange={(value) => field.handleChange(value ?? "")}
                   hasClear
+                  label="Birth Date"
                   max={todayISODate()}
+                  onChange={(value) => field.handleChange(value ?? "")}
+                  value={toISODate(field.state.value) ?? undefined}
                 />
               )}
             </form.Field>
@@ -293,12 +316,12 @@ function SettingsPageContent() {
           >
             {({ isSubmitting, isSubmitSuccessful }) => (
               <Button
+                clickAction={handleSaveProfile}
                 label={profileSaveButtonLabel({
                   isSubmitSuccessful,
                   isSubmitting,
                 })}
                 variant="primary"
-                clickAction={handleSaveProfile}
               />
             )}
           </form.Subscribe>
@@ -313,20 +336,20 @@ function SettingsPageContent() {
           <form.Field name="goal">
             {(field) => (
               <VStack gap={3}>
-                <Text type="label" as="span">
+                <Text as="span" type="label">
                   Primary Goal
                 </Text>
                 <Grid columns={2} gap={3}>
                   {GOAL_CARD_OPTIONS.map((opt) => (
                     <SelectableCard
+                      isSelected={field.state.value === opt.value}
                       key={opt.value}
                       label={opt.description}
-                      isSelected={field.state.value === opt.value}
                       onChange={handleGoalChange(opt)}
                     >
                       <VStack gap={1}>
                         <Text weight="semibold">{opt.label}</Text>
-                        <Text type="supporting" size="sm">
+                        <Text size="sm" type="supporting">
                           {opt.description}
                         </Text>
                       </VStack>
@@ -342,20 +365,20 @@ function SettingsPageContent() {
           <form.Field name="activity">
             {(field) => (
               <VStack gap={2}>
-                <Text type="label" as="span">
+                <Text as="span" type="label">
                   Activity Level
                 </Text>
                 <SegmentedControl
                   label="Activity Level"
-                  value={field.state.value}
-                  onChange={handleActivityChange}
                   layout="fill"
+                  onChange={handleActivityChange}
+                  value={field.state.value}
                 >
                   {activityOptions().map((opt) => (
                     <SegmentedControlItem
                       key={opt.value}
-                      value={opt.value}
                       label={opt.label}
+                      value={opt.value}
                     />
                   ))}
                 </SegmentedControl>
@@ -366,10 +389,10 @@ function SettingsPageContent() {
           <Divider />
 
           <Switch
-            label="Dark Mode"
-            value={isDark}
-            onChange={handleDarkModeToggle}
             description="Switch between light and dark appearance."
+            label="Dark Mode"
+            onChange={handleDarkModeToggle}
+            value={isDark}
           />
         </VStack>
       </Card>
@@ -380,21 +403,21 @@ function SettingsPageContent() {
           <Heading level={3}>Body Metrics</Heading>
           <HStack gap={3} vAlign="end" wrap="wrap">
             <NumberInput
-              label="Weight in kg"
-              value={weight}
-              onChange={setWeight}
-              min={1}
-              max={500}
-              step={0.1}
-              placeholder="Weight in kg"
-              units="kg"
               hasClear
+              label="Weight in kg"
+              max={500}
+              min={1}
+              onChange={setWeight}
               onEnter={handleLogWeight}
+              placeholder="Weight in kg"
+              step={0.1}
+              units="kg"
+              value={weight}
             />
             <Button
+              clickAction={handleLogWeight}
               label="Log"
               variant="primary"
-              clickAction={handleLogWeight}
             />
           </HStack>
           <Text type="supporting">
@@ -404,40 +427,40 @@ function SettingsPageContent() {
 
           {chartPoints.length >= 2 ? (
             <VStack gap={2}>
-              <Text type="label" as="span">
+              <Text as="span" type="label">
                 Recent Weight History
               </Text>
               <svg
-                viewBox={`0 0 ${WEIGHT_CHART_WIDTH} ${WEIGHT_CHART_HEIGHT}`}
-                width="100%"
+                aria-label="Weight history sparkline chart"
                 height={WEIGHT_CHART_HEIGHT}
                 role="img"
-                aria-label="Weight history sparkline chart"
+                viewBox={`0 0 ${WEIGHT_CHART_WIDTH} ${WEIGHT_CHART_HEIGHT}`}
+                width="100%"
               >
                 <polyline
                   fill="none"
+                  points={weightChartPolyline(chartPoints)}
                   stroke="var(--color-accent)"
-                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  points={weightChartPolyline(chartPoints)}
+                  strokeWidth="2"
                 />
                 {/* Last data point dot */}
                 {chartPoints.length > 0 && (
                   <circle
                     cx={chartPoints.at(-1).x}
                     cy={chartPoints.at(-1).y}
-                    r="3"
                     fill="var(--color-accent)"
+                    r="3"
                   />
                 )}
               </svg>
             </VStack>
-          ) : (bodyLogs.length > 0 ? (
+          ) : bodyLogs.length > 0 ? (
             <Text type="supporting">
               Log at least two weigh-ins to see your trend chart.
             </Text>
-          ) : null)}
+          ) : null}
         </VStack>
       </Card>
 
@@ -451,21 +474,21 @@ function SettingsPageContent() {
           </Text>
           <HStack gap={3} wrap="wrap">
             <Button
+              clickAction={handleExportData}
               label="Export as JSON"
               variant="secondary"
-              clickAction={handleExportData}
             />
             <Button
+              clickAction={handleImportClick}
               label="Import Data"
               variant="secondary"
-              clickAction={handleImportClick}
             />
             <input
-              ref={fileInputRef}
-              type="file"
               accept=".json,application/json"
               hidden
               onChange={handleImportFile}
+              ref={fileInputRef}
+              type="file"
             />
           </HStack>
         </VStack>
@@ -491,14 +514,14 @@ function SettingsPageContent() {
           </Text>
           <List
             density="compact"
-            listStyle="disc"
             header={<Text type="label">Science references</Text>}
+            listStyle="disc"
           >
             {SCIENCE_REFERENCES.map((ref) => (
               <ListItem
+                description={ref.citation}
                 key={ref.topic}
                 label={ref.topic}
-                description={ref.citation}
               />
             ))}
           </List>

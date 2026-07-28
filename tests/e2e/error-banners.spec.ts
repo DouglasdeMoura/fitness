@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 /**
  * Opens the Training Programs page (no SSR loader, so the client always
@@ -45,10 +44,11 @@ async function forceRefetch(page: Page, queryKey: string) {
           invalidateQueries: (opts: { queryKey: string[] }) => Promise<void>;
         }
       | undefined;
-    if (!qc)
-      {throw new Error(
+    if (!qc) {
+      throw new Error(
         "QueryClient not exposed on window.__fittrackQueryClient"
-      );}
+      );
+    }
     return qc.invalidateQueries({ queryKey: [key] });
   }, queryKey);
   // Let React Query process the invalidation and start the refetch.

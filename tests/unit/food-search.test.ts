@@ -1,8 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { Food } from "~/lib/db";
-import { isFoodSearchPending, FOOD_SEARCH_MIN_LENGTH, rankFoodSearchResults } from '~/lib/food-search';
-import type { FoodLogHistory } from '~/lib/food-search';
+import type { FoodLogHistory } from "~/lib/food-search";
+import {
+  FOOD_SEARCH_MIN_LENGTH,
+  isFoodSearchPending,
+  rankFoodSearchResults,
+} from "~/lib/food-search";
 
 function makeFood(id: number, name: string): Food {
   return {

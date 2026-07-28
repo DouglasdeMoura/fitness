@@ -27,18 +27,18 @@ export type EditableItem = MealTemplateItemInput & {
 };
 
 export interface TemplateFormValues {
-  name: string;
-  description: string;
   defaultMealType: MealType;
+  description: string;
   items: EditableItem[];
+  name: string;
 }
 
 export interface TemplateSavePayload {
-  id: number;
-  name: string;
-  description?: string;
   default_meal_type: MealType;
+  description?: string;
+  id: number;
   items: MealTemplateItemInput[];
+  name: string;
 }
 
 /** Empty form values used while the template query is still loading. */
@@ -67,17 +67,17 @@ export function templateFormDefaults(
     defaultMealType: template.default_meal_type,
     description: template.description ?? "",
     items: template.items.map((item, index) => ({
-      tempId: `item-${item.id}`,
-      food_id: item.food_id,
-      servings: item.servings,
-      sort_order: index + 1,
-      food_name: item.food_name,
-      serving_unit: item.serving_unit,
       calories_per_serving: item.calories_per_serving,
-      protein_g: item.protein_g,
       carbs_g: item.carbs_g,
       fat_g: item.fat_g,
       fiber_g: item.fiber_g,
+      food_id: item.food_id,
+      food_name: item.food_name,
+      protein_g: item.protein_g,
+      serving_unit: item.serving_unit,
+      servings: item.servings,
+      sort_order: index + 1,
+      tempId: `item-${item.id}`,
     })),
     name: template.name,
   };
@@ -140,19 +140,20 @@ export function validateTemplateItems(
   items: EditableItem[]
 ): string | undefined {
   for (const item of items) {
-    if (!item.food_id) {return "Every item needs a food";}
+    if (!item.food_id) {
+      return "Every item needs a food";
+    }
     if (!item.servings || item.servings <= 0) {
       return `${item.food_name} needs servings greater than 0`;
     }
   }
-  return undefined;
 }
 
 /** Fields collected on the templates list create card (src/routes/nutrition/templates/index.tsx). */
 export interface CreateTemplateFormValues {
-  name: string;
-  description: string;
   defaultMealType: MealType;
+  description: string;
+  name: string;
 }
 
 export const CREATE_TEMPLATE_FORM_DEFAULTS: CreateTemplateFormValues = {
@@ -163,8 +164,9 @@ export const CREATE_TEMPLATE_FORM_DEFAULTS: CreateTemplateFormValues = {
 
 /** Returns an error message when the name is blank; otherwise `undefined`. */
 export function validateCreateTemplateName(name: string): string | undefined {
-  if (!name.trim()) {return "Template name is required.";}
-  return undefined;
+  if (!name.trim()) {
+    return "Template name is required.";
+  }
 }
 
 /** Maps the create-template form into a saveMealTemplate payload. */

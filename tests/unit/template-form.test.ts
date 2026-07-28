@@ -1,9 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { MealTemplateDetail } from "~/lib/api";
 import type { Food } from "~/lib/db";
-import { buildCreateTemplatePayload, buildTemplateSavePayload, editableItemFromFood, makeTempId, templateFormDefaults, validateCreateTemplateName, validateTemplateItems } from '~/lib/template-form';
-import type { EditableItem } from '~/lib/template-form';
+import type { EditableItem } from "~/lib/template-form";
+import {
+  buildCreateTemplatePayload,
+  buildTemplateSavePayload,
+  editableItemFromFood,
+  makeTempId,
+  templateFormDefaults,
+  validateCreateTemplateName,
+  validateTemplateItems,
+} from "~/lib/template-form";
 
 const chicken: Food = {
   brand: null,
@@ -32,18 +40,18 @@ function detailFixture(
     id: 1,
     items: [
       {
-        id: 100,
-        template_id: 1,
-        food_id: chicken.id,
-        servings: 1.5,
-        sort_order: 1,
-        food_name: chicken.name,
-        serving_unit: chicken.serving_unit,
         calories_per_serving: chicken.calories_per_serving,
-        protein_g: chicken.protein_g,
         carbs_g: chicken.carbs_g,
         fat_g: chicken.fat_g,
         fiber_g: chicken.fiber_g,
+        food_id: chicken.id,
+        food_name: chicken.name,
+        id: 100,
+        protein_g: chicken.protein_g,
+        serving_unit: chicken.serving_unit,
+        servings: 1.5,
+        sort_order: 1,
+        template_id: 1,
       },
     ],
     name: "Lunch Bowl",

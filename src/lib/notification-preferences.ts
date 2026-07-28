@@ -14,17 +14,17 @@ export type NotificationType =
   | "weekly_review";
 
 export interface NotificationPreferences {
-  rest_timer: boolean;
   meal_reminders: boolean;
   meal_times: string[];
-  workout_reminders: boolean;
-  workout_days: number[];
-  workout_time: string | null;
+  quiet_end: string | null;
+  quiet_start: string | null;
+  rest_timer: boolean;
   weekly_review: boolean;
   weekly_review_day: number | null;
   weekly_review_time: string | null;
-  quiet_start: string | null;
-  quiet_end: string | null;
+  workout_days: number[];
+  workout_reminders: boolean;
+  workout_time: string | null;
 }
 
 export type NotificationPreferencesUpdate = Partial<NotificationPreferences>;
@@ -165,7 +165,7 @@ function withReminderDefaults(
     }
   }
   if (update.weekly_review === true) {
-    if (next.weekly_review_day == null) {
+    if (next.weekly_review_day === null) {
       next.weekly_review_day = DEFAULT_WEEKLY_REVIEW_DAY;
     }
     if (!next.weekly_review_time) {
@@ -245,7 +245,7 @@ export function isInQuietHours(
   quietStart: string | null,
   quietEnd: string | null
 ): boolean {
-  if (!quietStart || !quietEnd) {
+  if (!(quietStart && quietEnd)) {
     return false;
   }
 
@@ -288,14 +288,14 @@ function matchesSchedule(
     case "workout_reminder": {
       return (
         prefs.workout_days.includes(weekday) &&
-        prefs.workout_time != null &&
+        prefs.workout_time !== null &&
         prefs.workout_time === clock
       );
     }
     case "weekly_review": {
       return (
         prefs.weekly_review_day === weekday &&
-        prefs.weekly_review_time != null &&
+        prefs.weekly_review_time !== null &&
         prefs.weekly_review_time === clock
       );
     }

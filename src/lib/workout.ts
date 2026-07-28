@@ -33,7 +33,9 @@ export const VOLUME_GUIDELINES: Record<
  * Epley B. "Weight training." In: Encyclopedia of Sports Medicine. 1985
  */
 export function estimate1RM(weight: number, reps: number): number {
-  if (reps <= 1) {return weight;}
+  if (reps <= 1) {
+    return weight;
+  }
   return weight * (1 + reps / 30);
 }
 
@@ -41,7 +43,9 @@ export function estimate1RM(weight: number, reps: number): number {
  * Reverse Epley: given target reps and %1RM, calculate working weight
  */
 export function weightFrom1RM(oneRM: number, reps: number): number {
-  if (reps <= 1) {return oneRM;}
+  if (reps <= 1) {
+    return oneRM;
+  }
   return oneRM / (1 + reps / 30);
 }
 
@@ -77,15 +81,17 @@ export function recommendWeeklyVolume(
   muscleGroup: MuscleGroup
 ): number {
   const guideline = VOLUME_GUIDELINES[muscleGroup];
-  if (frequency >= 2) {return Math.round((guideline.min + guideline.max) / 2);}
+  if (frequency >= 2) {
+    return Math.round((guideline.min + guideline.max) / 2);
+  }
   return guideline.max; // if training once a week, need more volume per session
 }
 
 export interface WorkoutStats {
-  totalVolume: number;
-  totalSets: number;
   estimatedDuration: number;
   muscleGroupsWorked: string[];
+  totalSets: number;
+  totalVolume: number;
 }
 
 export function calculateWorkoutStats(
@@ -118,10 +124,10 @@ export function calculateWorkoutStats(
 export type PeriodizationType = "linear" | "dup";
 
 export interface ProgramPrescription {
-  target_sets: number;
+  rest_seconds?: number | null;
   target_reps: string;
   target_rpe: number;
-  rest_seconds?: number | null;
+  target_sets: number;
 }
 
 export type ResolvedProgramTarget = ProgramPrescription & {
@@ -137,7 +143,9 @@ export type DupDayEmphasis = "strength" | "hypertrophy" | "endurance";
  */
 export function parseTargetReps(targetReps: string): number {
   const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/);
-  if (!match) {return 8;}
+  if (!match) {
+    return 8;
+  }
   const low = Number.parseInt(match[1], 10);
   const high = match[2] ? Number.parseInt(match[2], 10) : low;
   return Math.round((low + high) / 2);
@@ -149,8 +157,12 @@ export function parseTargetReps(targetReps: string): number {
  */
 export function getDupDayEmphasis(targetReps: string): DupDayEmphasis {
   const midpoint = parseTargetReps(targetReps);
-  if (midpoint <= 5) {return "strength";}
-  if (midpoint <= 10) {return "hypertrophy";}
+  if (midpoint <= 5) {
+    return "strength";
+  }
+  if (midpoint <= 10) {
+    return "hypertrophy";
+  }
   return "endurance";
 }
 
@@ -159,16 +171,16 @@ export const NO_HISTORY_GUIDANCE =
   "Select a weight that reaches the target RPE for all prescribed sets.";
 
 export interface LastPerformance {
-  weight_kg: number;
+  date: string;
   reps: number;
   rpe: number;
-  date: string;
+  weight_kg: number;
 }
 
 export interface FreeFormSuggestion {
-  weight: number;
-  reps: number;
   note: string;
+  reps: number;
+  weight: number;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -187,8 +199,12 @@ export function formatRelativeDaysAgo(
     0,
     Math.floor((reference.getTime() - session.getTime()) / MS_PER_DAY)
   );
-  if (days === 0) {return "today";}
-  if (days === 1) {return "1 day ago";}
+  if (days === 0) {
+    return "today";
+  }
+  if (days === 1) {
+    return "1 day ago";
+  }
   return `${days} days ago`;
 }
 
@@ -210,7 +226,9 @@ export function buildFreeFormSuggestion(
   targetReps = 8,
   incrementPct = 2.5
 ): FreeFormSuggestion | null {
-  if (!performance) {return null;}
+  if (!performance) {
+    return null;
+  }
   return suggestWeightProgression(
     performance.weight_kg,
     performance.reps,
@@ -334,10 +352,10 @@ export function suggestWeightProgression(
  */
 export interface ActiveSession {
   id: number | null;
-  tempRef: string;
-  programId: number | null;
   programDayId: number | null;
+  programId: number | null;
   startedAt: string;
+  tempRef: string;
 }
 
 /**
@@ -360,15 +378,15 @@ export function activeSessionFromUrl(session: {
 }
 
 export interface SessionVolumeSet {
+  exercise_id: number;
   reps: number | null;
   weight_kg: number | null;
-  exercise_id: number;
 }
 
 export interface SessionVolumeStats {
-  totalVolume: number;
-  setCount: number;
   exerciseCount: number;
+  setCount: number;
+  totalVolume: number;
 }
 
 /**
@@ -379,7 +397,7 @@ export function computeSessionVolumeStats(
   sets: SessionVolumeSet[]
 ): SessionVolumeStats {
   const validSets = sets.filter(
-    (set) => set.reps != null && set.weight_kg != null
+    (set) => set.reps !== null && set.weight_kg !== null
   );
   const exerciseIds = new Set(validSets.map((set) => set.exercise_id));
   const totalVolume = validSets.reduce(
@@ -396,8 +414,8 @@ export function computeSessionVolumeStats(
 }
 
 export interface SessionVolumeComparison {
-  percentChange: number | null;
   direction: "more" | "less" | "same" | "first";
+  percentChange: number | null;
 }
 
 /**
@@ -469,7 +487,7 @@ export function durationMinutesBetween(
 ): number {
   const startedMs = Date.parse(startedAtIso);
   const finishedMs = Date.parse(finishedAtIso);
-  if (!Number.isFinite(startedMs) || !Number.isFinite(finishedMs)) {
+  if (!(Number.isFinite(startedMs) && Number.isFinite(finishedMs))) {
     return 1;
   }
 

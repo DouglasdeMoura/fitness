@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const PUBLIC = join(process.cwd(), "public");
 
@@ -93,7 +93,11 @@ describe("web app manifest (issue #48)", () => {
 
   it("declares screenshots for a richer Android install UI", () => {
     expect(manifest.screenshots.length).toBeGreaterThanOrEqual(2);
-    expect(manifest.screenshots.some((s) => s.form_factor === "narrow")).toBeTruthy();
-    expect(manifest.screenshots.some((s) => s.form_factor === "wide")).toBeTruthy();
+    expect(
+      manifest.screenshots.some((s) => s.form_factor === "narrow")
+    ).toBeTruthy();
+    expect(
+      manifest.screenshots.some((s) => s.form_factor === "wide")
+    ).toBeTruthy();
   });
 });

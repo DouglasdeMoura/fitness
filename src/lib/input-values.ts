@@ -31,7 +31,9 @@ const ISO_TIME_PATTERN = /^\d{2}:\d{2}$/;
 export function asDateValue(
   value: string | null | undefined
 ): AstryxDateValue | undefined {
-  if (!value || !ISO_DATE_PATTERN.test(value)) {return undefined;}
+  if (!(value && ISO_DATE_PATTERN.test(value))) {
+    return;
+  }
   return value as AstryxDateValue;
 }
 
@@ -39,6 +41,8 @@ export function asDateValue(
 export function asTimeValue(
   value: string | null | undefined
 ): AstryxTimeValue | undefined {
-  if (!value || !ISO_TIME_PATTERN.test(value)) {return undefined;}
+  if (!(value && ISO_TIME_PATTERN.test(value))) {
+    return;
+  }
   return value as AstryxTimeValue;
 }

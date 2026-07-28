@@ -1,8 +1,6 @@
-import { expect, test } from 'vitest';
 import { join } from "node:path";
+import { expect, test } from "@playwright/test";
 
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
 import Database from "better-sqlite3";
 
 import { FIXED_E2E_DATE, installDeterministicClock } from "./test-helpers";

@@ -10,15 +10,15 @@ import type { Food } from "./db";
  * the user enters a value, so inputs can render empty instead of "0".
  */
 export interface CustomFoodDraft {
-  name: string;
+  barcode: string;
   brand: string;
-  servingSize: number | null;
-  servingUnit: string;
   calories: number | null;
-  protein: number | null;
   carbs: number | null;
   fat: number | null;
-  barcode: string;
+  name: string;
+  protein: number | null;
+  servingSize: number | null;
+  servingUnit: string;
 }
 
 /** A fresh draft with the sensible defaults a new custom food starts from. */
@@ -43,7 +43,7 @@ export type CustomFoodPayload = Omit<Food, "id" | "created_at" | "source">;
  * @example isCustomFoodDraftValid({ ...EMPTY_CUSTOM_FOOD_DRAFT, name: 'Apple', calories: 52 }) // true
  */
 export function isCustomFoodDraftValid(draft: CustomFoodDraft): boolean {
-  return draft.name.trim().length > 0 && draft.calories != null;
+  return draft.name.trim().length > 0 && draft.calories !== null;
 }
 
 /**

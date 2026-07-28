@@ -8,29 +8,32 @@
 import type { ISODateString } from "@astryxdesign/core/Calendar";
 
 import type { User } from "~/lib/db";
-import { ACTIVITY_LABELS } from '~/lib/nutrition';
-import type { ActivityLevel, GoalType, Sex } from '~/lib/nutrition';
+import type { ActivityLevel, GoalType, Sex } from "~/lib/nutrition";
+import { ACTIVITY_LABELS } from "~/lib/nutrition";
 
 export interface ProfileFormState {
-  name: string;
-  heightCm: number | null;
-  sex: Sex;
   activity: ActivityLevel;
-  goal: GoalType;
   birthDate: string;
+  goal: GoalType;
+  heightCm: number | null;
+  name: string;
+  sex: Sex;
 }
 
 /** Payload shape accepted by `updateUser`. */
 export interface ProfileUpdatePayload {
-  name: string;
-  height_cm: number | null;
-  sex: Sex;
   activity_level: ActivityLevel;
-  goal_type: GoalType;
   birth_date: string | null;
+  goal_type: GoalType;
+  height_cm: number | null;
+  name: string;
+  sex: Sex;
 }
 
-export interface SelectorOption { label: string; value: string }
+export interface SelectorOption {
+  label: string;
+  value: string;
+}
 
 /**
  * Sex choices for Mifflin-St Jeor BMR. "other" uses the male coefficient as a
@@ -57,9 +60,9 @@ export const GOAL_OPTIONS: SelectorOption[] = [
 
 /** Goal options with descriptions for the visual SelectableCard grid (issue #34). */
 export interface GoalCardOption {
-  value: GoalType;
-  label: string;
   description: string;
+  label: string;
+  value: GoalType;
 }
 
 export const GOAL_CARD_OPTIONS: GoalCardOption[] = [
@@ -133,7 +136,9 @@ export function buildProfileUpdate(
  * with `parseFloat` + falsy check.
  */
 export function parseWeightKg(value: number | null | undefined): number | null {
-  if (value == null || !Number.isFinite(value) || value <= 0) {return null;}
+  if (value === null || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
   return value;
 }
 
@@ -169,7 +174,9 @@ const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export function toISODate(
   value: string | null | undefined
 ): ISODateString | null {
-  if (!value || !ISO_DATE_PATTERN.test(value)) {return null;}
+  if (!(value && ISO_DATE_PATTERN.test(value))) {
+    return null;
+  }
   return value as ISODateString;
 }
 
@@ -230,11 +237,13 @@ export function buildWeightChartPoints(
   const valid = entries
     .filter(
       (e): e is { date: string; weight_kg: number } =>
-        e.weight_kg != null && e.weight_kg > 0
+        e.weight_kg !== null && e.weight_kg > 0
     )
     .reverse(); // chronological order
 
-  if (valid.length < 2) {return [];}
+  if (valid.length < 2) {
+    return [];
+  }
 
   const weights = valid.map((e) => e.weight_kg);
   const minW = Math.min(...weights);
@@ -272,7 +281,7 @@ export function parseImportFile(
   } catch {
     return { error: "Invalid JSON file." };
   }
-  if (typeof parsed !== "object" || parsed == null || Array.isArray(parsed)) {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return { error: "File must contain a JSON object, not an array." };
   }
   const obj = parsed as Record<string, unknown>;

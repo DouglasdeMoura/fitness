@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -567,7 +566,7 @@ test.describe("Progress - Analytics View", () => {
 
     const exerciseSelect = page.getByRole("combobox", { name: "Exercise" });
     const optionCount = await exerciseSelect.locator("option").count();
-    test.skip(optionCount <= 1, "no exercisable option available to log a set");
+    test(optionCount <= 1, "no exercisable option available to log a set");
 
     await exerciseSelect.click();
     await page.getByRole("option").nth(1).click();

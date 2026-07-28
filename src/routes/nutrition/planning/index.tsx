@@ -1,5 +1,19 @@
-import { Button, Card, EmptyState, Heading, HStack, MetadataList, MetadataListItem, ProgressBar, Selector, Table, Text, VStack, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Heading,
+  HStack,
+  MetadataList,
+  MetadataListItem,
+  ProgressBar,
+  proportional,
+  Selector,
+  Table,
+  Text,
+  VStack,
+} from "@astryxdesign/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -7,16 +21,22 @@ import { useState } from "react";
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
-import { clearMealPlan, getMealTemplates, getWeekMealPlan, logMealFromPlan, setMealPlan } from '~/lib/api';
-import type { MealTemplateSummary, WeekMealPlan } from '~/lib/api';
+import type { MealTemplateSummary, WeekMealPlan } from "~/lib/api";
+import {
+  clearMealPlan,
+  getMealTemplates,
+  getWeekMealPlan,
+  logMealFromPlan,
+  setMealPlan,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
 import { formatDisplayInteger } from "~/lib/format-number";
-import { addDays, MEAL_TYPE_LABELS, MEAL_TYPES } from '~/lib/nutrition';
-import type { MealType } from '~/lib/nutrition';
+import type { MealType } from "~/lib/nutrition";
+import { addDays, MEAL_TYPE_LABELS, MEAL_TYPES } from "~/lib/nutrition";
 
 export const Route = createFileRoute("/nutrition/planning/")({
   component: MealPlanningPage,
@@ -52,33 +72,35 @@ function mealPlanColumns(
         const slot = day.slots.find(
           (candidate) => candidate.meal_type === mealType
         );
-        if (!slot) return <Text type="supporting">Unavailable</Text>;
+        if (!slot) {
+          return <Text type="supporting">Unavailable</Text>;
+        }
         return (
           <VStack gap={2}>
             <Selector
-              label={`${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
               isLabelHidden
-              value={slot.template_id?.toString() ?? ""}
+              label={`${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
               onChange={(value) =>
                 assignTemplate(slot.date, mealType, String(value))
               }
               options={templateOptions}
+              value={slot.template_id?.toString() ?? ""}
             />
             {slot.template_id ? (
               <VStack gap={1}>
                 <Text hasTabularNumbers>
                   {formatDisplayInteger(slot.macros.calories)} kcal
                 </Text>
-                <Text type="supporting" hasTabularNumbers>
+                <Text hasTabularNumbers type="supporting">
                   P {formatDisplayInteger(slot.macros.protein_g)} · C{" "}
                   {formatDisplayInteger(slot.macros.carbs_g)} · F{" "}
                   {formatDisplayInteger(slot.macros.fat_g)}
                 </Text>
                 <Button
-                  label={`Log ${slot.template_name} for ${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
-                  variant="secondary"
-                  size="sm"
                   clickAction={() => logMeal(slot.date, mealType)}
+                  label={`Log ${slot.template_name} for ${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
+                  size="sm"
+                  variant="secondary"
                 >
                   Log
                 </Button>
@@ -108,23 +130,23 @@ function mealPlanColumns(
             : 0;
         return (
           <VStack gap={2}>
-            <Text weight="bold" hasTabularNumbers>
+            <Text hasTabularNumbers weight="bold">
               {formatDisplayInteger(day.day_totals.calories)} kcal
             </Text>
-            <Text type="supporting" hasTabularNumbers>
+            <Text hasTabularNumbers type="supporting">
               P {formatDisplayInteger(day.day_totals.protein_g)} · C{" "}
               {formatDisplayInteger(day.day_totals.carbs_g)} · F{" "}
               {formatDisplayInteger(day.day_totals.fat_g)}
             </Text>
             <ProgressBar
-              label={`${day.day_label} calorie target`}
-              value={Math.min(day.day_totals.calories, dailyTargetCalories)}
-              max={dailyTargetCalories || 1}
-              variant={caloriePercent > 100 ? "error" : "accent"}
-              hasValueLabel
               formatValueLabel={() =>
                 `${formatDisplayInteger(caloriePercent)}% of target`
               }
+              hasValueLabel
+              label={`${day.day_label} calorie target`}
+              max={dailyTargetCalories || 1}
+              value={Math.min(day.day_totals.calories, dailyTargetCalories)}
+              variant={caloriePercent > 100 ? "error" : "accent"}
             />
           </VStack>
         );
@@ -155,8 +177,8 @@ function MealPlanningPage() {
     return (
       <DataLoadErrorView
         heading="Weekly Meal Plan"
-        title="Failed to load meal plan"
         query={failedQuery}
+        title="Failed to load meal plan"
       />
     );
   }
@@ -197,50 +219,50 @@ function MealPlanningPage() {
 
   return (
     <VStack gap={4}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
         <Heading level={1}>Weekly Meal Plan</Heading>
         <HStack gap={2} wrap="wrap">
           <Button
-            label="Back"
             href="/nutrition"
-            variant="secondary"
+            label="Back"
             size="sm"
+            variant="secondary"
           />
           <Button
-            label="Templates"
             href="/nutrition/templates"
-            variant="secondary"
+            label="Templates"
             size="sm"
+            variant="secondary"
           />
         </HStack>
       </HStack>
 
       <Card>
         <VStack gap={3}>
-          <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+          <HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
             <Heading level={2}>
               {weekPlan.start_date} — {weekPlan.end_date}
             </Heading>
             <HStack gap={2} wrap="wrap">
               <Button
-                label="Previous week"
-                variant="secondary"
-                size="sm"
                 clickAction={() => shiftWeek(-1)}
+                label="Previous week"
+                size="sm"
+                variant="secondary"
               >
                 ← Prev
               </Button>
               <Button
-                label="This Week"
-                variant="secondary"
-                size="sm"
                 clickAction={() => setWeekStart(undefined)}
+                label="This Week"
+                size="sm"
+                variant="secondary"
               />
               <Button
-                label="Next week"
-                variant="secondary"
-                size="sm"
                 clickAction={() => shiftWeek(1)}
+                label="Next week"
+                size="sm"
+                variant="secondary"
               >
                 Next →
               </Button>
@@ -267,14 +289,14 @@ function MealPlanningPage() {
         <Card>
           <VStack gap={3}>
             <EmptyState
-              icon={<TemplateIcon />}
-              title="Create a meal template first"
               description="Templates provide the foods and macros used by each planned meal."
               headingLevel={2}
+              icon={<TemplateIcon />}
+              title="Create a meal template first"
             />
             <Button
-              label="Create Template"
               href="/nutrition/templates"
+              label="Create Template"
               variant="primary"
             />
           </VStack>
@@ -289,9 +311,9 @@ function MealPlanningPage() {
             handleLogMeal
           )}
           data={weekPlan.days}
-          idKey="date"
           density="compact"
           hasHover
+          idKey="date"
         />
       )}
     </VStack>

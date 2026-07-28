@@ -6,8 +6,8 @@ import { addDays, formatWeekday, getWeekStart } from "./nutrition";
 
 export interface ConsistencyDay {
   date: string;
-  weekday: string;
   logged: boolean;
+  weekday: string;
 }
 
 export interface StreakOptions {
@@ -169,12 +169,12 @@ export function buildLast7Days(
 }
 
 export interface ConsistencyMetrics {
-  asOf: string;
   adherence7: number;
   adherence28: number;
+  asOf: string;
   currentStreak: number;
-  longestStreak: number;
   last7Days: ConsistencyDay[];
+  longestStreak: number;
 }
 
 /** Assemble dashboard metrics from raw log dates. */
@@ -183,8 +183,8 @@ export function assembleConsistencyMetrics(
   asOf: string
 ): ConsistencyMetrics {
   return {
-    adherence28: logAdherence(logDates, 28, asOf),
     adherence7: logAdherence(logDates, 7, asOf),
+    adherence28: logAdherence(logDates, 28, asOf),
     asOf,
     currentStreak: currentStreak(logDates, 1, asOf),
     last7Days: buildLast7Days(logDates, asOf),

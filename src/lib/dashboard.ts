@@ -15,10 +15,10 @@ export type MacroTone = "success" | "warning" | "accent";
  * base tones plus `error`, which is forced whenever intake exceeds the target.
  */
 export interface ProgressBarState {
-  /** Fill value, clamped to the target so the bar never overflows its track. */
-  value: number;
   /** Target value used as the bar maximum (>= 1 to avoid a zero-height track). */
   max: number;
+  /** Fill value, clamped to the target so the bar never overflows its track. */
+  value: number;
   /** Semantic tone; flips to `error` on an over-target day. */
   variant: MacroTone | "error";
 }

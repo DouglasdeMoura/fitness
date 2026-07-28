@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  dataExportedBody,
   copyCompletedBody,
-  templateLoggedBody,
+  dataExportedBody,
   entryDeletedBody,
   foodLoggedBody,
   mutationFailedBody,
@@ -12,6 +11,7 @@ import {
   setSavedBody,
   setSavedWithRecordsBody,
   TOAST_DURATION_MS,
+  templateLoggedBody,
   weightLoggedBody,
 } from "~/lib/toasts";
 

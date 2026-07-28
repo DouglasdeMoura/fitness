@@ -1,10 +1,7 @@
 pre-commit:
   parallel: true
   commands:
-    format:
-      run: npx oxfmt --write src/ tests/ scripts/
-      glob: "*.{ts,tsx,mjs}"
-    lint:
-      run: npx oxlint --fix src/ tests/ scripts/
-      glob: "*.{ts,tsx,mjs}"
+    check:
+      run: npx biome check --write --no-errors-on-unmatched src/ tests/ scripts/
+      glob: "*.{ts,tsx,mjs,js,json}"
       stage_fixed: true

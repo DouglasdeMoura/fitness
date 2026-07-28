@@ -1,9 +1,22 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ProgramDetail } from "~/lib/api";
 import type { Exercise } from "~/lib/db";
-import { buildProgramSavePayload, editableExerciseFromExercise, makeTempId, newProgramDay, buildCreateProgramPayload, programFormDefaults, validateCreateProgramName, validateProgramDays } from '~/lib/program-form';
-import type { EditableProgramDay, EditableProgramExercise, ProgramFormValues } from '~/lib/program-form';
+import type {
+  EditableProgramDay,
+  EditableProgramExercise,
+  ProgramFormValues,
+} from "~/lib/program-form";
+import {
+  buildCreateProgramPayload,
+  buildProgramSavePayload,
+  editableExerciseFromExercise,
+  makeTempId,
+  newProgramDay,
+  programFormDefaults,
+  validateCreateProgramName,
+  validateProgramDays,
+} from "~/lib/program-form";
 
 const squat: Exercise = {
   category: "compound",
@@ -35,26 +48,26 @@ function detailFixture(overrides: Partial<ProgramDetail> = {}): ProgramDetail {
     created_at: "2025-01-01T00:00:00Z",
     days: [
       {
-        id: 100,
-        program_id: 7,
-        day_name: "Day A",
-        sort_order: 1,
         created_at: "2025-01-01T00:00:00Z",
+        day_name: "Day A",
         exercises: [
           {
-            id: 1000,
-            program_day_id: 100,
+            created_at: "2025-01-01T00:00:00Z",
             exercise_id: squat.id,
-            target_sets: 4,
-            target_reps: "5",
-            target_rpe: 8,
+            exercise_name: squat.name,
+            id: 1000,
+            muscle_group: "legs",
+            program_day_id: 100,
             rest_seconds: 180,
             sort_order: 1,
-            created_at: "2025-01-01T00:00:00Z",
-            exercise_name: squat.name,
-            muscle_group: "legs",
+            target_reps: "5",
+            target_rpe: 8,
+            target_sets: 4,
           },
         ],
+        id: 100,
+        program_id: 7,
+        sort_order: 1,
       },
     ],
     description: " Linear strength block ",
@@ -90,7 +103,7 @@ describe(programFormDefaults, () => {
     expect(defaults.days[0]).toMatchObject({
       day_name: "Day A",
       exercises: [
-        expect.objectContaining({ tempId: "ex-1000", exercise_id: squat.id }),
+        expect.objectContaining({ exercise_id: squat.id, tempId: "ex-1000" }),
       ],
       persistedId: 100,
       tempId: "day-100",
@@ -111,17 +124,17 @@ describe(programFormDefaults, () => {
             day_name: "Day A",
             exercises: [
               {
-                id: 1,
-                program_day_id: 1,
+                created_at: "2025-01-01T00:00:00Z",
                 exercise_id: squat.id,
-                target_sets: null,
-                target_reps: null,
-                target_rpe: null,
+                exercise_name: squat.name,
+                id: 1,
+                muscle_group: "legs",
+                program_day_id: 1,
                 rest_seconds: null,
                 sort_order: 1,
-                created_at: "2025-01-01T00:00:00Z",
-                exercise_name: squat.name,
-                muscle_group: "legs",
+                target_reps: null,
+                target_rpe: null,
+                target_sets: null,
               },
             ],
             id: 1,
@@ -185,14 +198,14 @@ describe(buildProgramSavePayload, () => {
   const baseValues: ProgramFormValues = {
     days: [
       {
-        tempId: "day-a",
-        persistedId: 50,
         day_name: "Push",
-        sort_order: 99,
         exercises: [
-          exerciseFixture({ tempId: "ex-a", sort_order: 99 }),
-          exerciseFixture({ tempId: "ex-b", sort_order: 7 }),
+          exerciseFixture({ sort_order: 99, tempId: "ex-a" }),
+          exerciseFixture({ sort_order: 7, tempId: "ex-b" }),
         ],
+        persistedId: 50,
+        sort_order: 99,
+        tempId: "day-a",
       },
     ],
     description: "  ",
@@ -239,19 +252,19 @@ describe(buildProgramSavePayload, () => {
         exercises: [
           {
             exercise_id: squat.id,
-            target_sets: 4,
-            target_reps: "5",
-            target_rpe: 8,
             rest_seconds: 180,
             sort_order: 1,
+            target_reps: "5",
+            target_rpe: 8,
+            target_sets: 4,
           },
           {
             exercise_id: squat.id,
-            target_sets: 4,
-            target_reps: "5",
-            target_rpe: 8,
             rest_seconds: 180,
             sort_order: 2,
+            target_reps: "5",
+            target_rpe: 8,
+            target_sets: 4,
           },
         ],
         sort_order: 1,
@@ -349,7 +362,7 @@ describe(buildCreateProgramPayload, () => {
     );
 
     expect(payload).toStrictEqual({
-      days: [{ day_name: "Day A", sort_order: 1, exercises: [] }],
+      days: [{ day_name: "Day A", exercises: [], sort_order: 1 }],
       description: "Notes",
       frequency_per_week: 4,
       is_active: true,

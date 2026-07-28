@@ -4,9 +4,13 @@
  */
 
 import webpush from "web-push";
-
-import { sendPushToUserSubscriptions } from './push';
-import type { PushNotificationClient, PushPayload, PushSubscriptionInput, VapidConfig } from './push';
+import type {
+  PushNotificationClient,
+  PushPayload,
+  PushSubscriptionInput,
+  VapidConfig,
+} from "./push";
+import { sendPushToUserSubscriptions } from "./push";
 
 class WebPushNotificationClient implements PushNotificationClient {
   async sendNotification(

@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { FOOD_LOG_SUMMARY_SQL, fetchFoodLogSummaryEntries } from "~/lib/api";
 import {
-  QUICK_ADD_DEFAULT_NAME,
   buildQuickAddDraft,
+  QUICK_ADD_DEFAULT_NAME,
   sumFoodLogEntryTotals,
 } from "~/lib/nutrition";
 
@@ -116,7 +116,7 @@ describe("nutrition summary read path (issue #57)", () => {
   it("LEFT JOIN query keeps null food_id rows in the result set", () => {
     const entries = fetchFoodLogSummaryEntries(db, USER_ID, DATE);
     expect(entries).toHaveLength(2);
-    expect(entries.some((entry) => entry.food_id == null)).toBeTruthy();
+    expect(entries.some((entry) => entry.food_id === null)).toBeTruthy();
     expect(FOOD_LOG_SUMMARY_SQL).toContain("LEFT JOIN foods");
   });
 

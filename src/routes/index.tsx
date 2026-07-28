@@ -20,9 +20,9 @@ import { CalorieRing } from "~/components/CalorieRing";
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import {
   NutritionIcon,
-  WorkoutIcon,
   ProgressIcon,
   ReviewIcon,
+  WorkoutIcon,
 } from "~/components/icons/FitTrackIcons";
 import { DashboardSkeleton } from "~/components/loading/PageSkeletons";
 import {
@@ -30,16 +30,20 @@ import {
   getDashboardStats,
   getWeeklyReviewAvailability,
 } from "~/lib/api";
-import { calorieRemainingLabel, isFirstTimeUser, macroProgress } from '~/lib/dashboard';
-import type { MacroTone } from '~/lib/dashboard';
+import type { MacroTone } from "~/lib/dashboard";
+import {
+  calorieRemainingLabel,
+  isFirstTimeUser,
+  macroProgress,
+} from "~/lib/dashboard";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
 import {
-  formatDisplayInteger,
   formatDisplayDecimal,
+  formatDisplayInteger,
 } from "~/lib/format-number";
 import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
 
@@ -57,7 +61,7 @@ export const Route = createFileRoute("/")({
       getConsistency({ data: { asOf } }),
       getWeeklyReviewAvailability({ data: { asOf } }),
     ]);
-    return { asOf, stats, consistency, weeklyReview };
+    return { asOf, consistency, stats, weeklyReview };
   },
   loaderDeps: ({ search: { date } }) => ({ date }),
   pendingComponent: DashboardSkeleton,
@@ -82,8 +86,8 @@ function DashboardPageContent() {
       weeklyReview: loaderData.weeklyReview,
     },
     queryFn: async () => ({
-      stats: await getDashboardStats(),
       consistency: await getConsistency({ data: { asOf } }),
+      stats: await getDashboardStats(),
       weeklyReview: await getWeeklyReviewAvailability({ data: { asOf } }),
     }),
     queryKey: ["dashboard", asOf],
@@ -98,8 +102,8 @@ function DashboardPageContent() {
     return (
       <DataLoadErrorView
         heading="Dashboard"
-        title="Failed to load dashboard"
         query={failedQuery}
+        title="Failed to load dashboard"
       />
     );
   }
@@ -124,16 +128,16 @@ function DashboardPageContent() {
           <Text type="supporting">{today}</Text>
         </VStack>
         <EmptyState
-          icon={<NutritionIcon />}
-          title="Welcome to FitTrack"
-          description="Set up your nutrition targets to get started with personalized calorie and macro tracking."
           actions={
             <Button
-              label="Set up your targets"
               href="/settings"
+              label="Set up your targets"
               variant="primary"
             />
           }
+          description="Set up your nutrition targets to get started with personalized calorie and macro tracking."
+          icon={<NutritionIcon />}
+          title="Welcome to FitTrack"
         />
       </VStack>
     );
@@ -150,15 +154,15 @@ function DashboardPageContent() {
       <Card padding={5}>
         <VStack gap={4} hAlign="center">
           <CalorieRing consumed={consumed.calories} target={targets.calories} />
-          <Text size="4xl" weight="bold" hasTabularNumbers>
+          <Text hasTabularNumbers size="4xl" weight="bold">
             {formatDisplayInteger(consumed.calories)}
           </Text>
           <Text type="supporting">
             of {formatDisplayInteger(targets.calories)} kcal
           </Text>
           <Text
-            type="body"
             color={consumed.calories > targets.calories ? "accent" : undefined}
+            type="body"
           >
             {calorieRemainingLabel(consumed.calories, targets.calories)}
           </Text>
@@ -170,20 +174,20 @@ function DashboardPageContent() {
         <VStack gap={3}>
           <Text type="label">Macros</Text>
           <MacroBar
-            label="Protein"
             consumed={Math.round(consumed.protein_g)}
+            label="Protein"
             target={targets.protein_g}
             tone="success"
           />
           <MacroBar
-            label="Carbs"
             consumed={Math.round(consumed.carbs_g)}
+            label="Carbs"
             target={targets.carbs_g}
             tone="warning"
           />
           <MacroBar
-            label="Fat"
             consumed={Math.round(consumed.fat_g)}
+            label="Fat"
             target={targets.fat_g}
             tone="accent"
           />
@@ -195,7 +199,7 @@ function DashboardPageContent() {
         <Card padding={4}>
           <VStack gap={1}>
             <Text type="label">Current Weight</Text>
-            <Text size="2xl" weight="bold" hasTabularNumbers>
+            <Text hasTabularNumbers size="2xl" weight="bold">
               {targets.weightKg
                 ? `${formatDisplayDecimal(targets.weightKg)} kg`
                 : "\u2014"}
@@ -205,7 +209,7 @@ function DashboardPageContent() {
         <Card padding={4}>
           <VStack gap={1}>
             <Text type="label">TDEE</Text>
-            <Text size="2xl" weight="bold" hasTabularNumbers>
+            <Text hasTabularNumbers size="2xl" weight="bold">
               {targets.tdee
                 ? `${formatDisplayInteger(targets.tdee)} kcal`
                 : "\u2014"}
@@ -215,7 +219,7 @@ function DashboardPageContent() {
         <Card padding={4}>
           <VStack gap={1}>
             <Text type="label">Workouts (30d)</Text>
-            <Text size="2xl" weight="bold" hasTabularNumbers>
+            <Text hasTabularNumbers size="2xl" weight="bold">
               {workoutDaysThisMonth}
             </Text>
             <Text type="supporting">sessions logged</Text>
@@ -277,7 +281,7 @@ function DashboardPageContent() {
       </VStack>
 
       {/* Consistency tracking */}
-      <Card padding={4} aria-label="Consistency tracking">
+      <Card aria-label="Consistency tracking" padding={4}>
         <VStack gap={3}>
           <Text type="label">Consistency</Text>
           <MetadataList>
@@ -296,14 +300,14 @@ function DashboardPageContent() {
           </MetadataList>
           <HStack gap={2} wrap="wrap">
             {consistency.last7Days.map((day) => (
-              <VStack key={day.date} gap={1} hAlign="center">
+              <VStack gap={1} hAlign="center" key={day.date}>
                 <StatusDot
-                  variant={day.logged ? "success" : "neutral"}
                   label={
                     day.logged
                       ? `${day.weekday} food logged`
                       : `${day.weekday} no food log`
                   }
+                  variant={day.logged ? "success" : "neutral"}
                 />
                 <Text type="supporting">{day.weekday}</Text>
               </VStack>
@@ -319,12 +323,12 @@ function DashboardPageContent() {
           <MetadataList>
             <MetadataListItem label="Goal Type">
               <Badge
+                label={user.goal_type.replaceAll("_", " ")}
                 variant="purple"
-                label={user.goal_type.replaceAll(/_/g, " ")}
               />
             </MetadataListItem>
             <MetadataListItem label="Activity Level">
-              {user.activity_level.replaceAll(/_/g, " ")}
+              {user.activity_level.replaceAll("_", " ")}
             </MetadataListItem>
             <MetadataListItem label="Daily Calorie Target">
               {targets.calories} kcal
@@ -357,11 +361,11 @@ function MacroBar({
         </Text>
       </HStack>
       <ProgressBar
-        label={`${label} consumed`}
-        value={state.value}
-        max={state.max}
-        variant={state.variant}
         isLabelHidden
+        label={`${label} consumed`}
+        max={state.max}
+        value={state.value}
+        variant={state.variant}
       />
     </VStack>
   );

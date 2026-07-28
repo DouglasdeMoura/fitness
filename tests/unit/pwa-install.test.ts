@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   getInstallMode,
-  isIosDevice,
-  readIsStandalone,
-  IOS_INSTALL_STEPS,
   INSTALL_BUTTON_LABEL,
   INSTALL_CARD_TITLE,
+  IOS_INSTALL_STEPS,
+  isIosDevice,
+  readIsStandalone,
 } from "~/lib/pwa-install";
 
 const chromeDesktop = {

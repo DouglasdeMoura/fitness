@@ -1,8 +1,8 @@
 import type Database from "better-sqlite3";
 
 import type { FoodLogEntry } from "./db";
-import { addDays } from './nutrition';
-import type { MealType } from './nutrition';
+import type { MealType } from "./nutrition";
+import { addDays } from "./nutrition";
 
 /** Entries for one meal on a given day. */
 export function entriesForMeal(
@@ -169,7 +169,9 @@ export function deleteFoodLogEntriesInDb(
     const removed: number[] = [];
     for (const id of ids) {
       const outcome = remove.run(id, userId);
-      if (outcome.changes > 0) {removed.push(id);}
+      if (outcome.changes > 0) {
+        removed.push(id);
+      }
     }
     return removed;
   })();

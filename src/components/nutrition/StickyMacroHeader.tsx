@@ -11,7 +11,7 @@ import {
 } from "@astryxdesign/core";
 
 import type { DailyTargets } from "~/lib/api";
-import { macroProgress,calorieRemainingLabel } from "~/lib/dashboard";
+import { calorieRemainingLabel, macroProgress } from "~/lib/dashboard";
 import { formatDisplayInteger } from "~/lib/format-number";
 import type { NutritionTotals } from "~/lib/nutrition";
 
@@ -40,31 +40,31 @@ export function StickyMacroHeader({
   return (
     <Card padding={4}>
       <VStack gap={3}>
-        <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+        <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
           <Heading level={2}>Daily Summary</Heading>
           {onLogFood ? (
             <Button
-              label="Log food"
-              variant="primary"
-              size="lg"
               clickAction={onLogFood}
+              label="Log food"
+              size="lg"
+              variant="primary"
             >
               Log food
             </Button>
-          ) : undefined}
+          ) : null}
         </HStack>
         <HStack gap={2} vAlign="end">
-          <Text size="4xl" weight="bold" hasTabularNumbers data-size="hero">
+          <Text data-size="hero" hasTabularNumbers size="4xl" weight="bold">
             {formatDisplayInteger(totals.calories)}
           </Text>
           <Text type="supporting">/ {targets.calories} kcal</Text>
         </HStack>
         <ProgressBar
-          label="Calories consumed today"
-          value={calorieState.value}
-          max={calorieState.max}
-          variant={calorieState.variant}
           isLabelHidden
+          label="Calories consumed today"
+          max={calorieState.max}
+          value={calorieState.value}
+          variant={calorieState.variant}
         />
         <Text type="supporting">
           {calorieRemainingLabel(totals.calories, targets.calories)}

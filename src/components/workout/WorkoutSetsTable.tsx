@@ -1,5 +1,12 @@
-import { Badge, Button, HStack, Table, Text, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Badge,
+  Button,
+  HStack,
+  proportional,
+  Table,
+  Text,
+} from "@astryxdesign/core";
 
 import { GymStepperInput } from "~/components/GymStepperInput";
 import { ScrollableTable } from "~/components/ScrollableTable";
@@ -9,11 +16,11 @@ import type { RecordKind } from "~/lib/records";
 import { calculateVolume } from "~/lib/workout";
 
 export interface WorkoutSetRow {
-  reps: number;
-  weight: number;
-  rpe: number;
   id?: number;
   recordKinds?: RecordKind[];
+  reps: number;
+  rpe: number;
+  weight: number;
 }
 
 type WorkoutSetTableRow = WorkoutSetRow & {
@@ -21,11 +28,11 @@ type WorkoutSetTableRow = WorkoutSetRow & {
 };
 
 interface WorkoutSetsTableProps {
-  sets: WorkoutSetRow[];
   exerciseName: string;
   onChangeSet: (index: number, patch: Partial<WorkoutSetRow>) => void;
-  onSaveSet: (set: WorkoutSetRow, index: number) => void;
   onDeleteSet: (index: number) => void;
+  onSaveSet: (set: WorkoutSetRow, index: number) => void;
+  sets: WorkoutSetRow[];
 }
 
 /**
@@ -55,9 +62,9 @@ export function WorkoutSetsTable({
         aria-label={`${exerciseName} sets`}
         columns={columns}
         data={tableRows}
-        idKey="rowIndex"
         density="compact"
         hasHover
+        idKey="rowIndex"
       />
     </ScrollableTable>
   );
@@ -74,7 +81,7 @@ function workoutSetColumns(
       header: "Set",
       key: "set_number",
       renderCell: (row) => (
-        <HStack gap={2} wrap="wrap" vAlign="center">
+        <HStack gap={2} vAlign="center" wrap="wrap">
           <Text hasTabularNumbers>{row.rowIndex + 1}</Text>
           {row.recordKinds && row.recordKinds.length > 0 ? (
             <Badge label="PR" variant="success" />
@@ -88,12 +95,12 @@ function workoutSetColumns(
       key: "weight",
       renderCell: (row) => (
         <GymStepperInput
+          inputMode="decimal"
           label={`Weight for set ${row.rowIndex + 1} of ${exerciseName}`}
-          value={row.weight}
           onChange={(weight) => onChangeSet(row.rowIndex, { weight })}
           step={WEIGHT_STEP_KG}
-          inputMode="decimal"
           units="kg"
+          value={row.weight}
         />
       ),
       width: proportional(2),
@@ -103,12 +110,12 @@ function workoutSetColumns(
       key: "reps",
       renderCell: (row) => (
         <GymStepperInput
-          label={`Reps for set ${row.rowIndex + 1} of ${exerciseName}`}
-          value={row.reps}
-          onChange={(reps) => onChangeSet(row.rowIndex, { reps })}
-          step={REPS_STEP}
           inputMode="numeric"
           isIntegerOnly
+          label={`Reps for set ${row.rowIndex + 1} of ${exerciseName}`}
+          onChange={(reps) => onChangeSet(row.rowIndex, { reps })}
+          step={REPS_STEP}
+          value={row.reps}
         />
       ),
       width: proportional(2),
@@ -118,14 +125,14 @@ function workoutSetColumns(
       key: "rpe",
       renderCell: (row) => (
         <GymStepperInput
+          inputMode="numeric"
+          isIntegerOnly
           label={`RPE for set ${row.rowIndex + 1} of ${exerciseName}`}
-          value={row.rpe}
+          max={10}
+          min={1}
           onChange={(rpe) => onChangeSet(row.rowIndex, { rpe })}
           step={1}
-          inputMode="numeric"
-          min={1}
-          max={10}
-          isIntegerOnly
+          value={row.rpe}
         />
       ),
       width: proportional(1),
@@ -146,16 +153,16 @@ function workoutSetColumns(
       renderCell: (row) => (
         <HStack gap={2} wrap="wrap">
           <Button
-            label={`Save set ${row.rowIndex + 1} of ${exerciseName}`}
-            variant="secondary"
-            size="lg"
             clickAction={() => onSaveSet(row, row.rowIndex)}
+            label={`Save set ${row.rowIndex + 1} of ${exerciseName}`}
+            size="lg"
+            variant="secondary"
           />
           <Button
-            label={`Delete set ${row.rowIndex + 1} of ${exerciseName}`}
-            variant="destructive"
-            size="lg"
             clickAction={() => onDeleteSet(row.rowIndex)}
+            label={`Delete set ${row.rowIndex + 1} of ${exerciseName}`}
+            size="lg"
+            variant="destructive"
           />
         </HStack>
       ),

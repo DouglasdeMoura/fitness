@@ -42,8 +42,12 @@ export function calculateBMR(
   sex: Sex
 ): number {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * ageYears;
-  if (sex === "male") {return base + 5;}
-  if (sex === "female") {return base - 161;}
+  if (sex === "male") {
+    return base + 5;
+  }
+  if (sex === "female") {
+    return base - 161;
+  }
   return base - 78; // average of male/female adjustments
 }
 
@@ -62,10 +66,10 @@ export function calculateAge(birthDate: string): number {
 
 export interface MacroTargets {
   calories: number;
-  protein_g: number;
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  protein_g: number;
 }
 
 /**
@@ -91,7 +95,7 @@ export function calculateMacroTargets(
     case "build_muscle": {
       calories = Math.round(tdee + tdee * 0.1); // 10% surplus
       proteinPerKg = 1.8; // upper-mid range of Morton et al.
-      fatPerKg = 1.0;
+      fatPerKg = 1;
       break;
     }
     case "lose_fat": {
@@ -103,14 +107,13 @@ export function calculateMacroTargets(
     case "recomp": {
       calories = tdee; // maintenance
       proteinPerKg = 2.2; // high protein for simultaneous gain/loss
-      fatPerKg = 1.0;
+      fatPerKg = 1;
       break;
     }
-    case "maintain":
     default: {
       calories = tdee;
       proteinPerKg = 1.6;
-      fatPerKg = 1.0;
+      fatPerKg = 1;
       break;
     }
   }
@@ -130,10 +133,10 @@ export function calculateMacroTargets(
 
 export interface NutritionTotals {
   calories: number;
-  protein_g: number;
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  protein_g: number;
 }
 
 export function emptyTotals(): NutritionTotals {
@@ -182,18 +185,24 @@ export function mealTypeForHour(hour: number): MealType {
       `Invalid hour ${String(hour)}; expected an integer from 0 through 23`
     );
   }
-  if (hour < 11) {return "breakfast";}
-  if (hour < 15) {return "lunch";}
-  if (hour < 21) {return "dinner";}
+  if (hour < 11) {
+    return "breakfast";
+  }
+  if (hour < 15) {
+    return "lunch";
+  }
+  if (hour < 21) {
+    return "dinner";
+  }
   return "snack";
 }
 
 export interface FoodMacrosInput {
   calories_per_serving: number;
-  protein_g: number;
   carbs_g: number;
   fat_g: number;
   fiber_g?: number;
+  protein_g: number;
 }
 
 export type FoodLoggable = FoodMacrosInput & {
@@ -202,34 +211,34 @@ export type FoodLoggable = FoodMacrosInput & {
 };
 
 export interface FoodLogDraft {
-  food_id?: number;
+  calories: number;
+  carbs_g: number;
   custom_name: string;
   date: string;
-  meal_type: MealType;
-  servings: number;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
   fat_g: number;
+  food_id?: number;
+  meal_type: MealType;
+  protein_g: number;
+  servings: number;
 }
 
 /** Macros stored on each food_log row (catalog or quick-add). */
 export interface FoodLogMacroSlice {
   calories: number;
-  protein_g: number;
   carbs_g: number;
   fat_g: number;
+  protein_g: number;
 }
 
 /** Fallback label when a quick-add entry has no user-supplied name. */
 export const QUICK_ADD_DEFAULT_NAME = "Quick add";
 
 export interface QuickAddInput {
-  name?: string;
   calories: number;
-  protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
+  name?: string;
+  protein_g?: number;
 }
 
 /**
@@ -307,19 +316,17 @@ export function sumFoodLogEntryTotals(
 export function groupEntriesByMeal(
   entries: FoodLogEntry[]
 ): Record<MealType, FoodLogEntry[]> {
-  const groups: Record<MealType, FoodLogEntry[]> = {
-    breakfast: [],
-    dinner: [],
-    lunch: [],
-    snack: [],
-  };
+  const groups = new Map<MealType, FoodLogEntry[]>();
+  for (const mealType of MEAL_TYPES) {
+    groups.set(mealType, []);
+  }
   for (const entry of entries) {
     const mealType = entry.meal_type;
-    if (mealType in groups) {
-      groups[mealType].push(entry);
+    if (groups.has(mealType)) {
+      groups.get(mealType)!.push(entry);
     }
   }
-  return groups;
+  return Object.fromEntries(groups) as Record<MealType, FoodLogEntry[]>;
 }
 
 /** Calorie/macro subtotals for a single meal's entries. */
@@ -331,7 +338,7 @@ export function mealSubtotals(entries: FoodLogEntry[]): NutritionTotals {
 export function isApproximateFoodLogEntry(entry: {
   food_id: number | null;
 }): boolean {
-  return entry.food_id == null;
+  return entry.food_id === null;
 }
 
 /**
@@ -390,16 +397,20 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * impossible calendar dates so URL tampering cannot crash date pickers.
  */
 export function parseSearchDate(raw: string | undefined): string | undefined {
-  if (!raw || !ISO_DATE_RE.test(raw)) {return undefined;}
+  if (!(raw && ISO_DATE_RE.test(raw))) {
+    return;
+  }
   const [year, month, day] = raw.split("-").map(Number);
-  if (month < 1 || month > 12 || day < 1 || day > 31) {return undefined;}
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return;
+  }
   const date = new Date(year, month - 1, day);
   if (
     date.getFullYear() !== year ||
     date.getMonth() !== month - 1 ||
     date.getDate() !== day
   ) {
-    return undefined;
+    return;
   }
   return raw;
 }
@@ -409,7 +420,9 @@ export function resolveSelectedDate(
   dateFromSearch: string | undefined
 ): string {
   const parsed = parseSearchDate(dateFromSearch);
-  if (!parsed) {return todayString();}
+  if (!parsed) {
+    return todayString();
+  }
   const today = todayString();
   return parsed > today ? today : parsed;
 }

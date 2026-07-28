@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import * as React from "react";
 
 import { AppChrome } from "~/components/AppChrome";
@@ -21,43 +21,43 @@ const QUERY_CLIENT_OPTIONS = {
 export const Route = createRootRoute({
   head: () => ({
     links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "stylesheet", href: reducedMotionCss },
-      { rel: "stylesheet", href: pageTransitionsCss },
-      { rel: "stylesheet", href: focusVisibleCss },
-      { rel: "manifest", href: "/manifest.json" },
+      { href: appCss, rel: "stylesheet" },
+      { href: reducedMotionCss, rel: "stylesheet" },
+      { href: pageTransitionsCss, rel: "stylesheet" },
+      { href: focusVisibleCss, rel: "stylesheet" },
+      { href: "/manifest.json", rel: "manifest" },
       {
-        rel: "apple-touch-icon",
         href: "/apple-touch-icon.png",
+        rel: "apple-touch-icon",
         sizes: "180x180",
       },
     ],
     meta: [
       { charSet: "utf-8" },
       {
-        name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
+        name: "viewport",
       },
-      { name: "theme-color", content: "#6741d9" },
+      { content: "#6741d9", name: "theme-color" },
       {
-        name: "description",
         content: "Science-backed nutrition and workout companion",
+        name: "description",
       },
       { title: "FitTrack - Nutrition & Workout Companion" },
       // iOS standalone / home-screen install meta (PRD 12 Batch 1 / issue #48)
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: "FitTrack" },
+      { content: "yes", name: "apple-mobile-web-app-capable" },
+      { content: "default", name: "apple-mobile-web-app-status-bar-style" },
+      { content: "FitTrack", name: "apple-mobile-web-app-title" },
     ],
     scripts: [
       {
-        type: "text/javascript",
         children: `
           (function() {
             var theme = localStorage.getItem('fittrack-theme') || 'light';
             document.documentElement.setAttribute('data-theme', theme);
           })();
         `,
+        type: "text/javascript",
       },
     ],
   }),

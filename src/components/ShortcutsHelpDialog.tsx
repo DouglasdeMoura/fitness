@@ -24,13 +24,13 @@ export function ShortcutsHelpDialog({
 }: ShortcutsHelpDialogProps) {
   return (
     <Dialog
+      aria-label="Keyboard shortcuts"
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      aria-label="Keyboard shortcuts"
     >
       <DialogHeader
-        title="Keyboard Shortcuts"
         onOpenChange={() => onOpenChange(false)}
+        title="Keyboard Shortcuts"
       />
       <VStack gap={4}>
         <Text type="body">
@@ -39,7 +39,7 @@ export function ShortcutsHelpDialog({
         </Text>
         <VStack gap={2}>
           {SHORTCUTS.map((shortcut) => (
-            <HStack key={shortcut.key} gap={3} vAlign="center">
+            <HStack gap={3} key={shortcut.key} vAlign="center">
               <Kbd keys={shortcut.key} />
               <Text type="body">{shortcut.description}</Text>
             </HStack>

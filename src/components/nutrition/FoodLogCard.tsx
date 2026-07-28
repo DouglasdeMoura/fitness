@@ -1,5 +1,23 @@
-import { Badge, Button, Card, Collapsible, Dialog, DialogHeader, FormLayout, Grid, Heading, HStack, MetadataList, MetadataListItem, NumberInput, Table, Text, TextInput, VStack, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Badge,
+  Button,
+  Collapsible,
+  Dialog,
+  DialogHeader,
+  FormLayout,
+  Grid,
+  Heading,
+  HStack,
+  MetadataList,
+  MetadataListItem,
+  NumberInput,
+  proportional,
+  Table,
+  Text,
+  TextInput,
+  VStack,
+} from "@astryxdesign/core";
 import { useToast } from "@astryxdesign/core/Toast";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,8 +26,12 @@ import { useState } from "react";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { ToastUndoButton } from "~/components/ToastUndoButton";
-import { addFoodLogEntry, copyMealFromDate, deleteFoodLogEntries } from '~/lib/api';
-import type { MealTemplateSummary } from '~/lib/api';
+import type { MealTemplateSummary } from "~/lib/api";
+import {
+  addFoodLogEntry,
+  copyMealFromDate,
+  deleteFoodLogEntries,
+} from "~/lib/api";
 import type { FoodLogEntry } from "~/lib/db";
 import {
   canCopyMealFromDate,
@@ -18,8 +40,14 @@ import {
 } from "~/lib/food-log-copy";
 import { formatDisplayInteger } from "~/lib/format-number";
 import { sortTemplatesForMealSection } from "~/lib/meal-template-log";
-import { MEAL_TYPE_LABELS, MEAL_TYPES, buildQuickAddDraft, isApproximateFoodLogEntry, mealSubtotals } from '~/lib/nutrition';
-import type { MealType, NutritionTotals, QuickAddInput } from '~/lib/nutrition';
+import type { MealType, QuickAddInput } from "~/lib/nutrition";
+import {
+  buildQuickAddDraft,
+  isApproximateFoodLogEntry,
+  MEAL_TYPE_LABELS,
+  MEAL_TYPES,
+  mealSubtotals,
+} from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
 import {
   copyCompletedBody,
@@ -59,21 +87,21 @@ export function FoodLogCard({
           No food logged yet. Use the quick-add or log-food buttons to get
           started.
         </Text>
-      ) : undefined}
+      ) : null}
       {MEAL_TYPES.map((mealType) => (
         <MealLogSection
-          key={mealType}
-          mealType={mealType}
           entries={entriesForMeal(entries, mealType)}
+          key={mealType}
           mealTemplates={mealTemplates}
+          mealType={mealType}
+          onCopy={() => copyMeal(mealType)}
+          onDelete={onDeleteEntry}
           selectedDate={selectedDate}
           showCopyAction={canCopyMealFromDate(
             entries,
             sourceDayEntries,
             mealType
           )}
-          onCopy={() => copyMeal(mealType)}
-          onDelete={onDeleteEntry}
         />
       ))}
     </VStack>
@@ -112,11 +140,11 @@ function MealLogSection({
   const hasEntries = entries.length > 0;
 
   const triggerContent = (
-    <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+    <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
       <HStack gap={2} vAlign="end">
         <Heading level={3}>{mealLabel}</Heading>
         {hasEntries ? (
-          <Text type="supporting" hasTabularNumbers>
+          <Text hasTabularNumbers type="supporting">
             {formatDisplayInteger(subtotals.calories)} kcal
           </Text>
         ) : (
@@ -127,7 +155,7 @@ function MealLogSection({
   );
 
   return (
-    <Collapsible trigger={triggerContent} defaultIsOpen={hasEntries}>
+    <Collapsible defaultIsOpen={hasEntries} trigger={triggerContent}>
       <VStack gap={3}>
         {hasEntries ? (
           <MetadataList>
@@ -152,36 +180,32 @@ function MealLogSection({
               </Text>
             </MetadataListItem>
           </MetadataList>
-        ) : undefined}
+        ) : null}
         <HStack gap={2} wrap="wrap">
           <Button
-            label={`Quick add to ${mealLabel.toLowerCase()}`}
-            variant="secondary"
-            size="lg"
             clickAction={() => setQuickAddOpen(true)}
+            label={`Quick add to ${mealLabel.toLowerCase()}`}
+            size="lg"
+            variant="secondary"
           >
             Quick add
           </Button>
           {showCopyAction ? (
             <Button
-              label={`Copy ${mealLabel.toLowerCase()} from yesterday`}
-              variant="secondary"
-              size="lg"
               clickAction={onCopy}
+              label={`Copy ${mealLabel.toLowerCase()} from yesterday`}
+              size="lg"
+              variant="secondary"
             >
               Copy from yesterday
             </Button>
-          ) : undefined}
+          ) : null}
         </HStack>
         {hasTemplateActions ? (
           <VStack gap={1}>
             <Text type="label">Log a saved meal</Text>
             {sectionTemplates.map((template) => (
               <Button
-                key={template.id}
-                label={`${template.name} — ${formatDisplayInteger(template.totals.calories)} kcal`}
-                variant="ghost"
-                size="lg"
                 clickAction={() =>
                   logTemplate({
                     expectedKcal: template.totals.calories,
@@ -189,30 +213,34 @@ function MealLogSection({
                     templateId: template.id,
                   })
                 }
+                key={template.id}
+                label={`${template.name} — ${formatDisplayInteger(template.totals.calories)} kcal`}
+                size="lg"
+                variant="ghost"
               />
             ))}
           </VStack>
-        ) : undefined}
+        ) : null}
         {hasEntries ? (
           <ScrollableTable scrollLabel={`food-log-${mealType}`}>
             <Table
               aria-label={`${mealLabel} food log`}
               columns={foodLogColumns(onDelete)}
               data={entries}
-              idKey="id"
               density="compact"
               hasHover
+              idKey="id"
             />
           </ScrollableTable>
-        ) : undefined}
+        ) : null}
         {quickAddOpen ? (
           <QuickAddDialog
-            mealLabel={mealLabel}
             isOpen={quickAddOpen}
+            mealLabel={mealLabel}
             onOpenChange={setQuickAddOpen}
             onSubmit={logQuickAdd}
           />
-        ) : undefined}
+        ) : null}
       </VStack>
     </Collapsible>
   );
@@ -238,7 +266,9 @@ function QuickAddDialog({
       protein_g: 0,
     },
     onSubmit: async ({ value, formApi }) => {
-      if (!value.calories || value.calories <= 0) {return;}
+      if (!value.calories || value.calories <= 0) {
+        return;
+      }
       await onSubmit({
         calories: value.calories,
         carbs_g: value.carbs_g > 0 ? value.carbs_g : undefined,
@@ -259,9 +289,9 @@ function QuickAddDialog({
       width={360}
     >
       <DialogHeader
-        title={`Quick add — ${mealLabel}`}
-        subtitle="Approximate calories still count toward your daily total."
         onOpenChange={onOpenChange}
+        subtitle="Approximate calories still count toward your daily total."
+        title={`Quick add — ${mealLabel}`}
       />
       <form
         onSubmit={(event) => {
@@ -274,22 +304,22 @@ function QuickAddDialog({
             <form.Field name="name">
               {(field) => (
                 <TextInput
+                  isOptional
                   label="Name"
-                  value={field.state.value}
                   onChange={field.handleChange}
                   placeholder="e.g. Office lunch"
-                  isOptional
+                  value={field.state.value}
                 />
               )}
             </form.Field>
             <form.Field name="calories">
               {(field) => (
                 <NumberInput
-                  label="Calories"
-                  value={field.state.value}
-                  onChange={field.handleChange}
-                  min={1}
                   isRequired
+                  label="Calories"
+                  min={1}
+                  onChange={field.handleChange}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -297,33 +327,33 @@ function QuickAddDialog({
               <form.Field name="protein_g">
                 {(field) => (
                   <NumberInput
-                    label="Protein (g)"
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                    min={0}
                     isOptional
+                    label="Protein (g)"
+                    min={0}
+                    onChange={field.handleChange}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
               <form.Field name="carbs_g">
                 {(field) => (
                   <NumberInput
-                    label="Carbs (g)"
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                    min={0}
                     isOptional
+                    label="Carbs (g)"
+                    min={0}
+                    onChange={field.handleChange}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
               <form.Field name="fat_g">
                 {(field) => (
                   <NumberInput
-                    label="Fat (g)"
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                    min={0}
                     isOptional
+                    label="Fat (g)"
+                    min={0}
+                    onChange={field.handleChange}
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -331,18 +361,18 @@ function QuickAddDialog({
           </FormLayout>
           <HStack gap={2} hAlign="end" wrap="wrap">
             <Button
-              label="Cancel quick add"
-              variant="secondary"
-              size="lg"
               clickAction={() => onOpenChange(false)}
+              label="Cancel quick add"
+              size="lg"
+              variant="secondary"
             >
               Cancel
             </Button>
             <Button
               label="Log quick add"
-              variant="primary"
               size="lg"
               type="submit"
+              variant="primary"
             />
           </HStack>
         </VStack>
@@ -403,7 +433,9 @@ function useCopyMealFromYesterday(
       if (!outcome.queued) {
         await invalidateFoodLog();
         const entryIds = outcome.result.entries.map((entry) => entry.id);
-        let dismiss = () => {};
+        let dismiss = () => {
+          /* assigned below */
+        };
         dismiss = toast({
           autoHideDuration: TOAST_DURATION_MS.undo,
           body: copyCompletedBody(entryIds.length),
@@ -450,8 +482,8 @@ function foodEntryLabel(entry: FoodLogRow) {
     <HStack gap={1} vAlign="center">
       <Text>{foodEntryName(entry)}</Text>
       {isApproximateFoodLogEntry(entry) ? (
-        <Badge variant="warning" label="Approximate" />
-      ) : undefined}
+        <Badge label="Approximate" variant="warning" />
+      ) : null}
     </HStack>
   );
 }
@@ -476,7 +508,7 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
     header: "P / C / F",
     key: "macros",
     renderCell: (entry) => (
-      <Text type="supporting" hasTabularNumbers>
+      <Text hasTabularNumbers type="supporting">
         {formatDisplayInteger(entry.protein_g)} /{" "}
         {formatDisplayInteger(entry.carbs_g)} /{" "}
         {formatDisplayInteger(entry.fat_g)} g
@@ -497,10 +529,10 @@ function foodLogColumns(
       key: "actions",
       renderCell: (entry) => (
         <Button
-          label={`Delete ${foodEntryName(entry)}`}
-          variant="destructive"
-          size="lg"
           clickAction={() => onDelete(entry)}
+          label={`Delete ${foodEntryName(entry)}`}
+          size="lg"
+          variant="destructive"
         >
           Delete
         </Button>

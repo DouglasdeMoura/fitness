@@ -23,16 +23,16 @@ function createIcon(
 ): ComponentType<SVGProps<SVGSVGElement>> {
   const Icon: ComponentType<SVGProps<SVGSVGElement>> = (props) => (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width="1em"
-      height="1em"
+      aria-hidden="true"
       fill={stroke ? "none" : "currentColor"}
+      height="1em"
       stroke={stroke ? "currentColor" : undefined}
-      strokeWidth={stroke ? 2 : undefined}
       strokeLinecap={stroke ? "round" : undefined}
       strokeLinejoin={stroke ? "round" : undefined}
-      aria-hidden="true"
+      strokeWidth={stroke ? 2 : undefined}
+      viewBox="0 0 24 24"
+      width="1em"
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <path d={d} />

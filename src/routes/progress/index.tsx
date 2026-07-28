@@ -9,25 +9,35 @@ import {
   MetadataList,
   MetadataListItem,
   ProgressBar,
+  proportional,
   Tab,
   TabList,
   Table,
   Text,
   VStack,
-  proportional,
 } from "@astryxdesign/core";
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import {
-  ScaleIcon,
   BarChartIcon,
   MealIcon,
+  ScaleIcon,
 } from "~/components/icons/FitTrackIcons";
 import { ProgressSkeleton } from "~/components/loading/PageSkeletons";
-import { getBodyLogs, getProgressHighlights, getWorkoutSessions, getWeeklyNutrition, getWeeklyVolume } from '~/lib/api';
-import type { MuscleVolume, ProgressHighlights, WeeklyNutritionReport } from '~/lib/api';
+import type {
+  MuscleVolume,
+  ProgressHighlights,
+  WeeklyNutritionReport,
+} from "~/lib/api";
+import {
+  getBodyLogs,
+  getProgressHighlights,
+  getWeeklyNutrition,
+  getWeeklyVolume,
+  getWorkoutSessions,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
@@ -66,7 +76,7 @@ export const Route = createFileRoute("/progress/")({
         getWeeklyNutrition(),
         getProgressHighlights(),
       ]);
-    return { bodyLogs, sessions, weeklyVolume, weeklyNutrition, highlights };
+    return { bodyLogs, highlights, sessions, weeklyNutrition, weeklyVolume };
   },
   pendingComponent: ProgressSkeleton,
 });
@@ -131,14 +141,14 @@ function ProgressPageContent() {
     return (
       <DataLoadErrorView
         heading="Progress"
-        title="Failed to load progress data"
         query={failedQuery}
+        title="Failed to load progress data"
       />
     );
   }
 
   const bodyLogs = bodyLogsQuery.data!;
-  const sessions = sessionsQuery.data!;
+  const _sessions = sessionsQuery.data!;
   const weeklyVolume = weeklyVolumeQuery.data!;
   const weeklyNutrition = weeklyNutritionQuery.data!;
   const highlights = highlightsQuery.data!;
@@ -152,15 +162,15 @@ function ProgressPageContent() {
       <Card padding={4}>
         <VStack gap={4}>
           <TabList
-            value={activeTab}
-            onChange={(value: string) => setActiveTab(value as TabView)}
-            layout="fill"
-            size="lg"
             hasDivider
+            layout="fill"
+            onChange={(value: string) => setActiveTab(value as TabView)}
+            size="lg"
+            value={activeTab}
           >
-            <Tab value="weight" label="Weight" />
-            <Tab value="volume" label="Volume" />
-            <Tab value="nutrition" label="Nutrition" />
+            <Tab label="Weight" value="weight" />
+            <Tab label="Volume" value="volume" />
+            <Tab label="Nutrition" value="nutrition" />
           </TabList>
 
           {activeTab === "weight" && <WeightView bodyLogs={bodyLogs} />}
@@ -188,7 +198,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
             <>
               <Heading level={3}>
                 {highlights.bestLift.weightKg}{" "}
-                <Text type="body" size="base" weight="normal">
+                <Text size="base" type="body" weight="normal">
                   kg
                 </Text>
               </Heading>
@@ -198,7 +208,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
               </Text>
             </>
           ) : (
-            <Text size="2xl" weight="bold" hasTabularNumbers>
+            <Text hasTabularNumbers size="2xl" weight="bold">
               &mdash;
             </Text>
           )}
@@ -210,7 +220,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
           <Text type="label">Monthly Volume</Text>
           <Heading level={3}>
             {formatDisplayInteger(highlights.monthlyVolumeKg)}{" "}
-            <Text type="body" size="base" weight="normal">
+            <Text size="base" type="body" weight="normal">
               kg
             </Text>
           </Heading>
@@ -223,7 +233,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
           <Text type="label">Workout Streak</Text>
           <Heading level={3}>
             {highlights.workoutStreak}{" "}
-            <Text type="body" size="base" weight="normal">
+            <Text size="base" type="body" weight="normal">
               day{highlights.workoutStreak === 1 ? "" : "s"}
             </Text>
           </Heading>
@@ -244,17 +254,17 @@ function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
     .filter(
       (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
     )
-    .sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   if (weighted.length === 0) {
     return (
       <EmptyState
-        icon={<ScaleIcon />}
-        title="No weight logs yet"
-        description="Log your weight in Settings to start tracking trends."
         actions={
-          <Button label="Log your weight" variant="primary" href="/settings" />
+          <Button href="/settings" label="Log your weight" variant="primary" />
         }
+        description="Log your weight in Settings to start tracking trends."
+        icon={<ScaleIcon />}
+        title="No weight data yet"
       />
     );
   }
@@ -264,7 +274,7 @@ function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
 
   return (
     <VStack gap={4}>
-      <WeightAreaChart weights={weights} sma={sma} trend={trend!} />
+      <WeightAreaChart sma={sma} trend={trend!} weights={weights} />
       <RecentWeightTable bodyLogs={bodyLogs} />
     </VStack>
   );
@@ -286,7 +296,9 @@ function WeightAreaChart({
   // Map SMA values to chart points, skipping nulls with breaks in the line
   const smaPoints = sma
     .map((value, index) => {
-      if (value === null) {return null;}
+      if (value === null) {
+        return null;
+      }
       const point = weightChartPoints([value], trend.min, trend.max, geometry);
       return {
         x: (index / Math.max(weights.length - 1, 1)) * geometry.width,
@@ -299,18 +311,18 @@ function WeightAreaChart({
     smaPoints.length > 0 ? smaPoints.map((p) => `${p.x},${p.y}`).join(" ") : "";
 
   const accentColor = "var(--color-accent)";
-  const accentColorFaded = "var(--color-accent)";
+  const _accentColorFaded = "var(--color-accent)";
 
   return (
     <svg
-      role="img"
       aria-label="Weight trend area chart with 7-day moving average"
+      role="img"
       viewBox={`0 0 ${geometry.width} ${geometry.viewBoxHeight}`}
       width="100%"
     >
       <title>Weight trend area chart with 7-day moving average</title>
       <defs>
-        <linearGradient id="weight-area-fill" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="weight-area-fill" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={accentColor} stopOpacity="0.35" />
           <stop offset="100%" stopColor={accentColor} stopOpacity="0.02" />
         </linearGradient>
@@ -321,37 +333,37 @@ function WeightAreaChart({
 
       {/* Raw data line */}
       <polyline
-        points={points.map((p) => `${p.x},${p.y}`).join(" ")}
         fill="none"
+        points={points.map((p) => `${p.x},${p.y}`).join(" ")}
         stroke={accentColor}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
         strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
       />
 
       {/* 7-day SMA trend line — thicker, dashed */}
-      {smaLine && (
+      {smaLine ? (
         <polyline
-          points={smaLine}
           fill="none"
-          stroke={accentColor}
-          strokeWidth={3}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          strokeDasharray="6 3"
           opacity={0.7}
+          points={smaLine}
+          stroke={accentColor}
+          strokeDasharray="6 3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
         />
-      )}
+      ) : null}
 
       {/* Data point dots */}
       {points.map((point, index) => (
         <circle
-          key={index}
           cx={point.x}
           cy={point.y}
-          r={2}
           fill={accentColor}
+          key={index}
           opacity={0.6}
+          r={2}
         />
       ))}
     </svg>
@@ -359,10 +371,10 @@ function WeightAreaChart({
 }
 
 interface WeightLogRow extends Record<string, unknown> {
-  id: number;
-  date: string;
-  weight: string;
   bodyFat: string;
+  date: string;
+  id: number;
+  weight: string;
 }
 
 function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
@@ -376,14 +388,14 @@ function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
   return (
     <Table
       aria-label="Recent weight log entries"
-      data={rows}
-      idKey="id"
-      density="compact"
       columns={[
         { header: "Date", key: "date", width: proportional(1) },
         { header: "Weight", key: "weight", width: proportional(1) },
         { header: "Body Fat", key: "bodyFat", width: proportional(1) },
       ]}
+      data={rows}
+      density="compact"
+      idKey="id"
     />
   );
 }
@@ -397,7 +409,9 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
   const [visibleCount, setVisibleCount] = React.useState(0);
 
   React.useEffect(() => {
-    if (volume.length === 0) {return;}
+    if (volume.length === 0) {
+      return;
+    }
     setVisibleCount(0);
     // Check for reduced motion preference
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -409,7 +423,9 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
     const timer = setInterval(() => {
       setVisibleCount(i);
       i++;
-      if (i > volume.length) {clearInterval(timer);}
+      if (i > volume.length) {
+        clearInterval(timer);
+      }
     }, 80);
     return () => clearInterval(timer);
   }, [volume.length]);
@@ -417,10 +433,10 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
   if (volume.length === 0) {
     return (
       <EmptyState
-        isCompact
-        icon={<BarChartIcon />}
-        title="No training data"
         description="No training data in the last 7 days. Log a workout to see volume analysis."
+        icon={<BarChartIcon />}
+        isCompact
+        title="No training data"
       />
     );
   }
@@ -438,8 +454,8 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
         {volume.map((mv, index) => (
           <AnimatedVolumeRow
             key={mv.muscle_group}
-            volume={mv}
             visible={index < visibleCount}
+            volume={mv}
           />
         ))}
       </VStack>
@@ -458,7 +474,7 @@ function AnimatedVolumeRow({
   const status = volumeStatusBadge(volume.status);
 
   return (
-    <VStack gap={1} aria-hidden={!visible}>
+    <VStack aria-hidden={!visible} gap={1}>
       <HStack hAlign="between" vAlign="center" wrap="wrap">
         <Text weight="semibold">
           {capitalizeMuscleGroup(volume.muscle_group)}
@@ -468,24 +484,24 @@ function AnimatedVolumeRow({
           <Text type="supporting">
             ({volume.min_recommended}&ndash;{volume.max_recommended} optimal)
           </Text>
-          <Badge variant={status.variant} label={status.label} />
+          <Badge label={status.label} variant={status.variant} />
         </HStack>
       </HStack>
       {visible ? (
         <ProgressBar
-          label={`${capitalizeMuscleGroup(volume.muscle_group)} weekly volume`}
-          value={bar.value}
-          max={bar.max}
-          variant={bar.variant}
           isLabelHidden
+          label={`${capitalizeMuscleGroup(volume.muscle_group)} weekly volume`}
+          max={bar.max}
+          value={bar.value}
+          variant={bar.variant}
         />
       ) : (
         <ProgressBar
-          label={`${capitalizeMuscleGroup(volume.muscle_group)} weekly volume`}
-          value={0}
-          max={bar.max}
-          variant="accent"
           isLabelHidden
+          label={`${capitalizeMuscleGroup(volume.muscle_group)} weekly volume`}
+          max={bar.max}
+          value={0}
+          variant="accent"
         />
       )}
       <Text type="supporting">
@@ -525,10 +541,10 @@ function NutritionView({ weekly }: { weekly: WeeklyNutritionReport }) {
         </MetadataList>
       ) : (
         <EmptyState
-          isCompact
-          icon={<MealIcon />}
-          title="No food logged"
           description="No food logged in the last 7 days."
+          icon={<MealIcon />}
+          isCompact
+          title="No food logged"
         />
       )}
     </VStack>

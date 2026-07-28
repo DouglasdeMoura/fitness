@@ -4,24 +4,37 @@
  */
 
 import type Database from "better-sqlite3";
-
-import { getNotificationPreferences, hasPushSubscription, listUserIds, notificationSlotForNow, reminderPayloadForType, sendPushToUserSubscriptions, shouldDeliver, tryClaimNotificationDelivery, SCHEDULED_NOTIFICATION_TYPES } from './push';
-import type { PushNotificationClient, ScheduledNotificationType, VapidConfig } from './push';
+import type {
+  PushNotificationClient,
+  ScheduledNotificationType,
+  VapidConfig,
+} from "./push";
+import {
+  getNotificationPreferences,
+  hasPushSubscription,
+  listUserIds,
+  notificationSlotForNow,
+  reminderPayloadForType,
+  SCHEDULED_NOTIFICATION_TYPES,
+  sendPushToUserSubscriptions,
+  shouldDeliver,
+  tryClaimNotificationDelivery,
+} from "./push";
 
 type EnvLike = Record<string, string | undefined>;
 
 export interface SchedulerRunResult {
   delivered: number;
-  skipped_no_subscription: number;
-  skipped_not_due: number;
   skipped_duplicate: number;
+  skipped_no_subscription: number;
   skipped_not_configured: number;
+  skipped_not_due: number;
 }
 
 export interface RunScheduledNotificationsInput {
+  client: PushNotificationClient;
   db: Database.Database;
   now: Date;
-  client: PushNotificationClient;
   vapid: VapidConfig | null;
 }
 

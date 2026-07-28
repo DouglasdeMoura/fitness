@@ -1,5 +1,5 @@
-import { expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 /** Main app routes verified for mobile layout and accessibility (issue #49). */
 export const APP_ROUTES = [
@@ -95,19 +95,26 @@ export async function findUndersizedInteractiveElements(
 
       const label = (element: Element): string => {
         const aria = element.getAttribute("aria-label");
-        if (aria)
-          {return `${element.tagName.toLowerCase()}[aria-label="${aria}"]`;}
+        if (aria) {
+          return `${element.tagName.toLowerCase()}[aria-label="${aria}"]`;
+        }
         const name =
           "name" in element ? (element as HTMLInputElement).name : "";
-        if (name) {return `${element.tagName.toLowerCase()}[name="${name}"]`;}
+        if (name) {
+          return `${element.tagName.toLowerCase()}[name="${name}"]`;
+        }
         const text = element.textContent?.trim().slice(0, 40);
-        if (text) {return `${element.tagName.toLowerCase()}("${text}")`;}
+        if (text) {
+          return `${element.tagName.toLowerCase()}("${text}")`;
+        }
         return element.tagName.toLowerCase();
       };
 
       const undersized: string[] = [];
       for (const element of document.querySelectorAll(selector)) {
-        if (!isVisible(element)) {continue;}
+        if (!isVisible(element)) {
+          continue;
+        }
         const rect = element.getBoundingClientRect();
         if (rect.width < minSize || rect.height < minSize) {
           undersized.push(
@@ -129,7 +136,9 @@ export function formatAxeViolations(
     nodes: unknown[];
   }[]
 ): string {
-  if (violations.length === 0) {return "";}
+  if (violations.length === 0) {
+    return "";
+  }
   return violations
     .map(
       (violation) =>
@@ -218,15 +227,15 @@ export async function findDestructiveSpacingViolations(
       const horizontalGap =
         a.right <= b.left
           ? b.left - a.right
-          : (b.right <= a.left
+          : b.right <= a.left
             ? a.left - b.right
-            : 0);
+            : 0;
       const verticalGap =
         a.bottom <= b.top
           ? b.top - a.bottom
-          : (b.bottom <= a.top
+          : b.bottom <= a.top
             ? a.top - b.bottom
-            : 0);
+            : 0;
       if (horizontalGap > 0 && verticalGap > 0) {
         return Math.min(horizontalGap, verticalGap);
       }
@@ -250,8 +259,9 @@ export async function findDestructiveSpacingViolations(
           destructive.contains(other) ||
           other.contains(destructive) ||
           !isVisible(other)
-        )
-          {continue;}
+        ) {
+          continue;
+        }
         const otherRect = other.getBoundingClientRect();
         const gap = gapBetween(destructiveRect, otherRect);
         if (gap > 0 && gap < minGap) {

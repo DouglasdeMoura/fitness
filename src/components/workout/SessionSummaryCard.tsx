@@ -14,8 +14,8 @@ import type { WorkoutSessionSummary } from "~/lib/api";
 import { formatDisplayInteger } from "~/lib/format-number";
 
 interface SessionSummaryCardProps {
-  summary: WorkoutSessionSummary;
   onDone: () => void;
+  summary: WorkoutSessionSummary;
 }
 
 export function SessionSummaryCard({
@@ -23,7 +23,7 @@ export function SessionSummaryCard({
   onDone,
 }: SessionSummaryCardProps) {
   const durationLabel =
-    summary.durationMinutes == null
+    summary.durationMinutes === null
       ? "—"
       : `${formatDisplayInteger(summary.durationMinutes)} min`;
 
@@ -35,7 +35,7 @@ export function SessionSummaryCard({
           <Text type="supporting">{summary.name}</Text>
         </VStack>
 
-        <Text size="2xl" weight="bold" aria-label="Session volume comparison">
+        <Text aria-label="Session volume comparison" size="2xl" weight="bold">
           {summary.comparisonSentence}
         </Text>
 
@@ -70,7 +70,7 @@ export function SessionSummaryCard({
           </MetadataListItem>
         </MetadataList>
 
-        <Button label="Done" variant="primary" size="lg" clickAction={onDone} />
+        <Button clickAction={onDone} label="Done" size="lg" variant="primary" />
       </VStack>
     </Card>
   );

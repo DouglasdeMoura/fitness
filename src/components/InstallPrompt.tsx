@@ -8,9 +8,18 @@ import {
   VStack,
 } from "@astryxdesign/core";
 import { useEffect, useState } from "react";
-
-import { INSTALL_BUTTON_LABEL, INSTALL_CARD_TITLE, INSTALLED_MESSAGE, IOS_INSTALL_DESCRIPTION, IOS_INSTALL_STEPS, UNAVAILABLE_MESSAGE, getInstallMode, isIosDevice, readIsStandalone } from '~/lib/pwa-install';
-import type { InstallMode } from '~/lib/pwa-install';
+import type { InstallMode } from "~/lib/pwa-install";
+import {
+  getInstallMode,
+  INSTALL_BUTTON_LABEL,
+  INSTALL_CARD_TITLE,
+  INSTALLED_MESSAGE,
+  IOS_INSTALL_DESCRIPTION,
+  IOS_INSTALL_STEPS,
+  isIosDevice,
+  readIsStandalone,
+  UNAVAILABLE_MESSAGE,
+} from "~/lib/pwa-install";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -50,7 +59,9 @@ export function InstallPrompt() {
 
     refresh(false);
 
-    if (standalone || ios) {return;}
+    if (standalone || ios) {
+      return;
+    }
 
     const onBeforeInstall = (event: Event) => {
       event.preventDefault();
@@ -65,10 +76,14 @@ export function InstallPrompt() {
     };
   }, []);
 
-  if (mode == null) {return null;}
+  if (mode === null) {
+    return null;
+  }
 
   const handleInstall = async () => {
-    if (!deferred) {return;}
+    if (!deferred) {
+      return;
+    }
     setInstalling(true);
     try {
       await deferred.prompt();
@@ -93,8 +108,8 @@ export function InstallPrompt() {
       <VStack gap={3}>
         <Heading level={2}>{INSTALL_CARD_TITLE}</Heading>
         <InstallPromptBody
-          mode={mode}
           installing={installing}
+          mode={mode}
           onInstall={handleInstall}
         />
       </VStack>
@@ -123,11 +138,11 @@ function InstallPromptBody({
           experience.
         </Text>
         <Button
-          label={INSTALL_BUTTON_LABEL}
-          variant="primary"
-          size="lg"
-          isLoading={installing}
           clickAction={onInstall}
+          isLoading={installing}
+          label={INSTALL_BUTTON_LABEL}
+          size="lg"
+          variant="primary"
         />
       </VStack>
     );
@@ -139,8 +154,8 @@ function InstallPromptBody({
         <Text type="supporting">{IOS_INSTALL_DESCRIPTION}</Text>
         <List
           density="spacious"
-          listStyle="decimal"
           header={<Text type="label">Safari steps</Text>}
+          listStyle="decimal"
         >
           {IOS_INSTALL_STEPS.map((step) => (
             <ListItem key={step} label={step} />

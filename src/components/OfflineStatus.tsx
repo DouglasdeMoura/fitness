@@ -2,9 +2,14 @@ import { Text, VStack } from "@astryxdesign/core";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useState } from "react";
-
-import { getOfflineState, getQueuedMutations, startOfflineSupport, subscribeToOfflineState, syncOutbox } from '~/lib/offline';
-import type { OfflineState } from '~/lib/offline';
+import type { OfflineState } from "~/lib/offline";
+import {
+  getOfflineState,
+  getQueuedMutations,
+  startOfflineSupport,
+  subscribeToOfflineState,
+  syncOutbox,
+} from "~/lib/offline";
 import type { QueuedMutationKind } from "~/lib/sync";
 
 // Every queued mutation kind needs a label — the offline banner names what is
@@ -57,33 +62,45 @@ export function OfflineStatus() {
       return;
     }
     let active = true;
-    void getQueuedMutations().then((queued) => {
-      if (active) {setPendingKinds(queued.map((entry) => entry.kind));}
+    getQueuedMutations().then((queued) => {
+      if (active) {
+        setPendingKinds(queued.map((entry) => entry.kind));
+      }
     });
     return () => {
       active = false;
     };
   }, [pending]);
 
-  if (!state) {return null;}
+  if (!state) {
+    return null;
+  }
 
   const offline = state.online === false;
-  if (!offline && pending === 0 && !state.lastError) {return null;}
+  if (!offline && pending === 0 && !state.lastError) {
+    return null;
+  }
 
-  const status = offline ? "warning" : (state.lastError ? "error" : "info");
   const changes = `${pending} change${pending === 1 ? "" : "s"}`;
+  let status: "warning" | "error" | "info" = "info";
+  let title: string;
+  let description: string;
 
-  const title = offline
-    ? OFFLINE_BANNER_TITLE
-    : (state.lastError
-      ? "Some changes could not be saved"
-      : `${changes} waiting to sync`);
-
-  const description = offline
-    ? (pending > 0
-      ? `${changes} saved on this device. They'll sync automatically when you reconnect.`
-      : "Your cached food database and recent logs are still available. Anything you log is saved on this device.")
-    : state.lastError || "Syncing your offline changes now.";
+  if (offline) {
+    status = "warning";
+    title = OFFLINE_BANNER_TITLE;
+    description =
+      pending > 0
+        ? `${changes} saved on this device. They'll sync automatically when you reconnect.`
+        : "Your cached food database and recent logs are still available. Anything you log is saved on this device.";
+  } else if (state.lastError) {
+    status = "error";
+    title = "Some changes could not be saved";
+    description = state.lastError;
+  } else {
+    title = `${changes} waiting to sync`;
+    description = "Syncing your offline changes now.";
+  }
 
   const showSyncButton = offline === false && pending > 0;
 
@@ -97,22 +114,22 @@ export function OfflineStatus() {
   return (
     <Banner
       container="section"
-      status={status}
-      title={title}
       description={description}
       endContent={
         showSyncButton ? (
           <Button
-            label={state.syncing ? "Syncing" : "Sync now"}
-            variant="secondary"
-            size="sm"
-            isLoading={state.syncing}
             clickAction={async () => {
               await syncOutbox();
             }}
+            isLoading={state.syncing}
+            label={state.syncing ? "Syncing" : "Sync now"}
+            size="sm"
+            variant="secondary"
           />
-        ) : undefined
+        ) : null
       }
+      status={status}
+      title={title}
     >
       {pendingKinds.length > 0 ? (
         <VStack gap={1}>
@@ -122,7 +139,7 @@ export function OfflineStatus() {
             </Text>
           ))}
         </VStack>
-      ) : undefined}
+      ) : null}
     </Banner>
   );
 }

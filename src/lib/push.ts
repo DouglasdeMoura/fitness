@@ -14,12 +14,12 @@ import { isIosDevice } from "./pwa-install";
 // --- Types ---
 
 export interface PushSubscriptionRow {
-  id: number;
-  user_id: number;
-  endpoint: string;
-  p256dh: string;
   auth: string;
   created_at: string;
+  endpoint: string;
+  id: number;
+  p256dh: string;
+  user_id: number;
 }
 
 export interface PushSubscriptionInput {
@@ -31,15 +31,15 @@ export interface PushSubscriptionInput {
 }
 
 export interface VapidConfig {
-  publicKey: string;
   privateKey: string;
+  publicKey: string;
   subject: string;
 }
 
 export interface PushPayload {
-  title: string;
   body: string;
   tag?: string;
+  title: string;
   url?: string;
 }
 
@@ -57,16 +57,16 @@ export type PushUiMode =
   | "denied";
 
 export interface PushEnvironment {
-  userAgent: string;
-  platform: string;
-  maxTouchPoints: number;
-  isStandalone: boolean;
-  hasServiceWorker: boolean;
-  hasPushManager: boolean;
   hasNotification: boolean;
-  vapidConfigured: boolean;
-  permission: NotificationPermission;
+  hasPushManager: boolean;
+  hasServiceWorker: boolean;
+  isStandalone: boolean;
   isSubscribed: boolean;
+  maxTouchPoints: number;
+  permission: NotificationPermission;
+  platform: string;
+  userAgent: string;
+  vapidConfigured: boolean;
 }
 
 // --- UI copy ---
@@ -112,7 +112,7 @@ export function readVapidConfig(
 ): VapidConfig | null {
   const publicKey = readVapidPublicKey(env);
   const privateKey = env.VAPID_PRIVATE_KEY?.trim();
-  if (!publicKey || !privateKey) {
+  if (!(publicKey && privateKey)) {
     return null;
   }
   const subject = env.VAPID_SUBJECT?.trim() || "mailto:fittrack@example.com";
@@ -174,11 +174,11 @@ export function hasPushSubscription(
 // --- Delivery ---
 
 export interface PushNotificationClient {
-  sendNotification(
+  sendNotification: (
     subscription: PushSubscriptionInput,
     payload: PushPayload,
     vapid: VapidConfig
-  ): Promise<{ statusCode: number }>;
+  ) => Promise<{ statusCode: number }>;
 }
 
 /** Production client backed by the web-push library. */
@@ -241,7 +241,7 @@ export async function sendPushToSubscription(
       error && typeof error === "object" && "statusCode" in error
         ? Number((error as { statusCode: number }).statusCode)
         : null;
-    if (statusCode != null && isGoneStatus(statusCode)) {
+    if (statusCode !== null && isGoneStatus(statusCode)) {
       pruneGone(row.endpoint);
       return { endpoint: row.endpoint, status: "gone" };
     }
@@ -278,13 +278,21 @@ export async function sendPushToUserSubscriptions(
  * getPushUiMode({ vapidConfigured: false, ... }) // 'not-configured'
  */
 export function getPushUiMode(env: PushEnvironment): PushUiMode {
-  if (!env.vapidConfigured) {return "not-configured";}
-  if (!env.hasServiceWorker || !env.hasPushManager || !env.hasNotification) {
+  if (!env.vapidConfigured) {
+    return "not-configured";
+  }
+  if (!(env.hasServiceWorker && env.hasPushManager && env.hasNotification)) {
     return "unsupported";
   }
-  if (isIosDevice(env) && !env.isStandalone) {return "ios-install-required";}
-  if (env.permission === "denied") {return "denied";}
-  if (env.isSubscribed) {return "subscribed";}
+  if (isIosDevice(env) && !env.isStandalone) {
+    return "ios-install-required";
+  }
+  if (env.permission === "denied") {
+    return "denied";
+  }
+  if (env.isSubscribed) {
+    return "subscribed";
+  }
   return "prompt-enable";
 }
 
@@ -293,7 +301,9 @@ export function urlBase64ToUint8Array(
   base64String: string
 ): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replaceAll(/-/g, "+").replaceAll(/_/g, "/");
+  const base64 = (base64String + padding)
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
   const raw = atob(base64);
   // Backed by a concrete ArrayBuffer so it satisfies BufferSource for
   // pushManager.subscribe's applicationServerKey.
@@ -307,7 +317,7 @@ export function urlBase64ToUint8Array(
 export function subscriptionInputFromJson(
   json: PushSubscriptionJSON
 ): PushSubscriptionInput {
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+  if (!(json.endpoint && json.keys?.p256dh && json.keys?.auth)) {
     throw new Error(
       `Push subscription JSON missing endpoint or keys; got ${JSON.stringify(json)}`
     );
@@ -353,7 +363,7 @@ export async function unsubscribeBrowserPush(): Promise<string | null> {
   if (!subscription) {
     return null;
   }
-  const {endpoint} = subscription;
+  const { endpoint } = subscription;
   await subscription.unsubscribe();
   return endpoint;
 }
@@ -453,15 +463,15 @@ export function listUserIds(db: Database.Database): number[] {
 // --- Reminder preferences (issue #66) ---
 
 export {
-  REMINDERS_CARD_TITLE,
-  WEEKDAY_OPTIONS,
   defaultNotificationPreferences,
   getNotificationPreferences,
-  upsertNotificationPreferences,
   isInQuietHours,
-  shouldDeliver,
   minutesSinceMidnight,
-  type NotificationType,
   type NotificationPreferences,
   type NotificationPreferencesUpdate,
+  type NotificationType,
+  REMINDERS_CARD_TITLE,
+  shouldDeliver,
+  upsertNotificationPreferences,
+  WEEKDAY_OPTIONS,
 } from "./notification-preferences";

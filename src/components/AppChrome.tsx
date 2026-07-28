@@ -4,21 +4,20 @@ import { AppShell } from "@astryxdesign/core/AppShell";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { LinkProvider } from "@astryxdesign/core/Link";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
-import { Theme } from "@astryxdesign/core/theme";
 import { ToastViewport } from "@astryxdesign/core/Toast";
-import { Toolbar } from "@astryxdesign/core/Toolbar";
-import { TopNav, TopNavHeading, TopNavItem } from "@astryxdesign/core/TopNav";
+import { TopNav, TopNavHeading } from "@astryxdesign/core/TopNav";
+import { Theme } from "@astryxdesign/core/theme";
 import { useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import {
   DashboardIcon,
   NutritionIcon,
-  WorkoutIcon,
   ProgressIcon,
   SettingsIcon,
   ThemeToggleIcon,
+  WorkoutIcon,
 } from "~/components/icons/FitTrackIcons";
 import { OfflineStatus } from "~/components/OfflineStatus";
 import { RouterLink } from "~/components/RouterLink";
@@ -27,7 +26,6 @@ import { RestTimer } from "~/components/workout/RestTimer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
 import {
   getStoredTheme,
-  isNavSelected,
   isWorkoutRoute,
   navValueFromPath,
   THEME_CHANGE_EVENT,
@@ -48,29 +46,9 @@ const NAV_ITEMS = [
   { href: "/settings", icon: SettingsIcon, label: "Settings" },
 ] as const;
 
-function PrimaryRouteToolbar() {
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  });
-
-  return (
-    <Toolbar
-      label="FitTrack primary routes"
-      startContent={NAV_ITEMS.map((item) => (
-        <TopNavItem
-          key={item.href}
-          label={item.label}
-          href={item.href}
-          isSelected={isNavSelected(
-            pathname,
-            item.href,
-            "exact" in item ? item.exact : false
-          )}
-        />
-      ))}
-    />
-  );
-}
+const NOOP = () => {
+  /* intentional no-op for TabList onChange */
+};
 
 function MobileBottomNav() {
   const pathname = useRouterState({
@@ -80,22 +58,22 @@ function MobileBottomNav() {
   return (
     <TabList
       aria-label="FitTrack mobile navigation"
-      value={navValueFromPath(pathname, NAV_ITEMS)}
-      onChange={() => {}}
-      layout="fill"
-      size="lg"
       hasDivider
+      layout="fill"
+      onChange={NOOP}
+      size="lg"
+      value={navValueFromPath(pathname, NAV_ITEMS)}
     >
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         return (
           <Tab
-            key={item.href}
-            value={item.href}
-            label={item.label}
             href={item.href}
-            isLabelHidden
             icon={<Icon />}
+            isLabelHidden
+            key={item.href}
+            label={item.label}
+            value={item.href}
           />
         );
       })}
@@ -134,7 +112,9 @@ export function AppChrome({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!themeReady) {return;}
+    if (!themeReady) {
+      return;
+    }
     localStorage.setItem("fittrack-theme", colorMode);
   }, [colorMode, themeReady]);
 
@@ -182,7 +162,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   // A <section> wraps the children so the CSS [data-page-transition] animation
   // fires on every mount (React unmounts/remounts when the key changes).
   const pageContent = (
-    <section key={pathname} data-page-transition>
+    <section data-page-transition key={pathname}>
       <OfflineStatus />
       {children}
       <RestTimerMount />
@@ -191,30 +171,29 @@ export function AppChrome({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Theme theme={fittrackTheme} mode={colorMode}>
+    <Theme mode={colorMode} theme={fittrackTheme}>
       <LinkProvider component={RouterLink}>
-        <ToastViewport position="bottomEnd" maxVisible={3}>
+        <ToastViewport maxVisible={3} position="bottomEnd">
           <AppShell
             contentPadding={4}
             height="auto"
             mobileNav={false}
             topNav={
               <TopNav
-                label="FitTrack navigation"
-                heading={<TopNavHeading heading="FitTrack" headingHref="/" />}
-                startContent={<PrimaryRouteToolbar />}
                 endContent={
                   <IconButton
-                    label="Toggle dark mode"
-                    tooltip="Toggle dark mode"
                     icon={<ThemeToggleIcon />}
-                    variant="ghost"
-                    size="lg"
+                    label="Toggle dark mode"
                     onClick={() => {
                       setColorMode((mode) => toggleColorMode(mode));
                     }}
+                    size="lg"
+                    tooltip="Toggle dark mode"
+                    variant="ghost"
                   />
                 }
+                heading={<TopNavHeading heading="FitTrack" headingHref="/" />}
+                label="FitTrack navigation"
               />
             }
           >

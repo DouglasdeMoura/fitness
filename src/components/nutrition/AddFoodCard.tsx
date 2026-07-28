@@ -25,20 +25,38 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-store";
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 
 import { BarcodeScanner } from "~/components/nutrition/BarcodeScanner";
 import { useDebouncedValue } from "~/hooks/use-debounced-value";
-import { addFood, addFoodLogEntry, getLoggedFoodStats, getRecentFoods, searchFoods } from '~/lib/api';
-import type { LoggedFoodSummary } from '~/lib/api';
-import { customFoodPayload, EMPTY_CUSTOM_FOOD_DRAFT, isCustomFoodDraftValid } from '~/lib/custom-food';
-import type { CustomFoodDraft } from '~/lib/custom-food';
+import type { LoggedFoodSummary } from "~/lib/api";
+import {
+  addFood,
+  addFoodLogEntry,
+  getLoggedFoodStats,
+  getRecentFoods,
+  searchFoods,
+} from "~/lib/api";
+import type { CustomFoodDraft } from "~/lib/custom-food";
+import {
+  customFoodPayload,
+  EMPTY_CUSTOM_FOOD_DRAFT,
+  isCustomFoodDraftValid,
+} from "~/lib/custom-food";
 import type { Food } from "~/lib/db";
-import { FOOD_SEARCH_MIN_LENGTH, isFoodSearchPending, rankFoodSearchResults } from '~/lib/food-search';
-import type { RankedFoodSearchResult } from '~/lib/food-search';
-import { buildFoodLogDraft, mealTypeForHour, MEAL_TYPE_LABELS } from '~/lib/nutrition';
-import type { MealType } from '~/lib/nutrition';
+import type { RankedFoodSearchResult } from "~/lib/food-search";
+import {
+  FOOD_SEARCH_MIN_LENGTH,
+  isFoodSearchPending,
+  rankFoodSearchResults,
+} from "~/lib/food-search";
+import type { MealType } from "~/lib/nutrition";
+import {
+  buildFoodLogDraft,
+  MEAL_TYPE_LABELS,
+  mealTypeForHour,
+} from "~/lib/nutrition";
 import { runOrQueue, searchCachedFoods } from "~/lib/offline";
 import { foodLoggedBody, mutationFailedBody } from "~/lib/toasts";
 
@@ -60,9 +78,9 @@ const SEARCH_DEBOUNCE_MS = 300;
 const SEARCH_MIN_LENGTH = FOOD_SEARCH_MIN_LENGTH;
 
 interface FoodLogEntryValues {
+  mealType: MealType;
   selectedFood: Food | null;
   servings: number | null;
-  mealType: MealType;
 }
 
 type FoodLogEntryForm = ReturnType<typeof useFoodLogEntryForm>;
@@ -79,16 +97,21 @@ export interface AddFoodCardHandle {
  * `useState` left is the custom-food-form visibility toggle.
  * @example <AddFoodCard ref={addFoodRef} selectedDate="2026-07-25" />
  */
-export const AddFoodCard = forwardRef<
-  AddFoodCardHandle,
-  { selectedDate: string }
->(({ selectedDate }, ref) => {
+export const AddFoodCard = ({
+  selectedDate,
+  ref,
+}: {
+  selectedDate: string;
+  ref?: MutableRefObject<AddFoodCardHandle | null>;
+}) => {
   const form = useFoodLogEntryForm(selectedDate);
   const selectedFood = useStore(
     form.store,
     (state) => state.values.selectedFood
   );
-  const searchFocusRef = useRef<() => void>(() => {});
+  const searchFocusRef = useRef<() => void>(() => {
+    /* noop initial */
+  });
   useImperativeHandle(ref, () => ({
     focusSearch: () => searchFocusRef.current(),
   }));
@@ -99,21 +122,21 @@ export const AddFoodCard = forwardRef<
         <Heading level={2}>Add Food</Heading>
         {selectedFood ? (
           <SelectedFoodEntry
-            form={form}
             food={selectedFood}
+            form={form}
             onCancel={() => form.reset()}
           />
         ) : (
           <FoodSearchForm
-            selectedDate={selectedDate}
             onSelect={(food) => form.setFieldValue("selectedFood", food)}
             searchFocusRef={searchFocusRef}
+            selectedDate={selectedDate}
           />
         )}
       </VStack>
     </Card>
   );
-});
+};
 
 /**
  * Entry form: holds the picked food plus the servings/meal-type fields the
@@ -130,7 +153,9 @@ function useFoodLogEntryForm(selectedDate: string) {
       servings: 1,
     } as FoodLogEntryValues,
     onSubmit: async ({ value, formApi }) => {
-      if (!value.selectedFood) {return;}
+      if (!value.selectedFood) {
+        return;
+      }
       const entry = buildFoodLogDraft(
         value.selectedFood,
         value.servings ?? 1,
@@ -175,12 +200,12 @@ function SelectedFoodEntry({
         <form.Field name="servings">
           {(field) => (
             <NumberInput
-              label="Servings"
-              value={field.state.value}
-              onChange={field.handleChange}
-              min={0.5}
-              step={0.5}
               hasClear
+              label="Servings"
+              min={0.5}
+              onChange={field.handleChange}
+              step={0.5}
+              value={field.state.value}
             />
           )}
         </form.Field>
@@ -188,20 +213,20 @@ function SelectedFoodEntry({
           {(field) => (
             <Selector
               label="Meal"
-              value={field.state.value}
-              options={MEAL_OPTIONS}
               onChange={(value) => field.handleChange(value as MealType)}
+              options={MEAL_OPTIONS}
+              value={field.state.value}
             />
           )}
         </form.Field>
       </FormLayout>
       <HStack gap={2} wrap="wrap">
         <Button
+          clickAction={form.handleSubmit}
           label="Add to Log"
           variant="primary"
-          clickAction={form.handleSubmit}
         />
-        <Button label="Cancel" clickAction={onCancel} />
+        <Button clickAction={onCancel} label="Cancel" />
       </HStack>
     </VStack>
   );
@@ -264,56 +289,58 @@ function FoodSearchForm({
   return (
     <VStack gap={3}>
       <BarcodeScanner
-        selectedDate={selectedDate}
-        onSelectFood={onSelect}
         onCreateFood={(barcode) => {
           setPrefillBarcode(barcode);
           setCustomFoodOpen(true);
         }}
+        onSelectFood={onSelect}
+        selectedDate={selectedDate}
       />
       <searchForm.Field name="query">
         {(field) => (
           <HStack gap={2} vAlign="end">
             <TextInput
-              ref={searchInputRef}
-              label="Search foods"
-              placeholder="e.g. chicken breast, rice..."
-              value={field.state.value}
-              onChange={field.handleChange}
               hasClear
+              label="Search foods"
+              onChange={field.handleChange}
+              placeholder="e.g. chicken breast, rice..."
+              ref={searchInputRef}
+              value={field.state.value}
             />
             {searchPending ? (
-              <Spinner size="sm" aria-label="Searching foods" />
+              <Spinner aria-label="Searching foods" size="sm" />
             ) : null}
           </HStack>
         )}
       </searchForm.Field>
       <FoodSearchResults
+        loggedHistory={loggedHistory}
+        onCreateCustomFood={() => setCustomFoodOpen(true)}
+        onQuickLog={quickLog}
+        onSelect={onSelect}
+        recentFoods={recentFoods}
         searchState={searchState}
         trimmedQuery={trimmedQuery}
-        recentFoods={recentFoods}
-        loggedHistory={loggedHistory}
-        onSelect={onSelect}
-        onQuickLog={quickLog}
-        onCreateCustomFood={() => setCustomFoodOpen(true)}
       />
       <CustomFoodForm
-        onCreated={onSelect}
+        initialBarcode={prefillBarcode}
         isOpen={customFoodOpen}
+        onCreated={onSelect}
         onOpenChange={(open) => {
           setCustomFoodOpen(open);
-          if (!open) {setPrefillBarcode("");}
+          if (!open) {
+            setPrefillBarcode("");
+          }
         }}
-        initialBarcode={prefillBarcode}
       />
     </VStack>
   );
 }
 
 interface FoodSearchResultsState {
-  results: Food[];
   hasSearched: boolean;
   isFetching: boolean;
+  results: Food[];
 }
 
 async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
@@ -407,16 +434,18 @@ function RecentFoodsList({
   foods: LoggedFoodSummary[];
   onQuickLog: (food: LoggedFoodSummary) => void;
 }) {
-  if (foods.length === 0) {return null;}
+  if (foods.length === 0) {
+    return null;
+  }
   return (
     <VStack gap={1}>
       <Text type="label">Recent</Text>
       {foods.map((food) => (
         <Button
+          clickAction={() => onQuickLog(food)}
           key={food.id}
           label={`${food.name} — ${recentFoodDescription(food)}`}
           variant="ghost"
-          clickAction={() => onQuickLog(food)}
         />
       ))}
     </VStack>
@@ -437,13 +466,13 @@ function FoodSearchResultItem({
     logCount !== null && lastServings !== null && lastMealType !== null;
   return (
     <ListItem
-      label={food.name}
       description={`${food.calories_per_serving} kcal · ${food.protein_g} g protein`}
       endContent={
         hasHistory ? (
-          <Badge variant="neutral" label={`logged ${logCount}×`} />
-        ) : undefined
+          <Badge label={`logged ${logCount}×`} variant="neutral" />
+        ) : null
       }
+      label={food.name}
       onClick={() => {
         if (hasHistory) {
           onQuickLog(food, lastServings, lastMealType);
@@ -488,35 +517,37 @@ function FoodSearchResults({
   if (searchState.results.length > 0) {
     const ranked = rankFoodSearchResults(searchState.results, loggedHistory);
     return (
-      <List header={<Text type="label">Search results</Text>} hasDividers>
+      <List hasDividers header={<Text type="label">Search results</Text>}>
         {ranked.map((result) => (
           <FoodSearchResultItem
             key={result.food.id}
-            result={result}
-            onSelect={onSelect}
             onQuickLog={onQuickLog}
+            onSelect={onSelect}
+            result={result}
           />
         ))}
       </List>
     );
   }
 
-  if (!searchState.hasSearched) {return null;}
+  if (!searchState.hasSearched) {
+    return null;
+  }
 
   return (
     <EmptyState
-      icon={<Icon icon="search" size="lg" />}
-      title="No foods found"
-      description="Try a different search or create a custom food."
       actions={
         <Button
+          clickAction={onCreateCustomFood}
           label="Create a custom food"
           variant="primary"
-          clickAction={onCreateCustomFood}
         />
       }
+      description="Try a different search or create a custom food."
       headingLevel={3}
+      icon={<Icon icon="search" size="lg" />}
       isCompact
+      title="No foods found"
     />
   );
 }
@@ -542,20 +573,20 @@ function CustomFoodForm({
   if (!isOpen) {
     return (
       <Button
+        clickAction={() => setOpen(true)}
         label="Create Custom Food"
         size="sm"
-        clickAction={() => setOpen(true)}
       />
     );
   }
   return (
     <CustomFoodEditor
       initialBarcode={initialBarcode}
+      onCancel={() => setOpen(false)}
       onCreated={(food) => {
         onCreated(food);
         setOpen(false);
       }}
-      onCancel={() => setOpen(false)}
     />
   );
 }
@@ -582,14 +613,14 @@ function CustomFoodEditor({
         >
           {(isValid) => (
             <Button
-              label="Save Food"
-              variant="primary"
               clickAction={form.handleSubmit}
               isDisabled={!isValid}
+              label="Save Food"
+              variant="primary"
             />
           )}
         </form.Subscribe>
-        <Button label="Cancel" clickAction={onCancel} />
+        <Button clickAction={onCancel} label="Cancel" />
       </HStack>
     </VStack>
   );
@@ -606,7 +637,9 @@ function useCustomFoodForm(
       barcode: initialBarcode,
     } as CustomFoodDraft,
     onSubmit: async ({ value, formApi }) => {
-      if (!isCustomFoodDraftValid(value)) {return;}
+      if (!isCustomFoodDraftValid(value)) {
+        return;
+      }
       const payload = customFoodPayload(value);
       const outcome = await runOrQueue("addFood", payload, () =>
         addFood({ data: payload })
@@ -615,7 +648,9 @@ function useCustomFoodForm(
       onCancel();
       // Queued (offline) mutations return no row yet; the outbox replay will
       // surface the food via the search cache invalidate elsewhere.
-      if (!outcome.queued) {onCreated(outcome.result);}
+      if (!outcome.queued) {
+        onCreated(outcome.result);
+      }
     },
   });
 }
@@ -626,32 +661,32 @@ function CustomFoodIdentity({ form }: { form: CustomFoodFormApi }) {
       <form.Field name="name">
         {(field) => (
           <TextInput
+            isRequired
             label="Name"
-            value={field.state.value}
             onChange={field.handleChange}
             placeholder="Food name"
-            isRequired
+            value={field.state.value}
           />
         )}
       </form.Field>
       <form.Field name="brand">
         {(field) => (
           <TextInput
-            label="Brand"
-            value={field.state.value}
-            onChange={field.handleChange}
             isOptional
+            label="Brand"
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
       </form.Field>
       <form.Field name="barcode">
         {(field) => (
           <TextInput
+            isOptional
             label="Barcode"
-            value={field.state.value}
             onChange={field.handleChange}
             placeholder="GTIN from package"
-            isOptional
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -665,12 +700,12 @@ function CustomFoodServing({ form }: { form: CustomFoodFormApi }) {
       <form.Field name="servingSize">
         {(field) => (
           <NumberInput
-            label="Serving Size"
-            value={field.state.value}
-            onChange={field.handleChange}
-            min={0.01}
-            step={0.01}
             isRequired
+            label="Serving Size"
+            min={0.01}
+            onChange={field.handleChange}
+            step={0.01}
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -678,9 +713,9 @@ function CustomFoodServing({ form }: { form: CustomFoodFormApi }) {
         {(field) => (
           <Selector
             label="Unit"
-            value={field.state.value}
-            options={SERVING_UNIT_OPTIONS}
             onChange={(value) => field.handleChange(value)}
+            options={SERVING_UNIT_OPTIONS}
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -694,11 +729,11 @@ function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
       <form.Field name="calories">
         {(field) => (
           <NumberInput
-            label="Calories per serving"
-            value={field.state.value}
-            onChange={field.handleChange}
-            min={0}
             isRequired
+            label="Calories per serving"
+            min={0}
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -706,9 +741,9 @@ function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
         {(field) => (
           <NumberInput
             label="Protein (g)"
-            value={field.state.value}
-            onChange={field.handleChange}
             min={0}
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -716,9 +751,9 @@ function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
         {(field) => (
           <NumberInput
             label="Carbs (g)"
-            value={field.state.value}
-            onChange={field.handleChange}
             min={0}
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
       </form.Field>
@@ -726,9 +761,9 @@ function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
         {(field) => (
           <NumberInput
             label="Fat (g)"
-            value={field.state.value}
-            onChange={field.handleChange}
             min={0}
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
       </form.Field>

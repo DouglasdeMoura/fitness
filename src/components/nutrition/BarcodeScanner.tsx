@@ -25,15 +25,15 @@ import {
   normalizeBarcode,
 } from "~/lib/barcode";
 import type { Food } from "~/lib/db";
-import { buildFoodLogDraft, mealTypeForHour } from '~/lib/nutrition';
-import type { MealType } from '~/lib/nutrition';
+import type { MealType } from "~/lib/nutrition";
+import { buildFoodLogDraft, mealTypeForHour } from "~/lib/nutrition";
 import { getCachedFoodByBarcode, runOrQueue } from "~/lib/offline";
 import { foodLoggedBody, mutationFailedBody } from "~/lib/toasts";
 
 interface BarcodeScannerProps {
-  selectedDate: string;
-  onSelectFood: (food: Food) => void;
   onCreateFood: (barcode: string) => void;
+  onSelectFood: (food: Food) => void;
+  selectedDate: string;
 }
 
 type LookupState =
@@ -45,7 +45,7 @@ type LookupState =
   | { status: "error"; message: string };
 
 interface BarcodeDetectorLike {
-  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
+  detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
 }
 
 async function resolveFoodByBarcode(raw: string): Promise<Food | null> {
@@ -99,7 +99,9 @@ export function BarcodeScanner({
 
   const stopCamera = useCallback(() => {
     scanningRef.current = false;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current?.getTracks().forEach((track) => {
+      track.stop();
+    });
     streamRef.current = null;
     if (videoRef.current) {
       videoRef.current.srcObject = null;
@@ -116,7 +118,9 @@ export function BarcodeScanner({
   const handleOpenChange = useCallback(
     (open: boolean) => {
       setIsOpen(open);
-      if (!open) {resetDialog();}
+      if (!open) {
+        resetDialog();
+      }
     },
     [resetDialog]
   );
@@ -163,7 +167,7 @@ export function BarcodeScanner({
   }, []);
 
   const startCamera = useCallback(async () => {
-    if (!detectorSupported || !navigator.mediaDevices?.getUserMedia) {
+    if (!(detectorSupported && navigator.mediaDevices?.getUserMedia)) {
       return;
     }
     setCameraError(null);
@@ -174,7 +178,9 @@ export function BarcodeScanner({
       });
       streamRef.current = stream;
       const video = videoRef.current;
-      if (!video) {return;}
+      if (!video) {
+        return;
+      }
       video.srcObject = stream;
       await video.play();
       const Detector = (
@@ -184,14 +190,17 @@ export function BarcodeScanner({
           }) => BarcodeDetectorLike;
         }
       ).BarcodeDetector;
-      if (!Detector) {return;}
+      if (!Detector) {
+        return;
+      }
       detectorRef.current = new Detector({
         formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
       });
       scanningRef.current = true;
       const tick = async () => {
-        if (!scanningRef.current || !detectorRef.current || !videoRef.current)
-          {return;}
+        if (!(scanningRef.current && detectorRef.current && videoRef.current)) {
+          return;
+        }
         try {
           const codes = await detectorRef.current.detect(videoRef.current);
           const hit = codes.find((code) => normalizeBarcode(code.rawValue));
@@ -230,9 +239,9 @@ export function BarcodeScanner({
   return (
     <>
       <Button
+        clickAction={openScanner}
         label="Scan barcode"
         variant="secondary"
-        clickAction={openScanner}
       />
       <Dialog
         isOpen={isOpen}
@@ -241,22 +250,22 @@ export function BarcodeScanner({
         width={360}
       >
         <DialogHeader
-          title="Scan barcode"
+          onOpenChange={handleOpenChange}
           subtitle={
             detectorSupported
               ? "Point your camera at the barcode. HTTPS is required except on localhost."
               : "Enter the barcode from the package (manual entry — camera scanning is not supported in this browser)."
           }
-          onOpenChange={handleOpenChange}
+          title="Scan barcode"
         />
         <VStack gap={3}>
           {detectorSupported ? (
             <VStack gap={2}>
               <video
-                ref={videoRef}
-                playsInline
-                muted
                 aria-label="Barcode camera preview"
+                muted
+                playsInline
+                ref={videoRef}
               />
               {cameraError ? (
                 <Text type="supporting">{cameraError}</Text>
@@ -266,21 +275,21 @@ export function BarcodeScanner({
           <FormLayout>
             <TextInput
               label="Barcode"
-              value={manualBarcode}
               onChange={setManualBarcode}
               placeholder="e.g. 012345678905"
+              value={manualBarcode}
             />
           </FormLayout>
           <HStack gap={2} wrap="wrap">
             <Button
-              label="Look up barcode"
-              variant="primary"
               clickAction={() => void runLookup(manualBarcode)}
               isDisabled={lookup.status === "looking"}
+              label="Look up barcode"
+              variant="primary"
             />
             <Button
-              label="Cancel barcode scan"
               clickAction={() => handleOpenChange(false)}
+              label="Cancel barcode scan"
             />
           </HStack>
           {lookup.status === "looking" ? (
@@ -304,18 +313,18 @@ export function BarcodeScanner({
               </Text>
               <HStack gap={2} wrap="wrap">
                 <Button
-                  label="Log food"
-                  variant="primary"
                   clickAction={() =>
                     void logFood(lookup.food, lookup.servings, lookup.mealType)
                   }
+                  label="Log food"
+                  variant="primary"
                 />
                 <Button
-                  label="Adjust servings"
                   clickAction={() => {
                     onSelectFood(lookup.food);
                     handleOpenChange(false);
                   }}
+                  label="Adjust servings"
                 />
               </HStack>
             </VStack>
@@ -327,12 +336,12 @@ export function BarcodeScanner({
                 future scans will match.
               </Text>
               <Button
-                label="Add this food"
-                variant="primary"
                 clickAction={() => {
                   onCreateFood(lookup.barcode);
                   handleOpenChange(false);
                 }}
+                label="Add this food"
+                variant="primary"
               />
             </VStack>
           ) : null}
@@ -348,10 +357,12 @@ export function matchCachedFoodBarcode(
   raw: string
 ): Food | null {
   const normalized = normalizeBarcode(raw);
-  if (!normalized) {return null;}
+  if (!normalized) {
+    return null;
+  }
   const variants = new Set(barcodeLookupVariants(normalized));
   return (
-    foods.find((food) => food.barcode != null && variants.has(food.barcode)) ??
+    foods.find((food) => food.barcode !== null && variants.has(food.barcode)) ??
     null
   );
 }

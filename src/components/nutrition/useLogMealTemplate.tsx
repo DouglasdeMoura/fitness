@@ -7,14 +7,14 @@ import type { MealType } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
 import {
   mutationFailedBody,
-  templateLoggedBody,
   TOAST_DURATION_MS,
+  templateLoggedBody,
 } from "~/lib/toasts";
 
 interface LogMealTemplateArgs {
-  templateId: number;
-  mealType: MealType;
   expectedKcal: number;
+  mealType: MealType;
+  templateId: number;
 }
 
 /**
@@ -45,7 +45,9 @@ export function useLogMealTemplate(selectedDate: string) {
         await invalidateFoodLog();
         const entryIds = outcome.result.entries.map((entry) => entry.id);
         const kcal = outcome.result.total_calories;
-        let dismiss = () => {};
+        let dismiss = () => {
+          /* assigned below */
+        };
         dismiss = toast({
           autoHideDuration: TOAST_DURATION_MS.undo,
           body: templateLoggedBody(kcal),

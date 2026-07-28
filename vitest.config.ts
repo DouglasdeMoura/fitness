@@ -1,23 +1,23 @@
-import { defineConfig } from 'vitest/config'
-import { resolve } from 'node:path'
+import { resolve } from "node:path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
     alias: {
-      '~': resolve(__dirname, 'src'),
+      "~": resolve(import.meta.dirname, "src"),
     },
   },
   test: {
-    environment: 'node',
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
-    exclude: ['tests/e2e/**', 'node_modules/**'],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'text-summary', 'html'],
-      include: ['src/lib/**/*.ts'],
-      exclude: ['src/lib/api.ts', 'src/lib/db.ts'],
+      exclude: ["src/lib/api.ts", "src/lib/db.ts"],
+      include: ["src/lib/**/*.ts"],
+      provider: "v8",
+      reporter: ["text", "text-summary", "html"],
     },
-    testTimeout: 30000,
-    hookTimeout: 15000,
+    environment: "node",
+    exclude: ["tests/e2e/**", "node_modules/**"],
+    hookTimeout: 15_000,
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    testTimeout: 30_000,
   },
-})
+});

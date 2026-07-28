@@ -22,8 +22,11 @@ import { useState } from "react";
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
-import { ProgramExerciseTable } from '~/components/workout/ProgramExerciseTable';
-import type { RemoveProgramExercise, UpdateProgramExercise } from '~/components/workout/ProgramExerciseTable';
+import type {
+  RemoveProgramExercise,
+  UpdateProgramExercise,
+} from "~/components/workout/ProgramExerciseTable";
+import { ProgramExerciseTable } from "~/components/workout/ProgramExerciseTable";
 import {
   deleteProgram,
   getExercises,
@@ -41,8 +44,15 @@ import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
-import { buildProgramSavePayload, editableExerciseFromExercise, EMPTY_PROGRAM_FORM, newProgramDay, programFormDefaults, validateProgramDays } from '~/lib/program-form';
-import type { EditableProgramDay, ProgramFormValues } from '~/lib/program-form';
+import type { EditableProgramDay, ProgramFormValues } from "~/lib/program-form";
+import {
+  buildProgramSavePayload,
+  EMPTY_PROGRAM_FORM,
+  editableExerciseFromExercise,
+  newProgramDay,
+  programFormDefaults,
+  validateProgramDays,
+} from "~/lib/program-form";
 import { getDupDayEmphasis } from "~/lib/workout";
 
 export const Route = createFileRoute("/workout/programs/$programId")({
@@ -81,7 +91,9 @@ function ProgramDetailPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["program", id] });
       await queryClient.invalidateQueries({ queryKey: ["programs"] });
-      if (saved) {formApi.reset(programFormDefaults(saved));}
+      if (saved) {
+        formApi.reset(programFormDefaults(saved));
+      }
     },
   });
 
@@ -105,8 +117,8 @@ function ProgramDetailPage() {
     return (
       <DataLoadErrorView
         heading="Training Program"
-        title="Failed to load program"
         query={failedQuery}
+        title="Failed to load program"
       />
     );
   }
@@ -120,13 +132,13 @@ function ProgramDetailPage() {
         <Card>
           <VStack gap={3}>
             <EmptyState
-              title="Program not found"
               description={`No training program exists for id ${programId}.`}
               headingLevel={1}
+              title="Program not found"
             />
             <Button
-              label="Back to Programs"
               href="/workout/programs"
+              label="Back to Programs"
               variant="secondary"
             />
           </VStack>
@@ -156,33 +168,33 @@ function ProgramDetailPage() {
 
   const saveLabel = isSubmitting
     ? "Saving..."
-    : (isSubmitSuccessful
+    : isSubmitSuccessful
       ? "Saved!"
-      : "Save Program");
+      : "Save Program";
 
   return (
     <VStack gap={4}>
-      <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
+      <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
         <Heading level={1}>{name || "Edit Program"}</Heading>
         <HStack gap={2} wrap="wrap">
           <Button
-            label="Back to Programs"
             href="/workout/programs"
-            variant="secondary"
+            label="Back to Programs"
             size="sm"
+            variant="secondary"
           />
           <Button
-            label={`Delete ${name || "program"}`}
-            variant="destructive"
-            size="sm"
             clickAction={() => setShowDeleteDialog(true)}
+            label={`Delete ${name || "program"}`}
+            size="sm"
+            variant="destructive"
           >
             Delete
           </Button>
           <Button
+            clickAction={form.handleSubmit}
             label={saveLabel}
             variant="primary"
-            clickAction={form.handleSubmit}
           />
         </HStack>
       </HStack>
@@ -195,21 +207,21 @@ function ProgramDetailPage() {
               {(field) => (
                 <TextInput
                   label="Name"
-                  value={field.state.value}
                   onChange={field.handleChange}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
             <form.Field name="frequency">
               {(field) => (
                 <NumberInput
-                  label="Frequency (days/week)"
-                  value={field.state.value}
-                  onChange={(value) => field.handleChange(value ?? 3)}
-                  min={1}
-                  max={7}
-                  step={1}
                   isIntegerOnly
+                  label="Frequency (days/week)"
+                  max={7}
+                  min={1}
+                  onChange={(value) => field.handleChange(value ?? 3)}
+                  step={1}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -217,11 +229,11 @@ function ProgramDetailPage() {
               {(field) => (
                 <Selector
                   label="Periodization"
-                  value={field.state.value}
                   onChange={(value) =>
                     field.handleChange(value as PeriodizationType)
                   }
                   options={PERIODIZATION_OPTIONS}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -230,12 +242,12 @@ function ProgramDetailPage() {
                 {(field) => (
                   <NumberInput
                     label="Load increment (%)"
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value ?? 2.5)}
-                    min={1}
                     max={10}
+                    min={1}
+                    onChange={(value) => field.handleChange(value ?? 2.5)}
                     step={0.5}
                     units="%"
+                    value={field.state.value}
                   />
                 )}
               </form.Field>
@@ -244,8 +256,8 @@ function ProgramDetailPage() {
               {(field) => (
                 <CheckboxInput
                   label="Set as active program"
-                  value={field.state.value}
                   onChange={field.handleChange}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -253,8 +265,8 @@ function ProgramDetailPage() {
               {(field) => (
                 <TextArea
                   label="Description"
-                  value={field.state.value}
                   onChange={field.handleChange}
+                  value={field.state.value}
                 />
               )}
             </form.Field>
@@ -273,7 +285,9 @@ function ProgramDetailPage() {
             patch: Partial<EditableProgramDay>
           ) => {
             const index = days.findIndex((day) => day.tempId === tempId);
-            if (index === -1) {return;}
+            if (index === -1) {
+              return;
+            }
             daysField.replaceValue(index, { ...days[index], ...patch });
           };
           const updateExercise: UpdateProgramExercise = (
@@ -282,7 +296,9 @@ function ProgramDetailPage() {
             patch
           ) => {
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) {return;}
+            if (dayIndex === -1) {
+              return;
+            }
             const day = days[dayIndex];
             const exercises = day.exercises.map((exercise) =>
               exercise.tempId === exerciseTempId
@@ -296,9 +312,13 @@ function ProgramDetailPage() {
           };
           const addExercise = (dayTempId: string) => {
             const firstExercise = exercises[0];
-            if (!firstExercise) {return;}
+            if (!firstExercise) {
+              return;
+            }
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) {return;}
+            if (dayIndex === -1) {
+              return;
+            }
             const day = days[dayIndex];
             const nextExercise = editableExerciseFromExercise(
               firstExercise,
@@ -312,14 +332,18 @@ function ProgramDetailPage() {
           };
           const removeDay = (tempId: string) => {
             const index = days.findIndex((day) => day.tempId === tempId);
-            if (index !== -1) {daysField.removeValue(index);}
+            if (index !== -1) {
+              daysField.removeValue(index);
+            }
           };
           const removeExercise: RemoveProgramExercise = (
             dayTempId,
             exerciseTempId
           ) => {
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) {return;}
+            if (dayIndex === -1) {
+              return;
+            }
             const day = days[dayIndex];
             const exercises = day.exercises.filter(
               (exercise) => exercise.tempId !== exerciseTempId
@@ -331,9 +355,9 @@ function ProgramDetailPage() {
             return (
               <Card>
                 <EmptyState
-                  title="No training days"
                   description="Add a training day, then assign exercises and targets."
                   headingLevel={2}
+                  title="No training days"
                 />
               </Card>
             );
@@ -342,23 +366,23 @@ function ProgramDetailPage() {
           return (
             <VStack gap={3}>
               {days.map((day, dayIndex) => {
-                const {persistedId} = day;
+                const { persistedId } = day;
                 return (
                   <Card key={day.tempId}>
                     <VStack gap={3}>
                       <HStack
+                        gap={3}
                         hAlign="between"
                         vAlign="center"
-                        gap={3}
                         wrap="wrap"
                       >
                         <HStack gap={2} vAlign="center" wrap="wrap">
                           <TextInput
                             label={`Training day ${dayIndex + 1} name`}
-                            value={day.day_name}
                             onChange={(value) =>
                               updateDay(day.tempId, { day_name: value })
                             }
+                            value={day.day_name}
                           />
                           {periodizationType === "dup" &&
                           day.exercises[0]?.target_reps ? (
@@ -373,17 +397,17 @@ function ProgramDetailPage() {
                         <HStack gap={2} wrap="wrap">
                           {persistedId ? (
                             <Button
-                              label={`Start ${day.day_name}`}
-                              variant="primary"
-                              size="sm"
                               clickAction={() => handleStartDay(persistedId)}
+                              label={`Start ${day.day_name}`}
+                              size="sm"
+                              variant="primary"
                             />
                           ) : null}
                           <Button
-                            label={`Remove ${day.day_name}`}
-                            variant="destructive"
-                            size="sm"
                             clickAction={() => removeDay(day.tempId)}
+                            label={`Remove ${day.day_name}`}
+                            size="sm"
+                            variant="destructive"
                           >
                             Remove Day
                           </Button>
@@ -393,15 +417,15 @@ function ProgramDetailPage() {
                       <ProgramExerciseTable
                         day={day}
                         exercises={exercises}
-                        updateExercise={updateExercise}
                         removeExercise={removeExercise}
+                        updateExercise={updateExercise}
                       />
 
                       <Button
-                        label={`Add exercise to ${day.day_name}`}
-                        variant="secondary"
-                        size="sm"
                         clickAction={() => addExercise(day.tempId)}
+                        label={`Add exercise to ${day.day_name}`}
+                        size="sm"
+                        variant="secondary"
                       >
                         Add Exercise
                       </Button>
@@ -410,9 +434,9 @@ function ProgramDetailPage() {
                 );
               })}
               <Button
+                clickAction={addDay}
                 label="Add Training Day"
                 variant="secondary"
-                clickAction={addDay}
               />
             </VStack>
           );
@@ -420,12 +444,12 @@ function ProgramDetailPage() {
       </form.Field>
 
       <DeleteConfirmationDialog
-        isOpen={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        title={deleteNamedEntityTitle(name || program.name)}
-        subtitle={deleteCannotBeUndoneSubtitle()}
-        onConfirm={handleConfirmDelete}
         isConfirming={isDeleting}
+        isOpen={showDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        onOpenChange={setShowDeleteDialog}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        title={deleteNamedEntityTitle(name || program.name)}
       />
     </VStack>
   );

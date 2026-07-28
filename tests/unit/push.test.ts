@@ -3,9 +3,17 @@ import { join } from "node:path";
 
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-
-import { FakePushNotificationClient, getPushUiMode, hasPushSubscription, listPushSubscriptionsForUser, readVapidPublicKey, sendPushToSubscription, sendPushToUserSubscriptions, upsertPushSubscription } from '~/lib/push';
-import type { PushSubscriptionRow } from '~/lib/push';
+import type { PushSubscriptionRow } from "~/lib/push";
+import {
+  FakePushNotificationClient,
+  getPushUiMode,
+  hasPushSubscription,
+  listPushSubscriptionsForUser,
+  readVapidPublicKey,
+  sendPushToSubscription,
+  sendPushToUserSubscriptions,
+  upsertPushSubscription,
+} from "~/lib/push";
 
 const SAMPLE_SUBSCRIPTION = {
   endpoint: "https://push.example.test/device-1",

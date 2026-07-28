@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   adjustByStep,
   adjustReps,
   adjustWeightKg,
+  REPS_STEP,
   snapToStep,
   WEIGHT_STEP_KG,
-  REPS_STEP,
 } from "~/lib/gym-input";
 
 describe("gym stepper math (issue #53)", () => {

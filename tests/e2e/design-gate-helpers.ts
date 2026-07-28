@@ -21,7 +21,7 @@ const MIN_HERO_RATIO = 2.5;
 const MIN_SECTION_GAP_PX = 24;
 const MIN_BODY_CONTRAST = 4.5;
 
-function parseRgb(color: string): [number, number, number] | null {
+function _parseRgb(color: string): [number, number, number] | null {
   const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (!match) {
     return null;
@@ -32,7 +32,7 @@ function parseRgb(color: string): [number, number, number] | null {
 function relativeLuminance([r, g, b]: [number, number, number]): number {
   const channel = (value: number) => {
     const scaled = value / 255;
-    return scaled <= 0.03928
+    return scaled <= 0.039_28
       ? scaled / 12.92
       : ((scaled + 0.055) / 1.055) ** 2.4;
   };
@@ -89,10 +89,10 @@ function parseRem(value: string, rootPx: number): number {
 }
 
 export interface HeroMetricRatio {
-  text: string;
-  heroPx: number;
   bodyPx: number;
+  heroPx: number;
   ratio: number;
+  text: string;
 }
 
 /** Largest hero metric token size vs body text token size on the page. */
@@ -115,11 +115,10 @@ export async function measureHeroMetricRatio(
       const heroes = [...document.querySelectorAll("main [data-size]")].filter(
         (element) => {
           const text = element.textContent?.trim() ?? "";
-          const size = element.dataset.size;
+          const { size } = element.dataset;
           const tag = element.tagName.toLowerCase();
           if (
-            !size ||
-            !heroSizes.has(size) ||
+            !(size && heroSizes.has(size)) ||
             tag === "input" ||
             tag === "button"
           ) {
@@ -141,7 +140,7 @@ export async function measureHeroMetricRatio(
       } | null = null;
 
       for (const element of heroes) {
-        const size = element.dataset.size;
+        const { size } = element.dataset;
         if (!size) {
           continue;
         }
@@ -278,8 +277,8 @@ export async function findReducedMotionOffenders(
 }
 
 export interface BodyContrastSample {
-  text: string;
   ratio: number;
+  text: string;
 }
 
 export async function measureLowBodyContrastSamples(
@@ -297,7 +296,7 @@ export async function measureLowBodyContrastSamples(
     const luminance = ([r, g, b]: [number, number, number]) => {
       const channel = (value: number) => {
         const scaled = value / 255;
-        return scaled <= 0.03928
+        return scaled <= 0.039_28
           ? scaled / 12.92
           : ((scaled + 0.055) / 1.055) ** 2.4;
       };
@@ -366,4 +365,4 @@ export const DESIGN_GATE_THRESHOLDS = {
   minSectionGapPx: MIN_SECTION_GAP_PX,
 } as const;
 
-export { parseDurationMs, isTokenDuration, parseRem };
+export { isTokenDuration, parseDurationMs, parseRem };

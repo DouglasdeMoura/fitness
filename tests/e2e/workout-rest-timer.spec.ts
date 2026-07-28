@@ -1,5 +1,4 @@
-import { expect, test } from 'vitest';
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import { findReducedMotionOffenders } from "./design-gate-helpers";
 import {
@@ -189,8 +188,8 @@ test.describe("Rest timer (issue #60)", () => {
     for (const name of ["Start rest", "Stop rest", "Reset rest"]) {
       const box = await page.getByRole("button", { name }).boundingBox();
       expect(box).not.toBeNull();
-      expect(box!.width).toBeGreaterThanOrEqual(44);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
     }
   });
 });

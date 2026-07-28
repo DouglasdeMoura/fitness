@@ -1,5 +1,13 @@
-import { Button, EmptyState, NumberInput, Selector, Table, TextInput, proportional } from '@astryxdesign/core';
-import type { TableColumn } from '@astryxdesign/core';
+import type { TableColumn } from "@astryxdesign/core";
+import {
+  Button,
+  EmptyState,
+  NumberInput,
+  proportional,
+  Selector,
+  Table,
+  TextInput,
+} from "@astryxdesign/core";
 
 import { ScrollableTable } from "~/components/ScrollableTable";
 import type { Exercise } from "~/lib/db";
@@ -29,8 +37,8 @@ export type RemoveProgramExercise = (
 interface ProgramExerciseTableProps {
   day: EditableProgramDay;
   exercises: Exercise[];
-  updateExercise: UpdateProgramExercise;
   removeExercise: RemoveProgramExercise;
+  updateExercise: UpdateProgramExercise;
 }
 
 /**
@@ -46,10 +54,10 @@ export function ProgramExerciseTable({
   if (day.exercises.length === 0) {
     return (
       <EmptyState
-        title="No exercises assigned"
         description="Add an exercise to set training targets for this day."
         headingLevel={3}
         isCompact
+        title="No exercises assigned"
       />
     );
   }
@@ -64,9 +72,9 @@ export function ProgramExerciseTable({
           removeExercise
         )}
         data={day.exercises}
-        idKey="tempId"
         density="compact"
         hasHover
+        idKey="tempId"
       />
     </ScrollableTable>
   );
@@ -97,15 +105,15 @@ function programExerciseColumns(
       key: "exercise_id",
       renderCell: (exercise) => (
         <Selector
-          label={`Exercise selection for ${exerciseRowLabels.get(exercise.tempId)}`}
           isLabelHidden
-          value={String(exercise.exercise_id)}
+          label={`Exercise selection for ${exerciseRowLabels.get(exercise.tempId)}`}
           onChange={(value) =>
             updateExercise(day.tempId, exercise.tempId, {
               exercise_id: Number.parseInt(String(value), 10),
             })
           }
           options={exerciseOptions}
+          value={String(exercise.exercise_id)}
         />
       ),
       width: proportional(2),
@@ -115,17 +123,17 @@ function programExerciseColumns(
       key: "target_sets",
       renderCell: (exercise) => (
         <NumberInput
-          label={`Sets for ${exerciseRowLabels.get(exercise.tempId)}`}
+          isIntegerOnly
           isLabelHidden
-          value={exercise.target_sets}
+          label={`Sets for ${exerciseRowLabels.get(exercise.tempId)}`}
+          min={1}
           onChange={(value) =>
             updateExercise(day.tempId, exercise.tempId, {
               target_sets: value ?? 1,
             })
           }
-          min={1}
           step={1}
-          isIntegerOnly
+          value={exercise.target_sets}
         />
       ),
       width: proportional(1),
@@ -135,12 +143,12 @@ function programExerciseColumns(
       key: "target_reps",
       renderCell: (exercise) => (
         <TextInput
-          label={`Reps for ${exerciseRowLabels.get(exercise.tempId)}`}
           isLabelHidden
-          value={exercise.target_reps}
+          label={`Reps for ${exerciseRowLabels.get(exercise.tempId)}`}
           onChange={(value) =>
             updateExercise(day.tempId, exercise.tempId, { target_reps: value })
           }
+          value={exercise.target_reps}
         />
       ),
       width: proportional(1),
@@ -150,17 +158,17 @@ function programExerciseColumns(
       key: "target_rpe",
       renderCell: (exercise) => (
         <NumberInput
-          label={`RPE for ${exerciseRowLabels.get(exercise.tempId)}`}
           isLabelHidden
-          value={exercise.target_rpe}
+          label={`RPE for ${exerciseRowLabels.get(exercise.tempId)}`}
+          max={10}
+          min={6}
           onChange={(value) =>
             updateExercise(day.tempId, exercise.tempId, {
               target_rpe: value ?? 8,
             })
           }
-          min={6}
-          max={10}
           step={1}
+          value={exercise.target_rpe}
         />
       ),
       width: proportional(1),
@@ -170,17 +178,17 @@ function programExerciseColumns(
       key: "rest_seconds",
       renderCell: (exercise) => (
         <NumberInput
-          label={`Rest seconds for ${exerciseRowLabels.get(exercise.tempId)}`}
+          isIntegerOnly
           isLabelHidden
-          value={exercise.rest_seconds ?? 90}
+          label={`Rest seconds for ${exerciseRowLabels.get(exercise.tempId)}`}
+          min={30}
           onChange={(value) =>
             updateExercise(day.tempId, exercise.tempId, {
               rest_seconds: value ?? 90,
             })
           }
-          min={30}
           step={15}
-          isIntegerOnly
+          value={exercise.rest_seconds ?? 90}
         />
       ),
       width: proportional(1),
@@ -190,10 +198,10 @@ function programExerciseColumns(
       key: "actions",
       renderCell: (exercise) => (
         <Button
-          label={`Remove ${exerciseRowLabels.get(exercise.tempId)}`}
-          variant="destructive"
-          size="sm"
           clickAction={() => removeExercise(day.tempId, exercise.tempId)}
+          label={`Remove ${exerciseRowLabels.get(exercise.tempId)}`}
+          size="sm"
+          variant="destructive"
         >
           Remove
         </Button>

@@ -1,6 +1,4 @@
-import { expect, test } from 'vitest';
 import { join } from "node:path";
-
 import { expect, test } from "@playwright/test";
 import Database from "better-sqlite3";
 

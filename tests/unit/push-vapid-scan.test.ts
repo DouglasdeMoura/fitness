@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -11,7 +11,9 @@ const VAPID_LITERAL =
 
 function listTrackedFiles(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
-    if (IGNORED.has(entry)) {continue;}
+    if (IGNORED.has(entry)) {
+      continue;
+    }
     const fullPath = join(dir, entry);
     const stats = statSync(fullPath);
     if (stats.isDirectory()) {

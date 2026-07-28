@@ -1,8 +1,8 @@
 import type Database from "better-sqlite3";
 
 import type { FoodLogEntry, MealTemplate, MealTemplateItem } from "./db";
-import { calculateFoodMacros } from "./nutrition";
 import type { MealType } from "./nutrition";
+import { calculateFoodMacros } from "./nutrition";
 
 const INSERT_ENTRY = `
   INSERT INTO food_log (
@@ -100,7 +100,9 @@ export function sortTemplatesForMealSection<
   return [...loggable].sort((left, right) => {
     const leftMatch = left.default_meal_type === mealType ? 0 : 1;
     const rightMatch = right.default_meal_type === mealType ? 0 : 1;
-    if (leftMatch !== rightMatch) {return leftMatch - rightMatch;}
+    if (leftMatch !== rightMatch) {
+      return leftMatch - rightMatch;
+    }
     return 0;
   });
 }

@@ -70,8 +70,8 @@ function ReviewPageContent() {
     return (
       <DataLoadErrorView
         heading="Weekly Review"
-        title="Failed to load weekly review"
         query={failedQuery}
+        title="Failed to load weekly review"
       />
     );
   }
@@ -89,7 +89,7 @@ function ReviewPageContent() {
               Log food, workouts, or weight during a full week to unlock your
               review.
             </Text>
-            <Button label="Back to dashboard" href="/" variant="secondary" />
+            <Button href="/" label="Back to dashboard" variant="secondary" />
           </VStack>
         </Card>
       </VStack>
@@ -99,7 +99,7 @@ function ReviewPageContent() {
   const weekLabel = `${review.week.start} — ${review.week.end}`;
 
   return (
-    <VStack as="main" gap={6} aria-label="Weekly review">
+    <VStack aria-label="Weekly review" as="main" gap={6}>
       <VStack gap={1}>
         <Heading level={1}>Weekly Review</Heading>
         <Text type="supporting">{weekLabel}</Text>
@@ -178,7 +178,7 @@ function ReviewPageContent() {
             <MetadataList>
               <MetadataListItem label="PRs this week">
                 {review.personalRecordCount > 0 ? (
-                  <Badge variant="success" label={review.personalRecordCount} />
+                  <Badge label={review.personalRecordCount} variant="success" />
                 ) : (
                   "None"
                 )}
@@ -188,7 +188,7 @@ function ReviewPageContent() {
         </Card>
       </Grid>
 
-      <Button label="Back to dashboard" href="/" variant="secondary" />
+      <Button href="/" label="Back to dashboard" variant="secondary" />
     </VStack>
   );
 }

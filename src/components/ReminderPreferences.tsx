@@ -17,8 +17,11 @@ import { useState } from "react";
 
 import { updateNotificationPreferences } from "~/lib/api";
 import { asTimeValue } from "~/lib/input-values";
-import { REMINDERS_CARD_TITLE, WEEKDAY_OPTIONS } from '~/lib/push';
-import type { NotificationPreferences, NotificationPreferencesUpdate } from '~/lib/push';
+import type {
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+} from "~/lib/push";
+import { REMINDERS_CARD_TITLE, WEEKDAY_OPTIONS } from "~/lib/push";
 import { mutationFailedBody } from "~/lib/toasts";
 
 interface ReminderPreferencesProps {
@@ -59,132 +62,132 @@ export function ReminderPreferences({
         </Text>
 
         <Switch
-          label="Rest timer complete"
-          description="Alert when a rest period finishes during a workout."
-          value={prefs.rest_timer}
-          isLoading={saving}
           changeAction={(checked) => persist({ rest_timer: checked })}
+          description="Alert when a rest period finishes during a workout."
+          isLoading={saving}
+          label="Rest timer complete"
+          value={prefs.rest_timer}
         />
 
         <Switch
-          label="Meal reminders"
-          description="Nudge you to log meals at chosen times."
-          value={prefs.meal_reminders}
-          isLoading={saving}
           changeAction={(checked) => persist({ meal_reminders: checked })}
+          description="Nudge you to log meals at chosen times."
+          isLoading={saving}
+          label="Meal reminders"
+          value={prefs.meal_reminders}
         />
         {prefs.meal_reminders ? (
           <VStack gap={3}>
             {prefs.meal_times.map((time, index) => (
-              <VStack key={`${time}-${index}`} gap={2}>
+              <VStack gap={2} key={`${time}-${index}`}>
                 <TimeInput
-                  label={`Meal time ${index + 1}`}
-                  value={asTimeValue(time)}
                   isDisabled={saving}
+                  label={`Meal time ${index + 1}`}
                   onChange={(value) => {
                     if (!value) {
                       return;
                     }
                     const meal_times = [...prefs.meal_times];
                     meal_times[index] = value;
-                    void persist({ meal_times });
+                    persist({ meal_times });
                   }}
+                  value={asTimeValue(time)}
                 />
                 {prefs.meal_times.length > 1 ? (
                   <Button
-                    label={`Remove meal time ${index + 1}`}
-                    variant="secondary"
-                    isLoading={saving}
                     clickAction={() => {
                       const meal_times = prefs.meal_times.filter(
                         (_, i) => i !== index
                       );
-                      void persist({ meal_times });
+                      persist({ meal_times });
                     }}
+                    isLoading={saving}
+                    label={`Remove meal time ${index + 1}`}
+                    variant="secondary"
                   />
                 ) : null}
               </VStack>
             ))}
             <Button
+              clickAction={() => {
+                persist({ meal_times: [...prefs.meal_times, "18:00"] });
+              }}
+              isLoading={saving}
               label="Add meal time"
               variant="secondary"
-              isLoading={saving}
-              clickAction={() => {
-                void persist({ meal_times: [...prefs.meal_times, "18:00"] });
-              }}
             />
           </VStack>
         ) : null}
 
         <Switch
-          label="Workout reminders"
-          description="Remind you to train on selected days."
-          value={prefs.workout_reminders}
-          isLoading={saving}
           changeAction={(checked) => persist({ workout_reminders: checked })}
+          description="Remind you to train on selected days."
+          isLoading={saving}
+          label="Workout reminders"
+          value={prefs.workout_reminders}
         />
         {prefs.workout_reminders ? (
           <VStack gap={3}>
             <CheckboxList
-              label="Workout days"
-              value={workoutDayValues}
               isDisabled={saving}
+              label="Workout days"
               onChange={(values) => {
-                void persist({
+                persist({
                   workout_days: values.map((value) => Number(value)),
                 });
               }}
+              value={workoutDayValues}
             >
               {WEEKDAY_OPTIONS.map((day) => (
                 <CheckboxListItem
                   key={day.value}
-                  value={day.value}
                   label={day.label}
+                  value={day.value}
                 />
               ))}
             </CheckboxList>
             <TimeInput
-              label="Workout reminder time"
-              value={asTimeValue(prefs.workout_time)}
               isDisabled={saving}
+              label="Workout reminder time"
               onChange={(value) => {
                 if (!value) {
                   return;
                 }
-                void persist({ workout_time: value });
+                persist({ workout_time: value });
               }}
+              value={asTimeValue(prefs.workout_time)}
             />
           </VStack>
         ) : null}
 
         <Switch
-          label="Weekly review"
-          description="Notify when your weekly review is ready."
-          value={prefs.weekly_review}
-          isLoading={saving}
           changeAction={(checked) => persist({ weekly_review: checked })}
+          description="Notify when your weekly review is ready."
+          isLoading={saving}
+          label="Weekly review"
+          value={prefs.weekly_review}
         />
         {prefs.weekly_review ? (
           <VStack gap={3}>
             <Selector
-              label="Weekly review day"
-              value={String(prefs.weekly_review_day ?? 0)}
               isDisabled={saving}
-              options={[...WEEKDAY_OPTIONS]}
+              label="Weekly review day"
               onChange={(value) => {
-                void persist({ weekly_review_day: Number(value) });
+                persist({ weekly_review_day: Number(value) });
               }}
+              options={[...WEEKDAY_OPTIONS]}
+              value={String(prefs.weekly_review_day ?? 0)}
             />
             <TimeInput
-              label="Weekly review time"
-              value={asTimeValue(prefs.weekly_review_time)}
               isDisabled={saving}
+              label="Weekly review time"
               onChange={(value) => {
                 if (!value) {
                   return;
                 }
-                void persist({ weekly_review_time: value });
+                persist({ weekly_review_time: value });
               }}
+              value={asTimeValue(prefs.weekly_review_time)}
             />
           </VStack>
         ) : null}
@@ -195,22 +198,22 @@ export function ReminderPreferences({
           midnight.
         </Text>
         <TimeInput
-          label="Quiet hours start"
-          value={asTimeValue(prefs.quiet_start)}
-          isDisabled={saving}
           hasClear
+          isDisabled={saving}
+          label="Quiet hours start"
           onChange={(value) => {
-            void persist({ quiet_start: value ?? null });
+            persist({ quiet_start: value ?? null });
           }}
+          value={asTimeValue(prefs.quiet_start)}
         />
         <TimeInput
-          label="Quiet hours end"
-          value={asTimeValue(prefs.quiet_end)}
-          isDisabled={saving}
           hasClear
+          isDisabled={saving}
+          label="Quiet hours end"
           onChange={(value) => {
-            void persist({ quiet_end: value ?? null });
+            persist({ quiet_end: value ?? null });
           }}
+          value={asTimeValue(prefs.quiet_end)}
         />
       </VStack>
     </Card>

@@ -1,9 +1,14 @@
-import { expect, test } from 'vitest';
 import AxeBuilder from "@axe-core/playwright";
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import { APP_ROUTES, formatAxeViolations, installDeterministicClock, openAppRoute, prepareTheme } from './test-helpers';
-import type { ColorMode } from './test-helpers';
+import type { ColorMode } from "./test-helpers";
+import {
+  APP_ROUTES,
+  formatAxeViolations,
+  installDeterministicClock,
+  openAppRoute,
+  prepareTheme,
+} from "./test-helpers";
 
 const COLOR_MODES: ColorMode[] = ["light", "dark"];
 

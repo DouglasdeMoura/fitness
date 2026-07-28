@@ -3,10 +3,13 @@ import { join } from "node:path";
 
 import Database from "better-sqlite3";
 import { describe, expect, it, vi } from "vitest";
-
-import { FakePushNotificationClient, upsertNotificationPreferences, upsertPushSubscription } from '~/lib/push';
-import type { VapidConfig } from '~/lib/push';
+import type { VapidConfig } from "~/lib/push";
 import * as push from "~/lib/push";
+import {
+  FakePushNotificationClient,
+  upsertNotificationPreferences,
+  upsertPushSubscription,
+} from "~/lib/push";
 import {
   handleSchedulerCronRequest,
   readSchedulerSecret,
