@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { User } from "~/lib/db";
+import type { UserRecord } from "~/db/user-body-queries";
 import {
   activityOptions,
   buildProfileUpdate,
@@ -20,17 +20,17 @@ import {
   weightChartPolyline,
 } from "~/lib/settings";
 
-const userFixture = (overrides: Partial<User> = {}): User => ({
-  activity_level: "moderate",
-  birth_date: "1990-05-01",
-  created_at: "2025-01-01T00:00:00Z",
+const userFixture = (overrides: Partial<UserRecord> = {}): UserRecord => ({
+  activityLevel: "moderate",
+  birthDate: "1990-05-01",
+  createdAt: "2025-01-01T00:00:00Z",
   email: null,
-  goal_type: "build_muscle",
-  height_cm: 178,
+  goalType: "build_muscle",
+  heightCm: 178,
   id: 1,
   name: "Alex",
   sex: "male",
-  updated_at: "2025-01-01T00:00:00Z",
+  updatedAt: "2025-01-01T00:00:00Z",
   ...overrides,
 });
 
@@ -48,7 +48,7 @@ describe(profileFormDefaults, () => {
 
   it("normalizes null height and birth date for the form", () => {
     expect(
-      profileFormDefaults(userFixture({ birth_date: null, height_cm: null }))
+      profileFormDefaults(userFixture({ birthDate: null, heightCm: null }))
     ).toStrictEqual({
       activity: "moderate",
       birthDate: "",
@@ -72,16 +72,16 @@ describe(buildProfileUpdate, () => {
         sex: "male",
       })
     ).toStrictEqual({
-      activity_level: "moderate",
-      birth_date: "1990-05-01",
-      goal_type: "build_muscle",
-      height_cm: 178,
+      activityLevel: "moderate",
+      birthDate: "1990-05-01",
+      goalType: "build_muscle",
+      heightCm: 178,
       name: "Alex",
       sex: "male",
     });
   });
 
-  it("stores null birth_date when the field is cleared", () => {
+  it("stores null birthDate when the field is cleared", () => {
     const payload = buildProfileUpdate({
       activity: "sedentary",
       birthDate: "",
@@ -90,8 +90,8 @@ describe(buildProfileUpdate, () => {
       name: "Alex",
       sex: "female",
     });
-    expect(payload.birth_date).toBeNull();
-    expect(payload.height_cm).toBeNull();
+    expect(payload.birthDate).toBeNull();
+    expect(payload.heightCm).toBeNull();
   });
 });
 
@@ -241,29 +241,24 @@ describe(GOAL_CARD_OPTIONS, () => {
 describe(buildWeightChartPoints, () => {
   // DB returns entries in descending order (newest first).
   const entries = [
-    { date: "2025-01-03", weight_kg: 79 },
-    { date: "2025-01-02", weight_kg: 79.5 },
-    { date: "2025-01-01", weight_kg: 80 },
+    { date: "2025-01-03", weightKg: 79 },
+    { date: "2025-01-02", weightKg: 79.5 },
+    { date: "2025-01-01", weightKg: 80 },
   ];
 
   it("returns empty array for fewer than 2 valid entries", () => {
     expect(buildWeightChartPoints([], 300, 80, 8)).toStrictEqual([]);
     expect(
-      buildWeightChartPoints(
-        [{ date: "2025-01-01", weight_kg: 80 }],
-        300,
-        80,
-        8
-      )
+      buildWeightChartPoints([{ date: "2025-01-01", weightKg: 80 }], 300, 80, 8)
     ).toStrictEqual([]);
   });
 
   it("filters out null and non-positive weights", () => {
     const mixed = [
-      { date: "2025-01-04", weight_kg: 79 },
-      { date: "2025-01-03", weight_kg: 0 },
-      { date: "2025-01-02", weight_kg: null },
-      { date: "2025-01-01", weight_kg: 80 },
+      { date: "2025-01-04", weightKg: 79 },
+      { date: "2025-01-03", weightKg: 0 },
+      { date: "2025-01-02", weightKg: null },
+      { date: "2025-01-01", weightKg: 80 },
     ];
     const points = buildWeightChartPoints(mixed, 300, 80, 8);
     expect(points).toHaveLength(2);

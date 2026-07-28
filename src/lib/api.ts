@@ -1,10 +1,48 @@
 import { createServerFn } from "@tanstack/react-start";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 
+import { db as drizzleDb } from "../db";
+import {
+  exportNutritionRecords,
+  exportTrainingRecords,
+} from "../db/export-queries";
+import type { FoodLogRecord, FoodRecord } from "../db/food-nutrition-queries";
+import {
+  deleteFoodLogRecord,
+  insertFoodLogRecord,
+  insertFoodRecord,
+  listFoodLogRecords,
+  listFoodLogStatsRecords,
+  listFoodLogSummaryRecords,
+  listFoodRecords,
+  listFrequentFoodRecords,
+  listRecentFoodRecords,
+  listWeeklyNutritionRows,
+  searchFoodRecords,
+} from "../db/food-nutrition-queries";
+import { bodyLogs, foodLog, foods } from "../db/schema";
+import type { BodyLogRecord, UserProfileUpdate } from "../db/user-body-queries";
+import {
+  ensureDefaultUserRecord,
+  findLatestBodyweightRecord,
+  listBodyLogRecords,
+  updateUserRecord,
+  upsertBodyweightRecord,
+} from "../db/user-body-queries";
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
 import type { ConsistencyMetrics } from "./consistency";
 import { assembleConsistencyMetrics } from "./consistency";
 import type {
-  BodyLog,
   Exercise,
   Food,
   FoodLogEntry,
@@ -16,7 +54,6 @@ import type {
   Program,
   ProgramDay,
   ProgramExercise,
-  User,
   WorkoutSession,
   WorkoutSet,
 } from "./db";
@@ -27,12 +64,7 @@ import {
   deleteFoodLogEntriesInDb,
 } from "./food-log-copy";
 import { logMealTemplateInDb } from "./meal-template-log";
-import type {
-  ActivityLevel,
-  GoalType,
-  MacroTargets,
-  NutritionTotals,
-} from "./nutrition";
+import type { MacroTargets, NutritionTotals } from "./nutrition";
 import {
   addDays,
   calculateAge,
@@ -83,110 +115,60 @@ import {
 // --- Ensure default user exists ---
 
 export const ensureDefaultUser = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const db = getDb();
-    let user = db.prepare("SELECT * FROM users LIMIT 1").get() as
-      | User
-      | undefined;
-    if (!user) {
-      db.prepare(
-        `INSERT INTO users (name, sex, height_cm, activity_level, goal_type)
-       VALUES ('Athlete', 'male', 178, 'moderate', 'build_muscle')`
-      ).run();
-      user = db.prepare("SELECT * FROM users LIMIT 1").get() as User;
-    }
-    return user;
-  }
+  async () => ensureDefaultUserRecord(drizzleDb)
 );
 
 // --- User ---
 
-export const getUser = createServerFn({ method: "GET" }).handler(
-  async () => await ensureDefaultUser()
+export const getUser = createServerFn({ method: "GET" }).handler(async () =>
+  ensureDefaultUserRecord(drizzleDb)
 );
 
 export const updateUser = createServerFn({ method: "POST" })
-  .validator((data: Partial<User>) => data as Partial<User>)
+  .validator((profileUpdate: UserProfileUpdate) => profileUpdate)
   .handler(async (ctx) => {
-    const db = getDb();
-    const user = await ensureDefaultUser();
-    const updates = ctx.data;
-    const fields = Object.keys(updates).filter(
-      (k) => k !== "id" && k !== "created_at" && k !== "updated_at"
+    const user = await getUser();
+    const hasChanges = Object.values(ctx.data).some(
+      (fieldValue) => fieldValue !== undefined
     );
-    if (fields.length === 0) {
+    if (!hasChanges) {
       return user;
     }
-
-    const setClause = fields.map((f) => `${f} = @${f}`).join(", ");
-    const params: Record<string, unknown> = { id: user.id };
-    for (const f of fields) {
-      params[f] = (updates as Record<string, unknown>)[f];
-    }
-    params.updated_at = new Date().toISOString();
-
-    db.prepare(
-      `UPDATE users SET ${setClause}, updated_at = @updated_at WHERE id = @id`
-    ).run(params);
-    return db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as User;
+    return updateUserRecord(drizzleDb, user.id, ctx.data);
   });
 
 // --- Body Logs ---
 
 export const getBodyLogs = createServerFn({ method: "GET" })
-  .validator((data: { limit?: number }) => data)
+  .validator((query: { limit?: number }) => query)
   .handler(async (ctx) => {
-    const db = getDb();
-    const user = await ensureDefaultUser();
-    const limit = ctx.data?.limit || 90;
-    return db
-      .prepare(
-        "SELECT * FROM body_logs WHERE user_id = ? ORDER BY date DESC LIMIT ?"
-      )
-      .all(user.id, limit) as BodyLog[];
+    const user = await getUser();
+    return listBodyLogRecords(drizzleDb, user.id, ctx.data?.limit || 90);
   });
 
 export const logBodyweight = createServerFn({ method: "POST" })
   .validator(
-    (data: {
+    (input: {
       weight_kg: number;
       body_fat_pct?: number;
       notes?: string;
       date?: string;
-    }) => data
+    }) => input
   )
   .handler(async (ctx) => {
-    const db = getDb();
-    const user = await ensureDefaultUser();
-    const date = ctx.data.date || todayString();
-    db.prepare(
-      `INSERT INTO body_logs (user_id, date, weight_kg, body_fat_pct, notes)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, date) DO UPDATE SET
-         weight_kg = excluded.weight_kg,
-         body_fat_pct = COALESCE(excluded.body_fat_pct, body_logs.body_fat_pct),
-         notes = excluded.notes`
-    ).run(
-      user.id,
-      date,
-      ctx.data.weight_kg,
-      ctx.data.body_fat_pct ?? null,
-      ctx.data.notes ?? null
-    );
-    return db
-      .prepare("SELECT * FROM body_logs WHERE user_id = ? AND date = ?")
-      .get(user.id, date) as BodyLog;
+    const user = await getUser();
+    return upsertBodyweightRecord(drizzleDb, user.id, {
+      bodyFatPct: ctx.data.body_fat_pct,
+      date: ctx.data.date || todayString(),
+      notes: ctx.data.notes,
+      weightKg: ctx.data.weight_kg,
+    });
   });
 
 export const getLatestBodyweight = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
-    const user = await ensureDefaultUser();
-    return db
-      .prepare(
-        "SELECT * FROM body_logs WHERE user_id = ? AND weight_kg IS NOT NULL ORDER BY date DESC LIMIT 1"
-      )
-      .get(user.id) as BodyLog | undefined;
+    const user = await getUser();
+    return findLatestBodyweightRecord(drizzleDb, user.id);
   }
 );
 
@@ -200,56 +182,84 @@ export type DailyTargets = MacroTargets & {
 
 export const getDailyTargets = createServerFn({ method: "GET" }).handler(
   async (): Promise<DailyTargets> => {
-    const _db = getDb();
-    const user = await ensureDefaultUser();
-    const bw = await getLatestBodyweight();
-    const weightKg = bw?.weight_kg || 75;
+    const user = await getUser();
+    const bodyweight = await getLatestBodyweight();
+    const weightKg = bodyweight?.weightKg || 75;
 
     let bmr = 0;
     let tdee = 0;
     let age = 30;
 
-    if (user.birth_date) {
-      age = calculateAge(user.birth_date);
+    if (user.birthDate) {
+      age = calculateAge(user.birthDate);
     }
-    if (user.height_cm) {
-      bmr = calculateBMR(weightKg, user.height_cm, age, user.sex);
-      tdee = calculateTDEE(bmr, user.activity_level as ActivityLevel);
+    if (user.heightCm) {
+      bmr = calculateBMR(weightKg, user.heightCm, age, user.sex);
+      tdee = calculateTDEE(bmr, user.activityLevel);
     }
 
-    const macros = calculateMacroTargets(
-      weightKg,
-      tdee,
-      user.goal_type as GoalType
-    );
+    const macros = calculateMacroTargets(weightKg, tdee, user.goalType);
 
     return { age, bmr: Math.round(bmr), tdee, weightKg, ...macros };
   }
 );
+
+function toLegacyFoodRecord(food: FoodRecord): Food {
+  return {
+    barcode: food.barcode,
+    brand: food.brand,
+    calories_per_serving: food.caloriesPerServing,
+    carbs_g: food.carbsG,
+    created_at: food.createdAt,
+    fat_g: food.fatG,
+    fiber_g: food.fiberG,
+    id: food.id,
+    name: food.name,
+    protein_g: food.proteinG,
+    serving_size: food.servingSize,
+    serving_unit: food.servingUnit,
+    sodium_mg: food.sodiumMg,
+    source: food.source,
+    sugar_g: food.sugarG,
+  };
+}
+
+function toLegacyFoodLogEntry(entry: FoodLogRecord): FoodLogEntry {
+  return {
+    calories: entry.calories,
+    carbs_g: entry.carbsG,
+    created_at: entry.createdAt,
+    custom_name: entry.customName,
+    date: entry.date,
+    fat_g: entry.fatG,
+    food_id: entry.foodId,
+    id: entry.id,
+    meal_type: entry.mealType,
+    notes: entry.notes,
+    protein_g: entry.proteinG,
+    servings: entry.servings,
+    user_id: entry.userId,
+  };
+}
 
 // --- Foods ---
 
 export const searchFoods = createServerFn({ method: "GET" })
   .validator((data: { query: string; limit?: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
-    const query = `%${ctx.data.query}%`;
-    const limit = ctx.data.limit || 20;
-    return db
-      .prepare(
-        "SELECT * FROM foods WHERE name LIKE ? OR brand LIKE ? ORDER BY name LIMIT ?"
-      )
-      .all(query, query, limit) as Food[];
+    const records = await searchFoodRecords(
+      drizzleDb,
+      ctx.data.query,
+      ctx.data.limit || 20
+    );
+    return records.map(toLegacyFoodRecord);
   });
 
 export const getAllFoods = createServerFn({ method: "GET" })
   .validator((data: { limit?: number } | undefined) => data ?? {})
   .handler(async (ctx) => {
-    const db = getDb();
-    const limit = ctx.data?.limit || 100;
-    return db
-      .prepare("SELECT * FROM foods ORDER BY name LIMIT ?")
-      .all(limit) as Food[];
+    const records = await listFoodRecords(drizzleDb, ctx.data?.limit || 100);
+    return records.map(toLegacyFoodRecord);
   });
 
 /** Resolve a scanned GTIN against foods the user has logged before (issue #58). */
@@ -260,16 +270,10 @@ export const getFoodByBarcode = createServerFn({ method: "GET" })
     if (!normalized) {
       return null;
     }
-    const db = getDb();
-    const variants = barcodeLookupVariants(normalized);
-    const placeholders = variants.map(() => "?").join(", ");
-    return (
-      (db
-        .prepare(
-          `SELECT * FROM foods WHERE barcode IN (${placeholders}) LIMIT 1`
-        )
-        .get(...variants) as Food | undefined) ?? null
-    );
+    const record = await drizzleDb.query.foods.findFirst({
+      where: inArray(foods.barcode, barcodeLookupVariants(normalized)),
+    });
+    return record ? toLegacyFoodRecord(record) : null;
   });
 
 export const addFood = createServerFn({ method: "POST" })
@@ -278,31 +282,23 @@ export const addFood = createServerFn({ method: "POST" })
       data
   )
   .handler(async (ctx) => {
-    const db = getDb();
-    const d = ctx.data;
-    const result = db
-      .prepare(
-        `INSERT INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, barcode, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        d.name,
-        d.brand,
-        d.serving_size,
-        d.serving_unit,
-        d.calories_per_serving,
-        d.protein_g,
-        d.carbs_g,
-        d.fat_g,
-        d.fiber_g,
-        d.sugar_g,
-        d.sodium_mg,
-        d.barcode ?? null,
-        d.source || "user"
-      );
-    return db
-      .prepare("SELECT * FROM foods WHERE id = ?")
-      .get(result.lastInsertRowid) as Food;
+    const food = ctx.data;
+    const record = await insertFoodRecord(drizzleDb, {
+      barcode: food.barcode ?? null,
+      brand: food.brand,
+      caloriesPerServing: food.calories_per_serving,
+      carbsG: food.carbs_g,
+      fatG: food.fat_g,
+      fiberG: food.fiber_g,
+      name: food.name,
+      proteinG: food.protein_g,
+      servingSize: food.serving_size,
+      servingUnit: food.serving_unit,
+      sodiumMg: food.sodium_mg,
+      source: food.source || "user",
+      sugarG: food.sugar_g,
+    });
+    return toLegacyFoodRecord(record);
   });
 
 export type LoggedFoodSummary = Food & {
@@ -318,78 +314,79 @@ export interface FoodLogStats {
   log_count: number;
 }
 
-const LATEST_FOOD_LOG_CTE = `
-  SELECT food_id, servings, meal_type, date, created_at,
-    ROW_NUMBER() OVER (PARTITION BY food_id ORDER BY date DESC, created_at DESC) AS rn
-  FROM food_log
-  WHERE user_id = ? AND food_id IS NOT NULL
-`;
+/** Shortlist size for the recent/frequent quick-log rows (issue #54). */
+const LOGGED_FOOD_SHORTLIST = 20;
+
+/** Trailing window for "frequent", long enough to survive a holiday. */
+const FREQUENT_FOOD_WINDOW_DAYS = 90;
+
+function toLegacyLoggedFood(
+  record: FoodRecord & {
+    lastMealType: MealType;
+    lastServings: number;
+    logCount?: number;
+  }
+): LoggedFoodSummary {
+  const summary: LoggedFoodSummary = {
+    ...toLegacyFoodRecord(record),
+    last_meal_type: record.lastMealType,
+    last_servings: record.lastServings,
+  };
+  if (record.logCount !== undefined) {
+    summary.log_count = record.logCount;
+  }
+  return summary;
+}
 
 /** Distinct foods ordered by most recent log date (derived, not denormalised). */
 export const getRecentFoods = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    return db
-      .prepare(`
-    WITH latest AS (${LATEST_FOOD_LOG_CTE})
-    SELECT f.*, latest.servings AS last_servings, latest.meal_type AS last_meal_type
-    FROM latest
-    JOIN foods f ON f.id = latest.food_id
-    WHERE latest.rn = 1
-    ORDER BY latest.date DESC, latest.created_at DESC
-    LIMIT 20
-  `)
-      .all(user.id) as LoggedFoodSummary[];
+    const records = await listRecentFoodRecords(
+      drizzleDb,
+      user.id,
+      LOGGED_FOOD_SHORTLIST
+    );
+    return records.map(toLegacyLoggedFood);
   }
 );
 
 /** Distinct foods ordered by log count over the trailing 90 days. */
 export const getFrequentFoods = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    return db
-      .prepare(`
-    WITH freq AS (
-      SELECT food_id, COUNT(*) AS log_count
-      FROM food_log
-      WHERE user_id = ? AND food_id IS NOT NULL
-        AND date >= date('now', '-90 days')
-      GROUP BY food_id
-      ORDER BY log_count DESC
-      LIMIT 20
-    ),
-    latest AS (${LATEST_FOOD_LOG_CTE})
-    SELECT f.*, freq.log_count, latest.servings AS last_servings, latest.meal_type AS last_meal_type
-    FROM freq
-    JOIN foods f ON f.id = freq.food_id
-    JOIN latest ON latest.food_id = freq.food_id AND latest.rn = 1
-    ORDER BY freq.log_count DESC
-  `)
-      .all(user.id, user.id) as LoggedFoodSummary[];
+    // Computed here rather than as SQL date('now', ...) so the window is
+    // pinned by the caller's clock and the query stays repeatable in tests.
+    const sinceDate = addDays(todayString(), -FREQUENT_FOOD_WINDOW_DAYS);
+    const records = await listFrequentFoodRecords(
+      drizzleDb,
+      user.id,
+      sinceDate,
+      LOGGED_FOOD_SHORTLIST
+    );
+    return records.map(toLegacyLoggedFood);
   }
 );
 
 /** All-time log counts plus last-used servings/meal for search ranking. */
 export const getLoggedFoodStats = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const db = getDb();
+  async (): Promise<FoodLogStats[]> => {
     const user = await ensureDefaultUser();
-    return db
-      .prepare(`
-    WITH latest AS (${LATEST_FOOD_LOG_CTE}),
-    counts AS (
-      SELECT food_id, COUNT(*) AS log_count
-      FROM food_log
-      WHERE user_id = ? AND food_id IS NOT NULL
-      GROUP BY food_id
-    )
-    SELECT c.food_id, c.log_count, latest.servings AS last_servings, latest.meal_type AS last_meal_type
-    FROM counts c
-    JOIN latest ON latest.food_id = c.food_id AND latest.rn = 1
-  `)
-      .all(user.id, user.id) as FoodLogStats[];
+    const records = await listFoodLogStatsRecords(drizzleDb, user.id);
+    // foodId is nullable on the column (quick-add rows carry none), but the
+    // query filters those out; this narrows the type without a cast.
+    return records.flatMap((record) =>
+      record.foodId === null
+        ? []
+        : [
+            {
+              food_id: record.foodId,
+              last_meal_type: record.lastMealType,
+              last_servings: record.lastServings,
+              log_count: record.logCount,
+            },
+          ]
+    );
   }
 );
 
@@ -398,14 +395,10 @@ export const getLoggedFoodStats = createServerFn({ method: "GET" }).handler(
 export const getFoodLog = createServerFn({ method: "GET" })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
     const date = ctx.data?.date || todayString();
-    return db
-      .prepare(
-        "SELECT * FROM food_log WHERE user_id = ? AND date = ? ORDER BY meal_type, created_at"
-      )
-      .all(user.id, date) as (FoodLogEntry & { food_name?: string })[];
+    const entries = await listFoodLogRecords(drizzleDb, user.id, date);
+    return entries.map(toLegacyFoodLogEntry);
   });
 
 export const addFoodLogEntry = createServerFn({ method: "POST" })
@@ -424,42 +417,29 @@ export const addFoodLogEntry = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const d = ctx.data;
-    const date = d.date || todayString();
-    const result = db
-      .prepare(
-        `INSERT INTO food_log (user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        user.id,
-        d.food_id ?? null,
-        d.custom_name ?? null,
-        date,
-        d.meal_type,
-        d.servings,
-        d.calories,
-        d.protein_g,
-        d.carbs_g,
-        d.fat_g,
-        d.notes ?? null
-      );
-    return db
-      .prepare("SELECT * FROM food_log WHERE id = ?")
-      .get(result.lastInsertRowid) as FoodLogEntry;
+    const entry = ctx.data;
+    const record = await insertFoodLogRecord(drizzleDb, {
+      calories: entry.calories,
+      carbsG: entry.carbs_g,
+      customName: entry.custom_name ?? null,
+      date: entry.date || todayString(),
+      fatG: entry.fat_g,
+      foodId: entry.food_id ?? null,
+      mealType: entry.meal_type,
+      notes: entry.notes ?? null,
+      proteinG: entry.protein_g,
+      servings: entry.servings,
+      userId: user.id,
+    });
+    return toLegacyFoodLogEntry(record);
   });
 
 export const deleteFoodLogEntry = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    db.prepare("DELETE FROM food_log WHERE id = ? AND user_id = ?").run(
-      ctx.data.id,
-      user.id
-    );
+    await deleteFoodLogRecord(drizzleDb, user.id, ctx.data.id);
     return { success: true };
   });
 
@@ -502,33 +482,17 @@ export const logMealTemplate = createServerFn({ method: "POST" })
     return logMealTemplateInDb(db, user.id, templateId, date, mealType);
   });
 
-/** LEFT JOIN so null food_id quick-add rows are never dropped from totals (issue #57). */
-export const FOOD_LOG_SUMMARY_SQL = `SELECT fl.*, f.name AS food_name
-       FROM food_log fl
-       LEFT JOIN foods f ON f.id = fl.food_id
-       WHERE fl.user_id = ? AND fl.date = ?
-       ORDER BY fl.meal_type, fl.created_at`;
-
-export function fetchFoodLogSummaryEntries(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  date: string
-): (FoodLogEntry & { food_name?: string | null })[] {
-  return db.prepare(FOOD_LOG_SUMMARY_SQL).all(userId, date) as (FoodLogEntry & {
-    food_name?: string | null;
-  })[];
-}
-
 export const getNutritionSummary = createServerFn({ method: "GET" })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
     const date = ctx.data?.date || todayString();
-    const entries = fetchFoodLogSummaryEntries(db, user.id, date);
-    const totals = sumFoodLogEntryTotals(entries);
-
-    return { entries, totals };
+    const records = await listFoodLogSummaryRecords(drizzleDb, user.id, date);
+    const entries = records.map((record) => ({
+      ...toLegacyFoodLogEntry(record),
+      food_name: record.foodName,
+    }));
+    return { entries, totals: sumFoodLogEntryTotals(entries) };
   });
 
 // --- Exercises ---
@@ -1592,29 +1556,25 @@ export const logMealFromPlan = createServerFn({ method: "POST" })
       throw new Error("Meal template not found");
     }
 
-    const insert = db.prepare(
-      `INSERT INTO food_log (user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-
     const logged = template.items.map((item) => {
       const macros = calculateFoodMacros(item, item.servings);
-      const result = insert.run(
-        user.id,
-        item.food_id,
-        null,
-        ctx.data.date,
-        ctx.data.meal_type,
-        item.servings,
-        macros.calories,
-        macros.protein_g,
-        macros.carbs_g,
-        macros.fat_g,
-        `From template: ${template.name}`
-      );
-      return db
-        .prepare("SELECT * FROM food_log WHERE id = ?")
-        .get(result.lastInsertRowid) as FoodLogEntry;
+      const record = drizzleDb
+        .insert(foodLog)
+        .values({
+          calories: macros.calories,
+          carbsG: macros.carbs_g,
+          date: ctx.data.date,
+          fatG: macros.fat_g,
+          foodId: item.food_id,
+          mealType: ctx.data.meal_type,
+          notes: `From template: ${template.name}`,
+          proteinG: macros.protein_g,
+          servings: item.servings,
+          userId: user.id,
+        })
+        .returning()
+        .get();
+      return toLegacyFoodLogEntry(record);
     });
 
     return { entries: logged, template_name: template.name };
@@ -1701,44 +1661,39 @@ export interface WeeklyNutritionReport {
 
 export const getWeeklyNutrition = createServerFn({ method: "GET" }).handler(
   async (): Promise<WeeklyNutritionReport> => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-
-    const rows = db
-      .prepare(
-        `SELECT date,
-       SUM(calories) as calories,
-       SUM(protein_g) as protein_g,
-       SUM(carbs_g) as carbs_g,
-       SUM(fat_g) as fat_g,
-       COUNT(*) as entries
-     FROM food_log
-     WHERE user_id = ? AND date >= date('now', '-7 days')
-     GROUP BY date
-     ORDER BY date DESC`
-      )
-      .all(user.id) as WeeklyNutritionDay[];
-
-    const totals = rows.reduce(
-      (acc, r) => ({
-        calories: acc.calories + r.calories,
-        carbs_g: acc.carbs_g + r.carbs_g,
+    const sinceDate = addDays(todayString(), -7);
+    const records = await listWeeklyNutritionRows(
+      drizzleDb,
+      user.id,
+      sinceDate
+    );
+    const daily = records.map((record) => ({
+      calories: record.calories,
+      carbs_g: record.carbsG,
+      date: record.date,
+      entries: record.entries,
+      fat_g: record.fatG,
+      protein_g: record.proteinG,
+    }));
+    const totals = daily.reduce(
+      (acc, row) => ({
+        calories: acc.calories + row.calories,
+        carbs_g: acc.carbs_g + row.carbs_g,
         days: acc.days + 1,
-        fat_g: acc.fat_g + r.fat_g,
-        protein_g: acc.protein_g + r.protein_g,
+        fat_g: acc.fat_g + row.fat_g,
+        protein_g: acc.protein_g + row.protein_g,
       }),
       { calories: 0, carbs_g: 0, days: 0, fat_g: 0, protein_g: 0 }
     );
-
+    const divisor = totals.days || 1;
     const avg = {
-      calories: totals.days > 0 ? Math.round(totals.calories / totals.days) : 0,
-      carbs_g: totals.days > 0 ? Math.round(totals.carbs_g / totals.days) : 0,
-      fat_g: totals.days > 0 ? Math.round(totals.fat_g / totals.days) : 0,
-      protein_g:
-        totals.days > 0 ? Math.round(totals.protein_g / totals.days) : 0,
+      calories: Math.round(totals.calories / divisor),
+      carbs_g: Math.round(totals.carbs_g / divisor),
+      fat_g: Math.round(totals.fat_g / divisor),
+      protein_g: Math.round(totals.protein_g / divisor),
     };
-
-    return { avg, daily: rows, totals };
+    return { avg, daily, totals };
   }
 );
 
@@ -1846,59 +1801,18 @@ export const getProgressHighlights = createServerFn({ method: "GET" }).handler(
 
 export const exportData = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-
-    const body_logs = db
-      .prepare("SELECT * FROM body_logs WHERE user_id = ?")
-      .all(user.id) as BodyLog[];
-    const food_log = db
-      .prepare("SELECT * FROM food_log WHERE user_id = ?")
-      .all(user.id) as FoodLogEntry[];
-    const workouts = db
-      .prepare("SELECT * FROM workout_sessions WHERE user_id = ?")
-      .all(user.id) as WorkoutSession[];
-    const workout_sets = db
-      .prepare(
-        `SELECT ws.* FROM workout_sets ws
-     JOIN workout_sessions wse ON ws.session_id = wse.id
-     WHERE wse.user_id = ?`
-      )
-      .all(user.id) as WorkoutSet[];
-
-    // Typed, not left as unknown[]: createServerFn validates that the payload is
-    // serializable, and `unknown` cannot be proven so — it fails the boundary.
-    const programs = db
-      .prepare("SELECT * FROM programs WHERE user_id = ?")
-      .all(user.id) as Program[];
-    const program_days = db
-      .prepare(
-        `SELECT pd.* FROM program_days pd
-     JOIN programs p ON pd.program_id = p.id
-     WHERE p.user_id = ?`
-      )
-      .all(user.id) as ProgramDay[];
-    const program_exercises = db
-      .prepare(
-        `SELECT pe.* FROM program_exercises pe
-     JOIN program_days pd ON pe.program_day_id = pd.id
-     JOIN programs p ON pd.program_id = p.id
-     WHERE p.user_id = ?`
-      )
-      .all(user.id) as ProgramExercise[];
-
+    const [nutritionRecords, trainingRecords] = await Promise.all([
+      exportNutritionRecords(drizzleDb, user.id),
+      exportTrainingRecords(drizzleDb, user.id),
+    ]);
     return {
       app: "FitTrack",
-      body_logs,
       exported_at: new Date().toISOString(),
-      food_log,
-      program_days,
-      program_exercises,
-      programs,
+      ...nutritionRecords,
+      ...trainingRecords,
       user: { ...user },
       version: "0.1.0",
-      workout_sets,
-      workouts,
     };
   }
 );
@@ -1911,7 +1825,7 @@ export const exportData = createServerFn({ method: "GET" }).handler(
 export const importData = createServerFn({ method: "POST" })
   .validator(
     (data: {
-      body_logs?: BodyLog[];
+      body_logs?: BodyLogRecord[];
       food_log?: FoodLogEntry[];
       workouts?: WorkoutSession[];
       workout_sets?: WorkoutSet[];
@@ -1936,22 +1850,22 @@ export const importData = createServerFn({ method: "POST" })
       };
 
       if (ctx.data.body_logs?.length) {
-        const insert = db.prepare(
-          `INSERT OR REPLACE INTO body_logs (id, user_id, date, weight_kg, body_fat_pct, muscle_mass_kg, waist_cm, notes, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        );
-        for (const r of ctx.data.body_logs) {
-          insert.run(
-            r.id,
-            user.id,
-            r.date,
-            r.weight_kg,
-            r.body_fat_pct,
-            r.muscle_mass_kg,
-            r.waist_cm,
-            r.notes,
-            r.created_at
-          );
+        for (const record of ctx.data.body_logs) {
+          drizzleDb
+            .insert(bodyLogs)
+            .values({ ...record, userId: user.id })
+            .onConflictDoUpdate({
+              set: {
+                bodyFatPct: record.bodyFatPct,
+                createdAt: record.createdAt,
+                muscleMassKg: record.muscleMassKg,
+                notes: record.notes,
+                waistCm: record.waistCm,
+                weightKg: record.weightKg,
+              },
+              target: [bodyLogs.userId, bodyLogs.date],
+            })
+            .run();
           rows.bodyLogs++;
         }
       }
@@ -2095,13 +2009,13 @@ export const importData = createServerFn({ method: "POST" })
 export const getDashboardStats = createServerFn({ method: "GET" }).handler(
   async () => {
     const db = getDb();
-    const user = await ensureDefaultUser();
+    const user = await getUser();
     const targets = await getDailyTargets();
 
     const today = todayString();
-    const todayEntries = db
-      .prepare("SELECT * FROM food_log WHERE user_id = ? AND date = ?")
-      .all(user.id, today) as FoodLogEntry[];
+    const todayEntries = (
+      await listFoodLogRecords(drizzleDb, user.id, today)
+    ).map(toLegacyFoodLogEntry);
 
     const consumed = todayEntries.reduce(
       (acc, e) => ({
@@ -2119,11 +2033,11 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
       )
       .all(user.id) as { date: string }[];
 
-    const recentBodyweight = db
-      .prepare(
-        "SELECT * FROM body_logs WHERE user_id = ? AND weight_kg IS NOT NULL ORDER BY date DESC LIMIT 30"
-      )
-      .all(user.id) as BodyLog[];
+    const recentBodyweight = await drizzleDb.query.bodyLogs.findMany({
+      limit: 30,
+      orderBy: desc(bodyLogs.date),
+      where: and(eq(bodyLogs.userId, user.id), isNotNull(bodyLogs.weightKg)),
+    });
 
     return {
       consumed,
@@ -2168,21 +2082,20 @@ export const getConsistency = createServerFn({ method: "GET" })
 
 export type WeeklyReview = WeeklyReviewPayload;
 
-function collectActivityDates(
+async function collectActivityDates(
   db: ReturnType<typeof getDb>,
   userId: number
-): string[] {
+): Promise<string[]> {
   const foodDates = db
     .prepare("SELECT DISTINCT date FROM food_log WHERE user_id = ?")
     .all(userId) as { date: string }[];
   const sessionDates = db
     .prepare("SELECT DISTINCT date FROM workout_sessions WHERE user_id = ?")
     .all(userId) as { date: string }[];
-  const bodyDates = db
-    .prepare(
-      "SELECT DISTINCT date FROM body_logs WHERE user_id = ? AND weight_kg IS NOT NULL"
-    )
-    .all(userId) as { date: string }[];
+  const bodyDates = await drizzleDb.query.bodyLogs.findMany({
+    columns: { date: true },
+    where: and(eq(bodyLogs.userId, userId), isNotNull(bodyLogs.weightKg)),
+  });
 
   return [...foodDates, ...sessionDates, ...bodyDates].map((row) => row.date);
 }
@@ -2227,13 +2140,13 @@ function countPersonalRecordsInRange(
   return prCount;
 }
 
-function loadWeeklyReviewFromDb(
+async function loadWeeklyReviewFromDb(
   db: ReturnType<typeof getDb>,
   userId: number,
   asOf: string,
   calorieTarget: number,
   proteinTargetG: number
-): WeeklyReview | null {
+): Promise<WeeklyReview | null> {
   const week = lastCompleteWeekRange(asOf);
   const prior = priorWeekRange(week);
   const bodyLogStart = addDays(week.start, -6);
@@ -2283,19 +2196,20 @@ function loadWeeklyReviewFromDb(
       .all(userId, prior.start, week.end) as { date: string }[]
   ).map((row) => row.date);
 
-  const bodyLogs = db
-    .prepare(
-      `SELECT * FROM body_logs
-       WHERE user_id = ? AND date >= ? AND date <= ?
-       ORDER BY date ASC`
-    )
-    .all(userId, bodyLogStart, week.end) as BodyLog[];
+  const weeklyBodyLogs = await drizzleDb.query.bodyLogs.findMany({
+    orderBy: asc(bodyLogs.date),
+    where: and(
+      eq(bodyLogs.userId, userId),
+      gte(bodyLogs.date, bodyLogStart),
+      lte(bodyLogs.date, week.end)
+    ),
+  });
 
   const personalRecordCount = countPersonalRecordsInRange(db, userId, week);
 
   return assembleWeeklyReview({
     asOf,
-    bodyLogs,
+    bodyLogs: weeklyBodyLogs,
     calorieTarget,
     dailyNutrition,
     personalRecordCount,
@@ -2310,9 +2224,9 @@ export const getWeeklyReviewAvailability = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
     const db = getDb();
-    const user = await ensureDefaultUser();
+    const user = await getUser();
     const asOf = ctx.data.asOf ?? todayString();
-    const activityDates = collectActivityDates(db, user.id);
+    const activityDates = await collectActivityDates(db, user.id);
     return { available: hasReviewableWeek(asOf, activityDates) };
   });
 
@@ -2321,7 +2235,7 @@ export const getWeeklyReview = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
   .handler(async (ctx): Promise<WeeklyReview | null> => {
     const db = getDb();
-    const user = await ensureDefaultUser();
+    const user = await getUser();
     const asOf = ctx.data.asOf ?? todayString();
     const targets = await getDailyTargets();
     return loadWeeklyReviewFromDb(
@@ -2354,22 +2268,18 @@ export const getOfflineBundle = createServerFn({ method: "GET" }).handler(
     const db = getDb();
     const user = await ensureDefaultUser();
     const targets = await getDailyTargets();
+    const sinceDate = addDays(todayString(), -OFFLINE_HISTORY_DAYS);
     const since = `-${OFFLINE_HISTORY_DAYS} days`;
-
-    const foods = db
-      .prepare("SELECT * FROM foods ORDER BY name")
-      .all() as Food[];
-    const exercises = db
-      .prepare("SELECT * FROM exercises ORDER BY name")
-      .all() as Exercise[];
-
-    const food_log = db
-      .prepare(
-        `SELECT * FROM food_log
-     WHERE user_id = ? AND date >= date('now', ?)
-     ORDER BY date DESC, meal_type`
-      )
-      .all(user.id, since) as FoodLogEntry[];
+    const exercises = await getExercises();
+    const foodRecords = await drizzleDb.query.foods.findMany({
+      orderBy: asc(foods.name),
+    });
+    const foodsCatalog = foodRecords.map(toLegacyFoodRecord);
+    const foodLogRecords = await drizzleDb.query.foodLog.findMany({
+      orderBy: [desc(foodLog.date), asc(foodLog.mealType)],
+      where: and(eq(foodLog.userId, user.id), gte(foodLog.date, sinceDate)),
+    });
+    const recentFoodLog = foodLogRecords.map(toLegacyFoodLogEntry);
 
     const workout_sessions = db
       .prepare(
@@ -2388,17 +2298,13 @@ export const getOfflineBundle = createServerFn({ method: "GET" }).handler(
       )
       .all(user.id, since) as WorkoutSet[];
 
-    const body_logs = db
-      .prepare(
-        "SELECT * FROM body_logs WHERE user_id = ? ORDER BY date DESC LIMIT 90"
-      )
-      .all(user.id) as BodyLog[];
+    const body_logs = await listBodyLogRecords(drizzleDb, user.id, 90);
 
     return {
       body_logs,
       exercises,
-      food_log,
-      foods,
+      food_log: recentFoodLog,
+      foods: foodsCatalog,
       generated_at: new Date().toISOString(),
       history_days: OFFLINE_HISTORY_DAYS,
       targets,
@@ -2535,24 +2441,26 @@ export const syncQueuedMutations = createServerFn({ method: "POST" })
         case "logBodyweight": {
           const d = m.payload;
           const date = d.date || todayString();
-          db.prepare(
-            `INSERT INTO body_logs (user_id, date, weight_kg, body_fat_pct, notes)
-             VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(user_id, date) DO UPDATE SET
-               weight_kg = excluded.weight_kg,
-               body_fat_pct = COALESCE(excluded.body_fat_pct, body_logs.body_fat_pct),
-               notes = excluded.notes`
-          ).run(
-            user.id,
-            date,
-            d.weight_kg,
-            d.body_fat_pct ?? null,
-            d.notes ?? null
-          );
-          const row = db
-            .prepare("SELECT id FROM body_logs WHERE user_id = ? AND date = ?")
-            .get(user.id, date) as { id: number };
-          return row.id;
+          const record = drizzleDb
+            .insert(bodyLogs)
+            .values({
+              bodyFatPct: d.body_fat_pct ?? null,
+              date,
+              notes: d.notes ?? null,
+              userId: user.id,
+              weightKg: d.weight_kg,
+            })
+            .onConflictDoUpdate({
+              set: {
+                bodyFatPct: sql`coalesce(excluded.body_fat_pct, ${bodyLogs.bodyFatPct})`,
+                notes: sql`excluded.notes`,
+                weightKg: sql`excluded.weight_kg`,
+              },
+              target: [bodyLogs.userId, bodyLogs.date],
+            })
+            .returning({ id: bodyLogs.id })
+            .get();
+          return record.id;
         }
         case "addFood": {
           const d = m.payload;

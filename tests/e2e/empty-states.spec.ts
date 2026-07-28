@@ -47,6 +47,7 @@ test.describe("Empty states with call-to-action buttons", () => {
     page,
   }) => {
     await openAppPage(page, "/nutrition");
+    await clickHydratedButton(page.getByRole("button", { name: "Log food" }));
     const searchInput = page.getByRole("textbox", { name: "Search foods" });
     await searchInput.fill(`missing-food-${Date.now()}`);
 

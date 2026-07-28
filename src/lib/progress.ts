@@ -8,8 +8,8 @@
  * (`ProgressBar`, `Badge`, the weight SVG).
  */
 
+import type { BodyLogRecord } from "../db/user-body-queries";
 import type { MuscleVolume } from "./api";
-import type { BodyLog } from "./db";
 
 /** Tone union accepted by Astryx `ProgressBar` `variant`. */
 export type ProgressVariant = "accent" | "success" | "warning" | "error";
@@ -36,12 +36,13 @@ export interface WeightTrend {
  * chronologically. Returns `null` when no log carries a weight.
  *
  * @example
- *   weightTrend([{ id: 1, date: '2024-01-01', weight_kg: 80, ... }]) // null trend? see tests
+ *   weightTrend([{ id: 1, date: '2024-01-01', weightKg: 80, ... }]) // null trend? see tests
  */
-export function weightTrend(logs: BodyLog[]): WeightTrend | null {
+export function weightTrend(logs: BodyLogRecord[]): WeightTrend | null {
   const weighted = logs
     .filter(
-      (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
+      (log): log is BodyLogRecord & { weightKg: number } =>
+        log.weightKg !== null
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
@@ -49,9 +50,9 @@ export function weightTrend(logs: BodyLog[]): WeightTrend | null {
     return null;
   }
 
-  const weights = weighted.map((log) => log.weight_kg);
-  const first = weighted[0]!.weight_kg;
-  const last = weighted.at(-1)!.weight_kg;
+  const weights = weighted.map((log) => log.weightKg);
+  const first = weighted[0]!.weightKg;
+  const last = weighted.at(-1)!.weightKg;
 
   return {
     change: last - first,

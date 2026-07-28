@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BodyLog } from "~/lib/db";
+import type { BodyLogRecord } from "~/db/user-body-queries";
 import type { WeeklyReviewFacts } from "~/lib/weekly-review";
 import {
   assembleWeeklyReview,
@@ -17,15 +17,17 @@ import {
 } from "~/lib/weekly-review";
 
 // Re-export helper for tests only — use assembleWeeklyReview inputs instead
-function bodyLog(date: string, weightKg: number): BodyLog {
+function bodyLog(date: string, weightKg: number): BodyLogRecord {
   return {
-    body_fat_pct: null,
-    created_at: `${date}T12:00:00.000Z`,
+    bodyFatPct: null,
+    createdAt: `${date}T12:00:00.000Z`,
     date,
     id: 1,
+    muscleMassKg: null,
     notes: null,
-    user_id: 1,
-    weight_kg: weightKg,
+    userId: 1,
+    waistCm: null,
+    weightKg,
   };
 }
 

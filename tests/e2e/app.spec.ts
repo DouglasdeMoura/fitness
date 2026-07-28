@@ -5,6 +5,11 @@ async function openAppPage(page: Page, path: string) {
   await page.goto(path);
   await page.waitForLoadState("networkidle");
 }
+
+async function openFoodLogDialog(page: Page) {
+  await page.getByRole("button", { exact: true, name: "Log food" }).click();
+  await expect(page.getByRole("heading", { name: "Add Food" })).toBeVisible();
+}
 async function reloadAppPage(page: Page) {
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -13,7 +18,7 @@ async function reloadAppPage(page: Page) {
 async function waitForAppReady(page: Page) {
   await openAppPage(page, "/");
   await expect(
-    page.getByRole("navigation", { name: "FitTrack navigation" })
+    page.getByRole("navigation", { name: "FitTrack mobile navigation" })
   ).toBeVisible({
     timeout: 15_000,
   });
@@ -21,7 +26,7 @@ async function waitForAppReady(page: Page) {
 }
 
 function nav(page: Page): Locator {
-  return page.getByRole("navigation", { name: "FitTrack navigation" });
+  return page.getByRole("navigation", { name: "FitTrack mobile navigation" });
 }
 
 test.describe("Dashboard - User Landing Experience", () => {
@@ -161,6 +166,7 @@ test.describe("Nutrition - Food Logging Flow", () => {
 
   test("user can search for foods in the database", async ({ page }) => {
     await openAppPage(page, "/nutrition");
+    await openFoodLogDialog(page);
     await expect(page.getByRole("heading", { name: "Add Food" })).toBeVisible({
       timeout: 10_000,
     });
@@ -175,6 +181,7 @@ test.describe("Nutrition - Food Logging Flow", () => {
     page,
   }) => {
     await openAppPage(page, "/nutrition");
+    await openFoodLogDialog(page);
     const searchInput = page.getByRole("textbox", { name: "Search foods" });
     // Single character is below the 2-char minimum: no request fires.
     await searchInput.fill("c");
@@ -192,6 +199,7 @@ test.describe("Nutrition - Food Logging Flow", () => {
     page,
   }) => {
     await openAppPage(page, "/nutrition");
+    await openFoodLogDialog(page);
     const searchInput = page.getByRole("textbox", { name: "Search foods" });
     await searchInput.fill(`missing-food-${Date.now()}`);
     // The debounced query resolves to an empty result set; no Search button.
@@ -209,6 +217,7 @@ test.describe("Nutrition - Food Logging Flow", () => {
   test("user can create, log, and delete a custom food", async ({ page }) => {
     const foodName = `E2E Test Protein Bar ${Date.now()}`;
     await openAppPage(page, "/nutrition");
+    await openFoodLogDialog(page);
     await page.getByRole("button", { name: "Create Custom Food" }).click();
     await page.getByLabel("Name").fill(foodName);
     await page.getByLabel("Calories per serving").fill("220");
@@ -217,6 +226,10 @@ test.describe("Nutrition - Food Logging Flow", () => {
     await expect(page.getByText(foodName)).toBeVisible();
 
     await page.getByRole("button", { name: "Add to Log" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Close" })
+      .click();
     const foodRow = page.getByRole("row").filter({ hasText: foodName });
     await expect(foodRow).toBeVisible({ timeout: 10_000 });
     await foodRow.getByRole("button", { name: `Delete ${foodName}` }).click();
@@ -231,6 +244,7 @@ test.describe("Nutrition - Food Logging Flow", () => {
   test("repeat food logs from Recent in at most two taps", async ({ page }) => {
     const foodName = `E2E Repeat Food ${Date.now()}`;
     await openAppPage(page, "/nutrition");
+    await openFoodLogDialog(page);
     const searchInput = page.getByRole("textbox", { name: "Search foods" });
 
     await page.getByRole("button", { name: "Create Custom Food" }).click();
@@ -264,11 +278,6 @@ test.describe("Nutrition - Food Logging Flow", () => {
   });
   test("food log shows a table or a helpful empty state", async ({ page }) => {
     await openAppPage(page, "/nutrition");
-    await expect(
-      page.getByRole("heading", { name: "Today's Food Log" })
-    ).toBeVisible({
-      timeout: 10_000,
-    });
     const hasTable = await page
       .getByRole("table", { name: /food log/i })
       .count();

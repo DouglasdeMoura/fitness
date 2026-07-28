@@ -325,12 +325,12 @@ function DashboardPageContent() {
           <MetadataList>
             <MetadataListItem label="Goal Type">
               <Badge
-                label={user.goal_type.replaceAll("_", " ")}
+                label={user.goalType.replaceAll("_", " ")}
                 variant="purple"
               />
             </MetadataListItem>
             <MetadataListItem label="Activity Level">
-              {user.activity_level.replaceAll("_", " ")}
+              {user.activityLevel.replaceAll("_", " ")}
             </MetadataListItem>
             <MetadataListItem label="Daily Calorie Target">
               {targets.calories} kcal

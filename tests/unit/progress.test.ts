@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { BodyLogRecord } from "~/db/user-body-queries";
 import type { MuscleVolume } from "~/lib/api";
-import type { BodyLog } from "~/lib/db";
 import {
   areaChartPath,
   capitalizeMuscleGroup,
@@ -17,17 +17,21 @@ import {
 } from "~/lib/progress";
 
 /** Minimal BodyLog factory; only the fields the helpers read are populated. */
-function bodyLog(id: number, date: string, weightKg: number | null): BodyLog {
+function bodyLog(
+  id: number,
+  date: string,
+  weightKg: number | null
+): BodyLogRecord {
   return {
-    body_fat_pct: null,
-    created_at: date,
+    bodyFatPct: null,
+    createdAt: date,
     date,
     id,
-    muscle_mass_kg: null,
+    muscleMassKg: null,
     notes: null,
-    user_id: 1,
-    waist_cm: null,
-    weight_kg: weightKg,
+    userId: 1,
+    waistCm: null,
+    weightKg,
   };
 }
 

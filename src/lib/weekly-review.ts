@@ -2,7 +2,7 @@
  * Pure weekly review metrics and headline generation (issue #64 / PRD 11 Batch 2).
  * Self-monitoring consistency predicts outcomes (Burke et al. 2011).
  */
-import type { BodyLog } from "./db";
+import type { BodyLogRecord } from "../db/user-body-queries";
 import { formatDisplayDecimal, formatDisplayInteger } from "./format-number";
 import { addDays, getWeekStart } from "./nutrition";
 import type { SessionVolumeSet } from "./workout";
@@ -160,13 +160,13 @@ function summarizeTrainingForWeek(
   };
 }
 
-function weightByDate(logs: BodyLog[]): Map<string, number> {
+function weightByDate(logs: BodyLogRecord[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const log of logs) {
-    if (log.weight_kg === null) {
+    if (log.weightKg === null) {
       continue;
     }
-    map.set(log.date, log.weight_kg);
+    map.set(log.date, log.weightKg);
   }
   return map;
 }
@@ -196,7 +196,7 @@ export function movingAverageWeightKg(
 
 /** Delta between 7-day moving averages at week end and week start. */
 export function weightMovingAverageDelta(
-  logs: BodyLog[],
+  logs: BodyLogRecord[],
   range: WeekRange
 ): WeekWeightTrend {
   const weights = weightByDate(logs);
@@ -285,7 +285,7 @@ export function assembleWeeklyReview(input: {
   dailyNutrition: Map<string, DailyNutritionSlice>;
   workoutSets: WeeklyReviewSetRow[];
   sessionDates: string[];
-  bodyLogs: BodyLog[];
+  bodyLogs: BodyLogRecord[];
   personalRecordCount: number;
 }): WeeklyReviewPayload | null {
   const week = lastCompleteWeekRange(input.asOf);
@@ -296,7 +296,7 @@ export function assembleWeeklyReview(input: {
     ...foodDates,
     ...input.sessionDates,
     ...input.bodyLogs
-      .filter((log) => log.weight_kg !== null)
+      .filter((log) => log.weightKg !== null)
       .map((log) => log.date),
   ];
 

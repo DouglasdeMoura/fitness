@@ -20,6 +20,35 @@ async function clickHydratedButton(button: Locator) {
   await button.click();
 }
 
+async function createLoggedCustomFood(
+  page: Page,
+  foodName: string
+): Promise<Locator> {
+  await openAppPage(page, "/nutrition");
+  await clickHydratedButton(page.getByRole("button", { name: "Log food" }));
+  await clickHydratedButton(
+    page.getByRole("button", { name: "Create Custom Food" })
+  );
+  await page.getByLabel("Name").fill(foodName);
+  await page.getByLabel("Calories per serving").fill("180");
+  await page.getByLabel("Protein (g)").fill("18");
+  await clickHydratedButton(page.getByRole("button", { name: "Save Food" }));
+  await clickHydratedButton(page.getByRole("button", { name: "Add to Log" }));
+  await clickHydratedButton(
+    page.getByRole("dialog").getByRole("button", { name: "Close" })
+  );
+  const foodRow = page.getByRole("row").filter({ hasText: foodName });
+  for (const meal of ["Breakfast", "Lunch", "Dinner", "Snack"]) {
+    await clickHydratedButton(
+      page.getByRole("button", { name: new RegExp(`^${meal}`) })
+    );
+    if (await foodRow.isVisible().catch(() => false)) {
+      return foodRow;
+    }
+  }
+  return foodRow;
+}
+
 function deleteDialog(page: Page): Locator {
   return page.getByRole("dialog");
 }
@@ -29,17 +58,7 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     page,
   }) => {
     const foodName = `Confirm Food ${Date.now()}`;
-    await openAppPage(page, "/nutrition");
-    await clickHydratedButton(
-      page.getByRole("button", { name: "Create Custom Food" })
-    );
-    await page.getByLabel("Name").fill(foodName);
-    await page.getByLabel("Calories per serving").fill("180");
-    await page.getByLabel("Protein (g)").fill("18");
-    await clickHydratedButton(page.getByRole("button", { name: "Save Food" }));
-    await clickHydratedButton(page.getByRole("button", { name: "Add to Log" }));
-
-    const foodRow = page.getByRole("row").filter({ hasText: foodName });
+    const foodRow = await createLoggedCustomFood(page, foodName);
     await expect(foodRow).toBeVisible({ timeout: 10_000 });
 
     await clickHydratedButton(
@@ -55,6 +74,24 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     );
     await expect(dialog).not.toBeVisible();
     await expect(foodRow).toBeVisible();
+  });
+
+  test("confirmed food log deletion removes the entry", async ({ page }) => {
+    const foodName = `Delete Food ${test.info().project.name} ${Date.now()}`;
+    const foodRow = await createLoggedCustomFood(page, foodName);
+    await expect(foodRow).toBeVisible({ timeout: 10_000 });
+
+    await clickHydratedButton(
+      foodRow.getByRole("button", { name: `Delete ${foodName}` })
+    );
+    await clickHydratedButton(
+      deleteDialog(page).getByRole("button", { name: "Confirm delete" })
+    );
+
+    await expect(
+      page.getByText("Entry deleted", { exact: true })
+    ).toBeVisible();
+    await expect(foodRow).not.toBeVisible();
   });
 
   test("workout set delete shows dialog with destructive confirm button", async ({
@@ -81,7 +118,7 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     const exerciseField = page.getByRole("combobox", { name: "Exercise" });
     await exerciseField.click();
     const options = await page.getByRole("option").count();
-    test(options === 0, "No exercises seeded for set logging");
+    test.skip(options === 0, "No exercises seeded for set logging");
     await page.getByRole("option").first().click();
 
     await clickHydratedButton(page.getByRole("button", { name: "Add set" }));
@@ -123,11 +160,11 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
   }) => {
     await openAppPage(page, "/workout/programs");
     const deleteButton = page.getByRole("button", { name: /Delete /u }).first();
-    test((await deleteButton.count()) === 0, "No programs seeded");
+    test.skip((await deleteButton.count()) === 0, "No programs seeded");
 
     const programName = await deleteButton.getAttribute("aria-label");
     const match = programName?.match(/^Delete (.+)$/u);
-    test(!match, "Delete button missing program name label");
+    expect(match, "Delete button missing program name label").not.toBeNull();
 
     await clickHydratedButton(deleteButton);
     const dialog = deleteDialog(page);

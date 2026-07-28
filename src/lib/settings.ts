@@ -7,7 +7,7 @@
 
 import type { ISODateString } from "@astryxdesign/core/Calendar";
 
-import type { User } from "~/lib/db";
+import type { UserRecord } from "~/db/user-body-queries";
 import type { ActivityLevel, GoalType, Sex } from "~/lib/nutrition";
 import { ACTIVITY_LABELS } from "~/lib/nutrition";
 
@@ -22,10 +22,10 @@ export interface ProfileFormState {
 
 /** Payload shape accepted by `updateUser`. */
 export interface ProfileUpdatePayload {
-  activity_level: ActivityLevel;
-  birth_date: string | null;
-  goal_type: GoalType;
-  height_cm: number | null;
+  activityLevel: ActivityLevel;
+  birthDate: string | null;
+  goalType: GoalType;
+  heightCm: number | null;
   name: string;
   sex: Sex;
 }
@@ -102,12 +102,12 @@ export function activityOptions(): SelectorOption[] {
  * Maps a user query row into TanStack Form default values for the profile card.
  * Keeps the route free of field-by-field mapping and mirrors programFormDefaults.
  */
-export function profileFormDefaults(user: User): ProfileFormState {
+export function profileFormDefaults(user: UserRecord): ProfileFormState {
   return {
-    activity: user.activity_level,
-    birthDate: user.birth_date || "",
-    goal: user.goal_type,
-    heightCm: user.height_cm ?? null,
+    activity: user.activityLevel,
+    birthDate: user.birthDate || "",
+    goal: user.goalType,
+    heightCm: user.heightCm ?? null,
     name: user.name,
     sex: user.sex,
   };
@@ -121,10 +121,10 @@ export function buildProfileUpdate(
   form: ProfileFormState
 ): ProfileUpdatePayload {
   return {
-    activity_level: form.activity,
-    birth_date: form.birthDate || null,
-    goal_type: form.goal,
-    height_cm: form.heightCm,
+    activityLevel: form.activity,
+    birthDate: form.birthDate || null,
+    goalType: form.goal,
+    heightCm: form.heightCm,
     name: form.name,
     sex: form.sex,
   };
@@ -234,15 +234,15 @@ export interface WeightChartPoint {
  * Chronological order (oldest left), y inverted so lower weight = higher on canvas.
  */
 export function buildWeightChartPoints(
-  entries: { date: string; weight_kg: number | null }[],
+  entries: { date: string; weightKg: number | null }[],
   chartWidth: number,
   chartHeight: number,
   padding: number
 ): WeightChartPoint[] {
   const valid = entries
     .filter(
-      (e): e is { date: string; weight_kg: number } =>
-        e.weight_kg !== null && e.weight_kg > 0
+      (entry): entry is { date: string; weightKg: number } =>
+        entry.weightKg !== null && entry.weightKg > 0
     )
     .toReversed(); // chronological order
 
@@ -250,7 +250,7 @@ export function buildWeightChartPoints(
     return [];
   }
 
-  const weights = valid.map((e) => e.weight_kg);
+  const weights = valid.map((entry) => entry.weightKg);
   const minW = Math.min(...weights);
   const maxW = Math.max(...weights);
   const range = maxW - minW || 1; // avoid division by zero
@@ -258,11 +258,11 @@ export function buildWeightChartPoints(
   const w = chartWidth - padding * 2;
   const h = chartHeight - padding * 2;
 
-  return valid.map((e, i) => ({
-    date: e.date,
-    weightKg: e.weight_kg,
-    x: padding + (i / Math.max(valid.length - 1, 1)) * w,
-    y: padding + h - ((e.weight_kg - minW) / range) * h,
+  return valid.map((entry, index) => ({
+    date: entry.date,
+    weightKg: entry.weightKg,
+    x: padding + (index / Math.max(valid.length - 1, 1)) * w,
+    y: padding + h - ((entry.weightKg - minW) / range) * h,
   }));
 }
 

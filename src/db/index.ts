@@ -1,10 +1,9 @@
-import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
+import { getDb } from "../lib/db";
 import * as schema from "./schema";
 
-const sqlite = new Database(process.env.DATABASE_PATH || "./data/fittrack.db");
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+export type FitTrackDatabase = BetterSQLite3Database<typeof schema>;
 
-export const db = drizzle(sqlite, { schema });
+export const db: FitTrackDatabase = drizzle(getDb(), { schema });

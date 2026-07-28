@@ -112,6 +112,18 @@ test.describe("Settings page (issue #34)", () => {
     await expect(logButton).toBeVisible();
   });
 
+  test("persists a weigh-in after reloading settings", async ({ page }) => {
+    const weightInput = page.getByRole("spinbutton", { name: /Weight in kg/ });
+    await weightInput.fill("77.3");
+    await page.getByRole("button", { name: "Log" }).click();
+    await expect(page.getByText("Weight logged — 77.3kg")).toBeVisible();
+
+    await page.reload();
+    await expect(
+      page.getByText(/Recent Weight History|Log at least two weigh-ins/)
+    ).toBeVisible();
+  });
+
   test("data management section has export and import buttons", async ({
     page,
   }) => {
@@ -131,5 +143,10 @@ test.describe("Settings page (issue #34)", () => {
 
     // Should show saved confirmation
     await expect(page.getByText("Profile saved")).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue(
+      "Test Athlete"
+    );
   });
 });

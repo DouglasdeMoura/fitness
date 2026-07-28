@@ -26,6 +26,7 @@ import {
   ScaleIcon,
 } from "~/components/icons/fit-track-icons";
 import { ProgressSkeleton } from "~/components/loading/page-skeletons";
+import type { BodyLogRecord } from "~/db/user-body-queries";
 import type {
   MuscleVolume,
   ProgressHighlights,
@@ -43,7 +44,6 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { BodyLog } from "~/lib/db";
 import { formatDisplayInteger } from "~/lib/format-number";
 import {
   areaChartPath,
@@ -248,11 +248,12 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
 // Weight view — area chart + SMA trend line + table
 // ---------------------------------------------------------------------------
 
-function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
+function WeightView({ bodyLogs }: { bodyLogs: BodyLogRecord[] }) {
   const trend = weightTrend(bodyLogs);
   const weighted = bodyLogs
     .filter(
-      (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
+      (log): log is BodyLogRecord & { weightKg: number } =>
+        log.weightKg !== null
     )
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
@@ -269,7 +270,7 @@ function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
     );
   }
 
-  const weights = weighted.map((log) => log.weight_kg);
+  const weights = weighted.map((log) => log.weightKg);
   const sma = movingAverage(weights, SMA_WINDOW);
 
   return (
@@ -376,12 +377,12 @@ interface WeightLogRow extends Record<string, unknown> {
   weight: string;
 }
 
-function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
+function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLogRecord[] }) {
   const rows: WeightLogRow[] = bodyLogs.slice(0, 10).map((log) => ({
-    bodyFat: log.body_fat_pct ? `${log.body_fat_pct}%` : "\u2014",
+    bodyFat: log.bodyFatPct ? `${log.bodyFatPct}%` : "\u2014",
     date: log.date,
     id: log.id,
-    weight: log.weight_kg ? `${log.weight_kg} kg` : "\u2014",
+    weight: log.weightKg ? `${log.weightKg} kg` : "\u2014",
   }));
 
   return (
