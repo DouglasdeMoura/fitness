@@ -97,10 +97,12 @@ test.describe('Toast notifications for mutations', () => {
     const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
+      await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+      await page.getByRole('button', { name: 'Done' }).click()
     }
 
     await clickHydratedButton(page.getByRole('button', { name: 'Start Workout' }))
-    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
       timeout: 10000,
     })
 

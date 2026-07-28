@@ -12,7 +12,7 @@ const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page)
   await page.getByRole('button', { name: 'Start Workout' }).click()
-  await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
     timeout: 15000,
   })
 }

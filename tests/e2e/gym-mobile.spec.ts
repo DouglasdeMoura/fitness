@@ -22,6 +22,10 @@ async function ensureActiveWorkoutWithExercise(page: Page) {
   const finish = page.getByRole('button', { name: 'Finish workout' })
   if (await finish.isVisible({ timeout: 3000 }).catch(() => false)) {
     await finish.click()
+    await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({
+      timeout: 10000,
+    })
+    await page.getByRole('button', { name: 'Done' }).click()
     await expect(page.getByRole('heading', { name: 'Ready to train?' })).toBeVisible({
       timeout: 10000,
     })
@@ -30,7 +34,7 @@ async function ensureActiveWorkoutWithExercise(page: Page) {
   const start = page.getByRole('button', { name: 'Start Workout' })
   await expect(start).toBeVisible({ timeout: 10000 })
   await start.click()
-  await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
     timeout: 15000,
   })
 

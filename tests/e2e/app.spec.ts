@@ -239,13 +239,14 @@ test.describe('Workout - Session Logging Flow', () => {
     const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+      await page.getByRole('button', { name: 'Done' }).click()
     }
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.getByRole('heading', { name: 'Active Session' })).toBeVisible({ timeout: 10000 })
-    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible()
   })
 
   test('selecting an exercise shows set logging interface', async ({ page }) => {
@@ -254,12 +255,13 @@ test.describe('Workout - Session Logging Flow', () => {
     const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+      await page.getByRole('button', { name: 'Done' }).click()
     }
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({ timeout: 10000 })
     const exerciseSelect = page.getByRole('combobox', { name: 'Exercise' })
     const options = await exerciseSelect.locator('option').count()
     if (options > 1) {
@@ -405,13 +407,14 @@ test.describe('Progress - Analytics View', () => {
     const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+      await page.getByRole('button', { name: 'Done' }).click()
     }
     const startBtn = page.getByRole('button', { name: 'Start Workout' })
     if (await startBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startBtn.click()
     }
-    await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({ timeout: 10000 })
 
     const exerciseSelect = page.getByRole('combobox', { name: 'Exercise' })
     const optionCount = await exerciseSelect.locator('option').count()

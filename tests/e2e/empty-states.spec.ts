@@ -73,7 +73,8 @@ test.describe('Empty states with call-to-action buttons', () => {
     const finishBtn = page.locator('button:has-text("Finish")')
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await finishBtn.click()
-      await page.waitForTimeout(500)
+      await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible({ timeout: 10000 })
+      await page.getByRole('button', { name: 'Done' }).click()
     }
 
     const emptyState = page.getByRole('status').filter({ hasText: 'No workouts yet' })
@@ -81,7 +82,7 @@ test.describe('Empty states with call-to-action buttons', () => {
 
     if (await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) {
       await clickHydratedButton(startButton)
-      await expect(page.locator('.card-title:has-text("Select Exercise")')).toBeVisible({
+      await expect(page.locator('.card-title:has-text("Exercise")')).toBeVisible({
         timeout: 10000,
       })
     } else {

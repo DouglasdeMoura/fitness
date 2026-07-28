@@ -21,7 +21,7 @@ test.describe.configure({ mode: 'serial' })
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page)
   await page.getByRole('button', { name: 'Start Workout' }).click()
-  await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
     timeout: 15000,
   })
 }

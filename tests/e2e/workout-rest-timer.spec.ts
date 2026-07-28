@@ -13,7 +13,7 @@ const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page)
   await page.getByRole('button', { name: 'Start Workout' }).click()
-  await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
     timeout: 15000,
   })
 }
@@ -102,7 +102,7 @@ test.describe('Rest timer (issue #60)', () => {
 
     await page.getByRole('navigation', { name: 'FitTrack mobile navigation' }).getByRole('link', { name: 'Workout' }).click()
     await expect(restTimerRegion(page).getByText(/0:4[0-9]/)).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('heading', { name: 'Workout', level: 1 })).toBeVisible({
+    await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible({
       timeout: 15000,
     })
     await expect(restTimerRegion(page)).not.toContainText('Stopped')

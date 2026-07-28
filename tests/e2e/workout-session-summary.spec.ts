@@ -11,7 +11,7 @@ const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page)
   await page.getByRole('button', { name: 'Start Workout' }).click()
-  await expect(page.getByRole('heading', { name: 'Select Exercise' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Exercise' })).toBeVisible({
     timeout: 15000,
   })
 }
@@ -48,13 +48,16 @@ test.describe('Session summary on finish (issue #62)', () => {
 
     await page.getByRole('button', { name: 'Finish workout' }).click()
 
-    await expect(page.getByRole('heading', { name: 'Session Summary' })).toBeVisible()
+    // Scope assertions to the dialog to avoid strict mode with background page content
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('heading', { name: 'Session Summary' })).toBeVisible()
     await expect(page.getByLabel('Session volume comparison')).toContainText(/kg total/)
-    await expect(page.getByText('Total volume')).toBeVisible()
-    await expect(page.getByText('Sets logged')).toBeVisible()
-    await expect(page.getByText('Exercises')).toBeVisible()
-    await expect(page.getByText('Duration')).toBeVisible()
-    await expect(page.getByText('Personal records')).toBeVisible()
+    await expect(dialog.getByText('Total volume')).toBeVisible()
+    await expect(dialog.getByText('Sets logged')).toBeVisible()
+    await expect(dialog.getByText('Exercises')).toBeVisible()
+    await expect(dialog.getByText('Duration')).toBeVisible()
+    await expect(dialog.getByText('Personal records')).toBeVisible()
     await expect(page.getByLabel('Session volume comparison')).toContainText('480 kg total')
   })
 
