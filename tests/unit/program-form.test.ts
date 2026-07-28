@@ -6,7 +6,9 @@ import {
   editableExerciseFromExercise,
   makeTempId,
   newProgramDay,
+  buildCreateProgramPayload,
   programFormDefaults,
+  validateCreateProgramName,
   validateProgramDays,
   type EditableProgramDay,
   type EditableProgramExercise,
@@ -318,5 +320,54 @@ describe('makeTempId', () => {
     const b = makeTempId()
     expect(a).toMatch(/^tmp-/)
     expect(a).not.toBe(b)
+  })
+})
+
+describe('validateCreateProgramName', () => {
+  it('rejects blank names', () => {
+    expect(validateCreateProgramName('')).toBe('Program name is required.')
+    expect(validateCreateProgramName('   ')).toBe('Program name is required.')
+  })
+
+  it('accepts non-empty names', () => {
+    expect(validateCreateProgramName('Upper/Lower')).toBeUndefined()
+  })
+})
+
+describe('buildCreateProgramPayload', () => {
+  it('trims fields and seeds one empty training day', () => {
+    const payload = buildCreateProgramPayload(
+      {
+        name: '  Push Pull  ',
+        description: '  Notes  ',
+        frequency: 4,
+        periodizationType: 'dup',
+      },
+      { activateIfFirst: true },
+    )
+
+    expect(payload).toEqual({
+      name: 'Push Pull',
+      description: 'Notes',
+      frequency_per_week: 4,
+      periodization_type: 'dup',
+      is_active: true,
+      days: [{ day_name: 'Day A', sort_order: 1, exercises: [] }],
+    })
+  })
+
+  it('omits description when blank', () => {
+    const payload = buildCreateProgramPayload(
+      {
+        name: 'Starter',
+        description: '   ',
+        frequency: 3,
+        periodizationType: 'linear',
+      },
+      { activateIfFirst: false },
+    )
+
+    expect(payload.description).toBeUndefined()
+    expect(payload.is_active).toBe(false)
   })
 })

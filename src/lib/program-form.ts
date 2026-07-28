@@ -190,3 +190,42 @@ export function validateProgramDays(
   }
   return undefined
 }
+
+/** Fields collected on the programs list create card (src/routes/workout/programs/index.tsx). */
+export type CreateProgramFormValues = {
+  name: string
+  description: string
+  frequency: number
+  periodizationType: PeriodizationType
+}
+
+export const CREATE_PROGRAM_FORM_DEFAULTS: CreateProgramFormValues = {
+  name: '',
+  description: '',
+  frequency: 3,
+  periodizationType: 'linear',
+}
+
+/** Returns an error message when the name is blank; otherwise `undefined`. */
+export function validateCreateProgramName(name: string): string | undefined {
+  if (!name.trim()) return 'Program name is required.'
+  return undefined
+}
+
+/**
+ * Maps the create-program form into a saveProgram payload. Seeds one empty
+ * training day so the detail editor can add exercises immediately.
+ */
+export function buildCreateProgramPayload(
+  values: CreateProgramFormValues,
+  options: { activateIfFirst: boolean },
+): Omit<ProgramSavePayload, 'id' | 'progression_increment_pct'> {
+  return {
+    name: values.name.trim(),
+    description: values.description.trim() || undefined,
+    frequency_per_week: values.frequency,
+    periodization_type: values.periodizationType,
+    is_active: options.activateIfFirst,
+    days: [{ day_name: 'Day A', sort_order: 1, exercises: [] }],
+  }
+}

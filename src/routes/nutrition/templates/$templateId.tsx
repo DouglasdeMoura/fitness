@@ -20,12 +20,17 @@ import {
   type TableColumn,
 } from "@astryxdesign/core";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
 import { useMemo, useState } from "react";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
-import { getMealTemplate, saveMealTemplate, searchFoods } from "~/lib/api";
+import { deleteMealTemplate, getMealTemplate, saveMealTemplate, searchFoods } from "~/lib/api";
+import {
+  deleteCannotBeUndoneSubtitle,
+  deleteNamedEntityTitle,
+} from "~/lib/delete-confirmation";
 import type { Food } from "~/lib/db";
 import {
   calculateFoodMacros,
@@ -122,17 +127,17 @@ function mealTemplateItemColumns(
 
 function MealTemplateDetailPage() {
   const { templateId } = Route.useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const id = Number.parseInt(templateId, 10);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const logTemplate = useLogMealTemplate(todayString());
   const { data: template } = useSuspenseQuery({
     queryKey: ["meal-template", id],
     queryFn: () => getMealTemplate({ data: { id } }),
   });
 
-  // Single source of truth for every editable field. defaultValues seed from
-  // the query once; no useEffect resync — after a save the form keeps the
-  // user's values and the query cache is invalidated for other consumers.
   const form = useForm({
     defaultValues: (template ? templateFormDefaults(template) : EMPTY_TEMPLATE_FORM) as TemplateFormValues,
     onSubmit: async ({ value }) => {
@@ -147,7 +152,6 @@ function MealTemplateDetailPage() {
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const isSubmitSuccessful = useStore(form.store, (state) => state.isSubmitSuccessful);
 
-  // Derived during render (PRD anti-pattern #2) — no useState/useEffect.
   const previewTotals = useMemo(
     () => sumNutritionTotals(items.map((item) => calculateFoodMacros(item, item.servings))),
     [items],
@@ -170,9 +174,18 @@ function MealTemplateDetailPage() {
     );
   }
 
-  // Replaces the old manual `saved` useState: "Saving..." while the async
-  // onSubmit runs, "Saved!" once it resolves (isSubmitSuccessful), then back to
-  // the idle label on the next edit/submit attempt.
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteMealTemplate({ data: { id } });
+      await queryClient.invalidateQueries({ queryKey: ["meal-templates"] });
+      navigate({ to: "/nutrition/templates" });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   const saveLabel = isSubmitting
     ? "Saving..."
     : isSubmitSuccessful
@@ -190,6 +203,14 @@ function MealTemplateDetailPage() {
             variant="secondary"
             size="sm"
           />
+          <Button
+            label={`Delete ${templateName || "template"}`}
+            variant="destructive"
+            size="sm"
+            clickAction={() => setShowDeleteDialog(true)}
+          >
+            Delete
+          </Button>
           <Button
             label={`Log ${templateName || "template"}`}
             variant="primary"
@@ -298,15 +319,19 @@ function MealTemplateDetailPage() {
           );
         }}
       </form.Field>
+
+      <DeleteConfirmationDialog
+        isOpen={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={deleteNamedEntityTitle(templateName || template.name)}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        onConfirm={handleConfirmDelete}
+        isConfirming={isDeleting}
+      />
     </VStack>
   );
 }
 
-/**
- * Food lookup + the editable items table. Owns the search-box state (a UI
- * interaction, not a saved form field) and delegates item mutations to the
- * parent via the items-field callbacks.
- */
 function AddFoodsCard({
   items,
   onAdd,

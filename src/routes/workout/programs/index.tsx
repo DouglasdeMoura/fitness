@@ -16,7 +16,9 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { ScrollableTable } from "~/components/ScrollableTable";
+import { useForm } from "@tanstack/react-form";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -27,7 +29,16 @@ import {
   setActiveProgram,
   type ProgramSummary,
 } from "~/lib/api";
+import {
+  deleteCannotBeUndoneSubtitle,
+  deleteNamedEntityTitle,
+} from "~/lib/delete-confirmation";
 import type { PeriodizationType } from "~/lib/db";
+import {
+  buildCreateProgramPayload,
+  CREATE_PROGRAM_FORM_DEFAULTS,
+  validateCreateProgramName,
+} from "~/lib/program-form";
 
 export const Route = createFileRoute("/workout/programs/")({
   head: () => ({ meta: [{ title: "Training Programs - FitTrack" }] }),
@@ -145,45 +156,63 @@ function ProgramsPage() {
     queryFn: () => getPrograms(),
   });
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [frequency, setFrequency] = useState(3);
-  const [periodizationType, setPeriodizationType] = useState<PeriodizationType>("linear");
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    const program = await saveProgram({
-      data: {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        frequency_per_week: frequency,
-        periodization_type: periodizationType,
-        is_active: programs.length === 0,
-        days: [{ day_name: "Day A", sort_order: 1, exercises: [] }],
-      },
-    });
-    await queryClient.invalidateQueries({ queryKey: ["programs"] });
-    setShowCreate(false);
-    setName("");
-    setDescription("");
-    if (program?.id) {
-      await navigate({
-        to: "/workout/programs/$programId",
-        params: { programId: String(program.id) },
+  const form = useForm({
+    defaultValues: CREATE_PROGRAM_FORM_DEFAULTS,
+    onSubmit: async ({ value, formApi }) => {
+      const program = await saveProgram({
+        data: buildCreateProgramPayload(value, {
+          activateIfFirst: programs.length === 0,
+        }),
       });
-    }
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
+      setShowCreate(false);
+      formApi.reset();
+      if (program?.id) {
+        await navigate({
+          to: "/workout/programs/$programId",
+          params: { programId: String(program.id) },
+        });
+      }
+    },
+  });
+
+  const openCreate = () => {
+    form.reset();
+    setShowCreate(true);
   };
+
+  const cancelCreate = () => {
+    form.reset();
+    setShowCreate(false);
+  };
+
+  const handleCreate = () => form.handleSubmit();
 
   const handleSetActive: ProgramAction = async (id) => {
     await setActiveProgram({ data: { id } });
     await queryClient.invalidateQueries({ queryKey: ["programs"] });
   };
 
-  const handleDelete: ProgramAction = async (id) => {
-    if (!window.confirm("Delete this training program?")) return;
-    await deleteProgram({ data: { id } });
-    await queryClient.invalidateQueries({ queryKey: ["programs"] });
+  const requestDelete: ProgramAction = async (id) => {
+    setPendingDeleteId(id);
   };
+
+  const confirmDelete = async () => {
+    if (pendingDeleteId == null) return;
+    setIsDeleting(true);
+    try {
+      await deleteProgram({ data: { id: pendingDeleteId } });
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteId(null);
+    }
+  };
+
+  const pendingProgram = programs.find((program) => program.id === pendingDeleteId);
 
   return (
     <VStack gap={4}>
@@ -195,7 +224,7 @@ function ProgramsPage() {
             label={showCreate ? "Cancel" : "New Program"}
             variant="primary"
             size="sm"
-            clickAction={() => setShowCreate((value) => !value)}
+            clickAction={() => (showCreate ? cancelCreate() : openCreate())}
           />
         </HStack>
       </HStack>
@@ -213,35 +242,62 @@ function ProgramsPage() {
           <VStack gap={4}>
             <Heading level={2}>Create Program</Heading>
             <FormLayout>
-              <TextInput
-                label="Name"
-                value={name}
-                onChange={setName}
-                placeholder="e.g. Upper/Lower Split"
-              />
-              <NumberInput
-                label="Frequency (days/week)"
-                value={frequency}
-                onChange={(value) => setFrequency(value ?? 3)}
-                min={1}
-                max={7}
-                step={1}
-                isIntegerOnly
-              />
-              <Selector
-                label="Periodization"
-                value={periodizationType}
-                onChange={(value) => setPeriodizationType(value as PeriodizationType)}
-                options={PERIODIZATION_OPTIONS}
-              />
-              <TextArea
-                label="Description"
-                value={description}
-                onChange={setDescription}
-                placeholder="Optional program notes"
-              />
+              <form.Field
+                name="name"
+                validators={{ onChange: ({ value }) => validateCreateProgramName(value) }}
+              >
+                {(field) => (
+                  <TextInput
+                    label="Name"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    placeholder="e.g. Upper/Lower Split"
+                  />
+                )}
+              </form.Field>
+              <form.Field name="frequency">
+                {(field) => (
+                  <NumberInput
+                    label="Frequency (days/week)"
+                    value={field.state.value}
+                    onChange={(value) => field.handleChange(value ?? 3)}
+                    min={1}
+                    max={7}
+                    step={1}
+                    isIntegerOnly
+                  />
+                )}
+              </form.Field>
+              <form.Field name="periodizationType">
+                {(field) => (
+                  <Selector
+                    label="Periodization"
+                    value={field.state.value}
+                    onChange={(value) => field.handleChange(value as PeriodizationType)}
+                    options={PERIODIZATION_OPTIONS}
+                  />
+                )}
+              </form.Field>
+              <form.Field name="description">
+                {(field) => (
+                  <TextArea
+                    label="Description"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    placeholder="Optional program notes"
+                  />
+                )}
+              </form.Field>
             </FormLayout>
-            <Button label="Create Program" variant="primary" clickAction={handleCreate} />
+            <form.Subscribe selector={(state) => ({ isSubmitting: state.isSubmitting })}>
+              {({ isSubmitting }) => (
+                <Button
+                  label={isSubmitting ? "Creating..." : "Create Program"}
+                  variant="primary"
+                  clickAction={handleCreate}
+                />
+              )}
+            </form.Subscribe>
           </VStack>
         </Card>
       ) : null}
@@ -256,7 +312,7 @@ function ProgramsPage() {
               <Button
                 label="Create a program"
                 variant="primary"
-                clickAction={() => setShowCreate(true)}
+                clickAction={openCreate}
               />
             }
             headingLevel={2}
@@ -266,7 +322,7 @@ function ProgramsPage() {
         <ScrollableTable scrollLabel="programs-list">
           <Table
             aria-label="Training programs"
-          columns={programColumns(handleSetActive, handleDelete)}
+          columns={programColumns(handleSetActive, requestDelete)}
           data={programs}
           idKey="id"
           density="compact"
@@ -274,6 +330,16 @@ function ProgramsPage() {
           />
         </ScrollableTable>
       )}
+      <DeleteConfirmationDialog
+        isOpen={pendingDeleteId != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        title={deleteNamedEntityTitle(pendingProgram?.name ?? "program")}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        onConfirm={confirmDelete}
+        isConfirming={isDeleting}
+      />
     </VStack>
   );
 }

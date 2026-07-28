@@ -76,8 +76,10 @@ test.describe('Toast notifications for mutations', () => {
 
     const foodRow = page.getByRole('row').filter({ hasText: foodName })
     await expect(foodRow).toBeVisible({ timeout: 10000 })
-    page.once('dialog', (dialog) => dialog.accept())
     await clickHydratedButton(foodRow.getByRole('button', { name: `Delete ${foodName}` }))
+    const deleteDialog = page.getByRole('dialog')
+    await expect(deleteDialog.getByRole('heading', { name: 'Delete this entry?' })).toBeVisible()
+    await clickHydratedButton(deleteDialog.getByRole('button', { name: 'Confirm delete' }))
 
     const deletedToast = infoToast(page, 'Entry deleted')
     await expect(deletedToast).toBeVisible({ timeout: 10000 })
@@ -113,6 +115,9 @@ test.describe('Toast notifications for mutations', () => {
     await expect(infoToast(page, 'Set saved')).toBeVisible({ timeout: 10000 })
 
     await clickHydratedButton(page.getByRole('button', { name: /Delete set 1 of/ }))
+    const setDeleteDialog = page.getByRole('dialog')
+    await expect(setDeleteDialog.getByRole('heading', { name: 'Delete this set?' })).toBeVisible()
+    await clickHydratedButton(setDeleteDialog.getByRole('button', { name: 'Confirm delete' }))
     const deletedToast = infoToast(page, 'Set deleted')
     await expect(deletedToast).toBeVisible({ timeout: 10000 })
     await expect(page.getByRole('button', { name: /Save set 1 of/ })).toHaveCount(0)

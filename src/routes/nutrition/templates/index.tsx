@@ -15,8 +15,10 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import { useForm } from "@tanstack/react-form";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -26,7 +28,16 @@ import {
   saveMealTemplate,
   type MealTemplateSummary,
 } from "~/lib/api";
+import {
+  deleteCannotBeUndoneSubtitle,
+  deleteNamedEntityTitle,
+} from "~/lib/delete-confirmation";
 import { MEAL_TYPE_LABELS, todayString, type MealType } from "~/lib/nutrition";
+import {
+  buildCreateTemplatePayload,
+  CREATE_TEMPLATE_FORM_DEFAULTS,
+  validateCreateTemplateName,
+} from "~/lib/template-form";
 
 export const Route = createFileRoute("/nutrition/templates/")({
   head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
@@ -134,37 +145,56 @@ function MealTemplatesPage() {
     queryFn: () => getMealTemplates(),
   });
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [defaultMealType, setDefaultMealType] = useState<MealType>("lunch");
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    const template = await saveMealTemplate({
-      data: {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        default_meal_type: defaultMealType,
-        items: [],
-      },
-    });
-    await queryClient.invalidateQueries({ queryKey: ["meal-templates"] });
-    setShowCreate(false);
-    setName("");
-    setDescription("");
-    if (template?.id) {
-      await navigate({
-        to: "/nutrition/templates/$templateId",
-        params: { templateId: String(template.id) },
+  const form = useForm({
+    defaultValues: CREATE_TEMPLATE_FORM_DEFAULTS,
+    onSubmit: async ({ value, formApi }) => {
+      const template = await saveMealTemplate({
+        data: buildCreateTemplatePayload(value),
       });
+      await queryClient.invalidateQueries({ queryKey: ["meal-templates"] });
+      setShowCreate(false);
+      formApi.reset();
+      if (template?.id) {
+        await navigate({
+          to: "/nutrition/templates/$templateId",
+          params: { templateId: String(template.id) },
+        });
+      }
+    },
+  });
+
+  const openCreate = () => {
+    form.reset();
+    setShowCreate(true);
+  };
+
+  const cancelCreate = () => {
+    form.reset();
+    setShowCreate(false);
+  };
+
+  const handleCreate = () => form.handleSubmit();
+
+  const requestDelete: DeleteMealTemplate = async (id) => {
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (pendingDeleteId == null) return;
+    setIsDeleting(true);
+    try {
+      await deleteMealTemplate({ data: { id: pendingDeleteId } });
+      await queryClient.invalidateQueries({ queryKey: ["meal-templates"] });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteId(null);
     }
   };
 
-  const handleDelete: DeleteMealTemplate = async (id) => {
-    if (!window.confirm("Delete this meal template?")) return;
-    await deleteMealTemplate({ data: { id } });
-    await queryClient.invalidateQueries({ queryKey: ["meal-templates"] });
-  };
+  const pendingTemplate = templates.find((template) => template.id === pendingDeleteId);
 
   return (
     <VStack gap={4}>
@@ -176,7 +206,7 @@ function MealTemplatesPage() {
           <Button
             label={showCreate ? "Cancel" : "New Template"}
             variant="primary"
-            clickAction={() => setShowCreate((value) => !value)}
+            clickAction={() => (showCreate ? cancelCreate() : openCreate())}
           />
         </HStack>
       </HStack>
@@ -190,21 +220,48 @@ function MealTemplatesPage() {
           <VStack gap={4}>
             <Heading level={2}>Create Meal Template</Heading>
             <FormLayout>
-              <TextInput
-                label="Name"
-                value={name}
-                onChange={setName}
-                placeholder="e.g. High-protein breakfast"
-              />
-              <Selector
-                label="Default meal"
-                value={defaultMealType}
-                onChange={(value) => setDefaultMealType(value as MealType)}
-                options={MEAL_TYPE_OPTIONS}
-              />
-              <TextArea label="Description" value={description} onChange={setDescription} />
+              <form.Field
+                name="name"
+                validators={{ onChange: ({ value }) => validateCreateTemplateName(value) }}
+              >
+                {(field) => (
+                  <TextInput
+                    label="Name"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    placeholder="e.g. High-protein breakfast"
+                  />
+                )}
+              </form.Field>
+              <form.Field name="defaultMealType">
+                {(field) => (
+                  <Selector
+                    label="Default meal"
+                    value={field.state.value}
+                    onChange={(value) => field.handleChange(value as MealType)}
+                    options={MEAL_TYPE_OPTIONS}
+                  />
+                )}
+              </form.Field>
+              <form.Field name="description">
+                {(field) => (
+                  <TextArea
+                    label="Description"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                  />
+                )}
+              </form.Field>
             </FormLayout>
-            <Button label="Create & Edit Foods" variant="primary" clickAction={handleCreate} />
+            <form.Subscribe selector={(state) => ({ isSubmitting: state.isSubmitting })}>
+              {({ isSubmitting }) => (
+                <Button
+                  label={isSubmitting ? "Creating..." : "Create & Edit Foods"}
+                  variant="primary"
+                  clickAction={handleCreate}
+                />
+              )}
+            </form.Subscribe>
           </VStack>
         </Card>
       ) : null}
@@ -219,7 +276,7 @@ function MealTemplatesPage() {
               <Button
                 label="Create a template"
                 variant="primary"
-                clickAction={() => setShowCreate(true)}
+                clickAction={openCreate}
               />
             }
             headingLevel={2}
@@ -229,7 +286,7 @@ function MealTemplatesPage() {
         <ScrollableTable scrollLabel="templates-list">
           <Table
             aria-label="Meal templates"
-          columns={mealTemplateColumns(handleDelete, (template) => logTemplate({ templateId: template.id, mealType: template.default_meal_type, expectedKcal: template.totals.calories }))}
+          columns={mealTemplateColumns(requestDelete, (template) => logTemplate({ templateId: template.id, mealType: template.default_meal_type, expectedKcal: template.totals.calories }))}
           data={templates}
           idKey="id"
           density="compact"
@@ -237,6 +294,16 @@ function MealTemplatesPage() {
           />
         </ScrollableTable>
       )}
+      <DeleteConfirmationDialog
+        isOpen={pendingDeleteId != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        title={deleteNamedEntityTitle(pendingTemplate?.name ?? "template")}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        onConfirm={confirmDelete}
+        isConfirming={isDeleting}
+      />
     </VStack>
   );
 }

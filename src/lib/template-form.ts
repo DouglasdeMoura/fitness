@@ -140,3 +140,34 @@ export function validateTemplateItems(items: EditableItem[]): string | undefined
   }
   return undefined
 }
+
+/** Fields collected on the templates list create card (src/routes/nutrition/templates/index.tsx). */
+export type CreateTemplateFormValues = {
+  name: string
+  description: string
+  defaultMealType: MealType
+}
+
+export const CREATE_TEMPLATE_FORM_DEFAULTS: CreateTemplateFormValues = {
+  name: '',
+  description: '',
+  defaultMealType: 'lunch',
+}
+
+/** Returns an error message when the name is blank; otherwise `undefined`. */
+export function validateCreateTemplateName(name: string): string | undefined {
+  if (!name.trim()) return 'Template name is required.'
+  return undefined
+}
+
+/** Maps the create-template form into a saveMealTemplate payload. */
+export function buildCreateTemplatePayload(
+  values: CreateTemplateFormValues,
+): Omit<TemplateSavePayload, 'id'> {
+  return {
+    name: values.name.trim(),
+    description: values.description.trim() || undefined,
+    default_meal_type: values.defaultMealType,
+    items: [],
+  }
+}

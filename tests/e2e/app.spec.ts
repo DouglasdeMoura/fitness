@@ -135,8 +135,10 @@ test.describe('Nutrition - Food Logging Flow', () => {
     await page.getByRole('button', { name: 'Add to Log' }).click()
     const foodRow = page.getByRole('row').filter({ hasText: foodName })
     await expect(foodRow).toBeVisible({ timeout: 10000 })
-    page.once('dialog', (dialog) => dialog.accept())
     await foodRow.getByRole('button', { name: `Delete ${foodName}` }).click()
+    const deleteDialog = page.getByRole('dialog')
+    await expect(deleteDialog.getByRole('heading', { name: 'Delete this entry?' })).toBeVisible()
+    await deleteDialog.getByRole('button', { name: 'Confirm delete' }).click()
     await expect(foodRow).not.toBeVisible()
   })
 

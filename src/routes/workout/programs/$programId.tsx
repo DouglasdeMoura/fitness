@@ -17,12 +17,18 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
+import { useState } from "react";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import {
   ProgramExerciseTable,
   type RemoveProgramExercise,
   type UpdateProgramExercise,
 } from "~/components/workout/ProgramExerciseTable";
-import { getExercises, getProgram, saveProgram, startWorkoutFromProgram } from "~/lib/api";
+import { deleteProgram, getExercises, getProgram, saveProgram, startWorkoutFromProgram } from "~/lib/api";
+import {
+  deleteCannotBeUndoneSubtitle,
+  deleteNamedEntityTitle,
+} from "~/lib/delete-confirmation";
 import type { PeriodizationType } from "~/lib/db";
 import {
   buildProgramSavePayload,
@@ -51,6 +57,8 @@ function ProgramDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const id = Number.parseInt(programId, 10);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { data: program } = useSuspenseQuery({
     queryKey: ["program", id],
     queryFn: () => getProgram({ data: { id } }),
@@ -60,9 +68,6 @@ function ProgramDetailPage() {
     queryFn: () => getExercises({ data: {} }),
   });
 
-  // Single source of truth for every editable field. defaultValues seed from
-  // the query once; no useEffect resync — after a save the form keeps the
-  // user's values and the query cache is invalidated for other consumers.
   const form = useForm({
     defaultValues: (program
       ? programFormDefaults(program)
@@ -71,10 +76,6 @@ function ProgramDetailPage() {
       const saved = await saveProgram({ data: buildProgramSavePayload(value, id) });
       await queryClient.invalidateQueries({ queryKey: ["program", id] });
       await queryClient.invalidateQueries({ queryKey: ["programs"] });
-      // Re-seed from the just-persisted row so newly added days pick up their
-      // server-assigned ids (a day needs persistedId before it can be
-      // "Start"ed). This replaces the old useEffect<->useState sync — no
-      // effect needed, and it runs before isSubmitSuccessful flips to true.
       if (saved) formApi.reset(programFormDefaults(saved));
     },
   });
@@ -112,9 +113,18 @@ function ProgramDetailPage() {
     navigate({ to: "/workout", search: { session: result.sessionId } });
   };
 
-  // Replaces the old manual `saved` useState: "Saving..." while the async
-  // onSubmit runs, "Saved!" once it resolves (isSubmitSuccessful), then back to
-  // the idle label on the next edit/submit attempt.
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteProgram({ data: { id } });
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
+      navigate({ to: "/workout/programs" });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   const saveLabel = isSubmitting
     ? "Saving..."
     : isSubmitSuccessful
@@ -127,6 +137,14 @@ function ProgramDetailPage() {
         <Heading level={1}>{name || "Edit Program"}</Heading>
         <HStack gap={2} wrap="wrap">
           <Button label="Back to Programs" href="/workout/programs" variant="secondary" size="sm" />
+          <Button
+            label={`Delete ${name || "program"}`}
+            variant="destructive"
+            size="sm"
+            clickAction={() => setShowDeleteDialog(true)}
+          >
+            Delete
+          </Button>
           <Button label={saveLabel} variant="primary" clickAction={form.handleSubmit} />
         </HStack>
       </HStack>
@@ -134,12 +152,6 @@ function ProgramDetailPage() {
       <Card>
         <VStack gap={3}>
           <Heading level={2}>Program Settings</Heading>
-          {/*
-            TextInput / NumberInput / Selector / CheckboxInput / TextArea each
-            render their own Field shell (label + status). Do not wrap them in
-            an Astryx Field — the <form.Field> wrapper is TanStack Form's
-            state/validation container, not a visual one.
-          */}
           <FormLayout>
             <form.Field name="name">
               {(field) => (
@@ -344,6 +356,15 @@ function ProgramDetailPage() {
           );
         }}
       </form.Field>
+
+      <DeleteConfirmationDialog
+        isOpen={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={deleteNamedEntityTitle(name || program.name)}
+        subtitle={deleteCannotBeUndoneSubtitle()}
+        onConfirm={handleConfirmDelete}
+        isConfirming={isDeleting}
+      />
     </VStack>
   );
 }

@@ -16,6 +16,7 @@ import {
   type TableColumn,
 } from '@astryxdesign/core'
 import { useToast } from '@astryxdesign/core/Toast'
+import { DeleteConfirmationDialog } from '~/components/DeleteConfirmationDialog'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
 import { ScrollableTable } from '~/components/ScrollableTable'
 import { ToastUndoButton } from '~/components/ToastUndoButton'
@@ -40,6 +41,7 @@ import {
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
 import type { Exercise, WorkoutSession } from '~/lib/db'
+import { deleteWorkoutSetTitle } from '~/lib/delete-confirmation'
 import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
 import {
   mutationFailedBody,
@@ -148,6 +150,7 @@ function WorkoutPageContent() {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [sets, setSets] = useState<WorkoutSetRow[]>([])
   const [summaryOverride, setSummaryOverride] = useState<WorkoutSessionSummary | null>(null)
+  const [pendingSetIndex, setPendingSetIndex] = useState<number | null>(null)
   const toast = useToast()
 
   const navigate = useNavigate()
@@ -379,7 +382,11 @@ function WorkoutPageContent() {
     }
   }
 
-  const handleDeleteSet = async (index: number) => {
+  const requestDeleteSet = (index: number) => {
+    if (sets[index]) setPendingSetIndex(index)
+  }
+
+  const confirmDeleteSet = async (index: number) => {
     const removed = sets[index]
     if (!removed) return
 
@@ -673,7 +680,7 @@ function WorkoutPageContent() {
                       )
                     }}
                     onSaveSet={handleSaveSet}
-                    onDeleteSet={handleDeleteSet}
+                    onDeleteSet={requestDeleteSet}
                   />
                 ) : null}
                 <Text type="supporting">
@@ -685,6 +692,18 @@ function WorkoutPageContent() {
           ) : null}
         </VStack>
       )}
+      <DeleteConfirmationDialog
+        isOpen={pendingSetIndex != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSetIndex(null)
+        }}
+        title={deleteWorkoutSetTitle()}
+        onConfirm={async () => {
+          if (pendingSetIndex == null) return
+          await confirmDeleteSet(pendingSetIndex)
+          setPendingSetIndex(null)
+        }}
+      />
     </VStack>
   )
 }

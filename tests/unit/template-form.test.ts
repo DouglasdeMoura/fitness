@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest'
 import type { MealTemplateDetail } from '~/lib/api'
 import type { Food } from '~/lib/db'
 import {
+  buildCreateTemplatePayload,
   buildTemplateSavePayload,
   editableItemFromFood,
   makeTempId,
   templateFormDefaults,
+  validateCreateTemplateName,
   validateTemplateItems,
   type EditableItem,
 } from '~/lib/template-form'
@@ -176,5 +178,43 @@ describe('makeTempId', () => {
     const b = makeTempId()
     expect(a).toMatch(/^tmp-/)
     expect(a).not.toBe(b)
+  })
+})
+
+describe('validateCreateTemplateName', () => {
+  it('rejects blank names', () => {
+    expect(validateCreateTemplateName('')).toBe('Template name is required.')
+    expect(validateCreateTemplateName('  ')).toBe('Template name is required.')
+  })
+
+  it('accepts non-empty names', () => {
+    expect(validateCreateTemplateName('High-protein breakfast')).toBeUndefined()
+  })
+})
+
+describe('buildCreateTemplatePayload', () => {
+  it('trims fields and starts with an empty item list', () => {
+    const payload = buildCreateTemplatePayload({
+      name: '  Dinner bowl  ',
+      description: '  Notes  ',
+      defaultMealType: 'dinner',
+    })
+
+    expect(payload).toEqual({
+      name: 'Dinner bowl',
+      description: 'Notes',
+      default_meal_type: 'dinner',
+      items: [],
+    })
+  })
+
+  it('omits description when blank', () => {
+    const payload = buildCreateTemplatePayload({
+      name: 'Lunch',
+      description: '   ',
+      defaultMealType: 'lunch',
+    })
+
+    expect(payload.description).toBeUndefined()
   })
 })
