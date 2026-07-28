@@ -2,40 +2,40 @@
 // draft → payload mapping and the validity rule can be unit-tested in isolation
 // (the unit suite runs in the node environment, without a React host).
 
-import type { Food } from './db'
+import type { Food } from "./db";
 
 /**
  * Form-friendly shape for creating a custom food. Mirrors the persisted Food
  * row but with input-friendly types: numeric fields are `number | null` until
  * the user enters a value, so inputs can render empty instead of "0".
  */
-export type CustomFoodDraft = {
-  name: string
-  brand: string
-  servingSize: number | null
-  servingUnit: string
-  calories: number | null
-  protein: number | null
-  carbs: number | null
-  fat: number | null
-  barcode: string
+export interface CustomFoodDraft {
+  name: string;
+  brand: string;
+  servingSize: number | null;
+  servingUnit: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  barcode: string;
 }
 
 /** A fresh draft with the sensible defaults a new custom food starts from. */
 export const EMPTY_CUSTOM_FOOD_DRAFT: CustomFoodDraft = {
-  name: '',
-  brand: '',
-  servingSize: 100,
-  servingUnit: 'g',
+  barcode: "",
+  brand: "",
   calories: null,
-  protein: null,
   carbs: null,
   fat: null,
-  barcode: '',
-}
+  name: "",
+  protein: null,
+  servingSize: 100,
+  servingUnit: "g",
+};
 
 /** Persisted shape the `addFood` server function expects (server fills the rest). */
-export type CustomFoodPayload = Omit<Food, 'id' | 'created_at' | 'source'>
+export type CustomFoodPayload = Omit<Food, "id" | "created_at" | "source">;
 
 /**
  * True when the draft has the minimum fields required to persist a custom food.
@@ -43,7 +43,7 @@ export type CustomFoodPayload = Omit<Food, 'id' | 'created_at' | 'source'>
  * @example isCustomFoodDraftValid({ ...EMPTY_CUSTOM_FOOD_DRAFT, name: 'Apple', calories: 52 }) // true
  */
 export function isCustomFoodDraftValid(draft: CustomFoodDraft): boolean {
-  return draft.name.trim().length > 0 && draft.calories != null
+  return draft.name.trim().length > 0 && draft.calories != null;
 }
 
 /**
@@ -54,17 +54,17 @@ export function isCustomFoodDraftValid(draft: CustomFoodDraft): boolean {
  */
 export function customFoodPayload(draft: CustomFoodDraft): CustomFoodPayload {
   return {
-    name: draft.name.trim(),
+    barcode: (draft.barcode ?? "").trim() || null,
     brand: draft.brand.trim() || null,
-    serving_size: draft.servingSize ?? 100,
-    serving_unit: draft.servingUnit,
     calories_per_serving: draft.calories ?? 0,
-    protein_g: draft.protein ?? 0,
     carbs_g: draft.carbs ?? 0,
     fat_g: draft.fat ?? 0,
     fiber_g: 0,
-    sugar_g: 0,
+    name: draft.name.trim(),
+    protein_g: draft.protein ?? 0,
+    serving_size: draft.servingSize ?? 100,
+    serving_unit: draft.servingUnit,
     sodium_mg: 0,
-    barcode: (draft.barcode ?? '').trim() || null,
-  }
+    sugar_g: 0,
+  };
 }

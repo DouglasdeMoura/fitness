@@ -1,10 +1,4 @@
-import {
-  Card,
-  Grid,
-  HStack,
-  Skeleton,
-  VStack,
-} from '@astryxdesign/core'
+import { Card, Grid, HStack, Skeleton, VStack } from "@astryxdesign/core";
 
 function SkeletonTableRows({ rows = 4 }: { rows?: number }) {
   return (
@@ -18,7 +12,7 @@ function SkeletonTableRows({ rows = 4 }: { rows?: number }) {
         </HStack>
       ))}
     </VStack>
-  )
+  );
 }
 
 export function DashboardSkeleton() {
@@ -50,7 +44,7 @@ export function DashboardSkeleton() {
       </Card>
 
       {/* Secondary stats */}
-      <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
+      <Grid columns={{ max: 3, minWidth: 200 }} gap={4}>
         <Card padding={4}>
           <VStack gap={1}>
             <Skeleton width={120} height={14} index={10} />
@@ -74,7 +68,7 @@ export function DashboardSkeleton() {
       {/* Quick Actions skeleton — card-shaped placeholders */}
       <VStack gap={3}>
         <Skeleton width={120} height={14} index={16} />
-        <Grid columns={{ minWidth: 180, max: 2 }} gap={4}>
+        <Grid columns={{ max: 2, minWidth: 180 }} gap={4}>
           <Card padding={4}>
             <HStack gap={3} vAlign="center">
               <Skeleton width={32} height={32} radius="rounded" index={17} />
@@ -118,7 +112,12 @@ export function DashboardSkeleton() {
           <HStack gap={2} wrap="wrap">
             {Array.from({ length: 7 }).map((_, idx) => (
               <VStack key={idx} gap={1} hAlign="center">
-                <Skeleton width={12} height={12} radius="rounded" index={31 + idx * 2} />
+                <Skeleton
+                  width={12}
+                  height={12}
+                  radius="rounded"
+                  index={31 + idx * 2}
+                />
                 <Skeleton width={28} height={10} index={32 + idx * 2} />
               </VStack>
             ))}
@@ -126,7 +125,7 @@ export function DashboardSkeleton() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }
 
 export function NutritionSkeleton() {
@@ -137,7 +136,7 @@ export function NutritionSkeleton() {
         <Skeleton width={240} height={36} index={1} />
       </VStack>
 
-      <Grid columns={{ minWidth: 320, max: 2, repeat: 'fit' }} gap={4}>
+      <Grid columns={{ max: 2, minWidth: 320, repeat: "fit" }} gap={4}>
         <Card>
           <VStack gap={3}>
             <Skeleton width={140} height={20} index={2} />
@@ -162,7 +161,7 @@ export function NutritionSkeleton() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }
 
 export function WorkoutSkeleton() {
@@ -198,7 +197,7 @@ export function WorkoutSkeleton() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }
 
 export function ProgressSkeleton() {
@@ -206,7 +205,7 @@ export function ProgressSkeleton() {
     <VStack as="main" gap={4} aria-busy="true" aria-label="Loading progress">
       <Skeleton width={120} height={28} index={0} />
 
-      <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
+      <Grid columns={{ max: 3, minWidth: 200 }} gap={4}>
         {Array.from({ length: 3 }, (_, index) => (
           <Card key={index}>
             <VStack gap={1}>
@@ -234,7 +233,7 @@ export function ProgressSkeleton() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }
 
 export function SettingsSkeleton() {
@@ -252,13 +251,17 @@ export function SettingsSkeleton() {
         </Card>
       ))}
     </VStack>
-  )
+  );
 }
-
 
 export function ReviewSkeleton() {
   return (
-    <VStack as="main" gap={4} aria-busy="true" aria-label="Loading weekly review">
+    <VStack
+      as="main"
+      gap={4}
+      aria-busy="true"
+      aria-label="Loading weekly review"
+    >
       <Skeleton height={32} width="60%" />
       <Card>
         <VStack gap={2}>
@@ -281,7 +284,7 @@ export function ReviewSkeleton() {
         </Card>
       </Grid>
     </VStack>
-  )
+  );
 }
 
 export function RoutePageSkeleton() {
@@ -295,5 +298,5 @@ export function RoutePageSkeleton() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }

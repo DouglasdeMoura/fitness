@@ -11,15 +11,15 @@
  * route or gated behind conditions (e.g. "n" only fires on /nutrition).
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef } from "react";
 
 export interface ShortcutHandlers {
   /** Focus the first search/auto-complete input on the page. */
-  onFocusSearch: () => void
+  onFocusSearch: () => void;
   /** Open the new-entry flow (e.g. food-log dialog on /nutrition). */
-  onNewEntry: () => void
+  onNewEntry: () => void;
   /** Toggle the shortcuts help dialog. */
-  onToggleHelp: () => void
+  onToggleHelp: () => void;
 }
 
 /**
@@ -31,45 +31,48 @@ export interface ShortcutHandlers {
  */
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   // Store callbacks in a ref so the effect closure always sees the latest.
-  const handlersRef = useRef(handlers)
-  handlersRef.current = handlers
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
 
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent) {
       // Don't hijack when the user is typing in a field.
-      const target = event.target as HTMLElement
+      const target = event.target as HTMLElement;
       if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
         target.isContentEditable
       ) {
-        return
+        return;
       }
 
       // Only bare keys — no Ctrl / Alt / Meta.
       if (event.ctrlKey || event.altKey || event.metaKey) {
-        return
+        return;
       }
 
-      const h = handlersRef.current
+      const h = handlersRef.current;
       switch (event.key) {
-        case '/':
-          event.preventDefault()
-          h.onFocusSearch()
-          break
-        case 'n':
-          event.preventDefault()
-          h.onNewEntry()
-          break
-        case '?':
-          event.preventDefault()
-          h.onToggleHelp()
-          break
+        case "/": {
+          event.preventDefault();
+          h.onFocusSearch();
+          break;
+        }
+        case "n": {
+          event.preventDefault();
+          h.onNewEntry();
+          break;
+        }
+        case "?": {
+          event.preventDefault();
+          h.onToggleHelp();
+          break;
+        }
       }
     }
 
-    document.addEventListener('keydown', handleKeydown)
-    return () => document.removeEventListener('keydown', handleKeydown)
-  }, [])
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, []);
 }

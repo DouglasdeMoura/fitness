@@ -1,17 +1,15 @@
-import Database from 'better-sqlite3'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  FOOD_LOG_SUMMARY_SQL,
-  fetchFoodLogSummaryEntries,
-} from '~/lib/api'
+import Database from "better-sqlite3";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { FOOD_LOG_SUMMARY_SQL, fetchFoodLogSummaryEntries } from "~/lib/api";
 import {
   QUICK_ADD_DEFAULT_NAME,
   buildQuickAddDraft,
   sumFoodLogEntryTotals,
-} from '~/lib/nutrition'
+} from "~/lib/nutrition";
 
-const USER_ID = 1
-const DATE = '2020-01-01'
+const USER_ID = 1;
+const DATE = "2020-01-01";
 
 const TEST_SCHEMA = `
 CREATE TABLE users (
@@ -44,87 +42,92 @@ CREATE TABLE food_log (
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
-`
+`;
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:')
-  db.pragma('foreign_keys = ON')
-  db.exec(TEST_SCHEMA)
-  db.prepare('INSERT INTO users (id, name) VALUES (?, ?)').run(USER_ID, 'Test User')
+  const db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
+  db.exec(TEST_SCHEMA);
+  db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(
+    USER_ID,
+    "Test User"
+  );
   db.prepare(
     `INSERT INTO foods (id, name, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g)
-     VALUES (1, 'Catalog Chicken', 100, 'g', 165, 31, 0, 3.6)`,
-  ).run()
-  return db
+     VALUES (1, 'Catalog Chicken', 100, 'g', 165, 31, 0, 3.6)`
+  ).run();
+  return db;
 }
 
-describe('buildQuickAddDraft (issue #57)', () => {
-  it('requires calories and defaults optional macros to zero', () => {
-    expect(buildQuickAddDraft({ calories: 500 }, DATE, 'lunch')).toEqual({
+describe("buildQuickAddDraft (issue #57)", () => {
+  it("requires calories and defaults optional macros to zero", () => {
+    expect(buildQuickAddDraft({ calories: 500 }, DATE, "lunch")).toStrictEqual({
+      calories: 500,
+      carbs_g: 0,
       custom_name: QUICK_ADD_DEFAULT_NAME,
       date: DATE,
-      meal_type: 'lunch',
-      servings: 1,
-      calories: 500,
-      protein_g: 0,
-      carbs_g: 0,
       fat_g: 0,
-    })
-  })
+      meal_type: "lunch",
+      protein_g: 0,
+      servings: 1,
+    });
+  });
 
-  it('uses trimmed custom_name when provided', () => {
+  it("uses trimmed custom_name when provided", () => {
     expect(
       buildQuickAddDraft(
-        { calories: 320, name: '  Office lunch  ', protein_g: 20 },
+        { calories: 320, name: "  Office lunch  ", protein_g: 20 },
         DATE,
-        'breakfast',
-      ).custom_name,
-    ).toBe('Office lunch')
-  })
+        "breakfast"
+      ).custom_name
+    ).toBe("Office lunch");
+  });
 
-  it('rejects non-positive calories', () => {
-    expect(() => buildQuickAddDraft({ calories: 0 }, DATE, 'snack')).toThrow(RangeError)
-  })
-})
+  it("rejects non-positive calories", () => {
+    expect(() => buildQuickAddDraft({ calories: 0 }, DATE, "snack")).toThrow(
+      RangeError
+    );
+  });
+});
 
-describe('nutrition summary read path (issue #57)', () => {
-  let db: Database.Database
+describe("nutrition summary read path (issue #57)", () => {
+  let db: Database.Database;
 
   beforeEach(() => {
-    db = createTestDb()
+    db = createTestDb();
     db.prepare(
       `INSERT INTO food_log (
         user_id, food_id, custom_name, date, meal_type, servings,
         calories, protein_g, carbs_g, fat_g
-      ) VALUES (?, 1, 'Catalog Chicken', ?, 'breakfast', 1, 165, 31, 0, 3.6)`,
-    ).run(USER_ID, DATE)
+      ) VALUES (?, 1, 'Catalog Chicken', ?, 'breakfast', 1, 165, 31, 0, 3.6)`
+    ).run(USER_ID, DATE);
     db.prepare(
       `INSERT INTO food_log (
         user_id, food_id, custom_name, date, meal_type, servings,
         calories, protein_g, carbs_g, fat_g
-      ) VALUES (?, NULL, 'Mystery burrito', ?, 'lunch', 1, 450, 18, 40, 20)`,
-    ).run(USER_ID, DATE)
-  })
+      ) VALUES (?, NULL, 'Mystery burrito', ?, 'lunch', 1, 450, 18, 40, 20)`
+    ).run(USER_ID, DATE);
+  });
 
   afterEach(() => {
-    db.close()
-  })
+    db.close();
+  });
 
-  it('LEFT JOIN query keeps null food_id rows in the result set', () => {
-    const entries = fetchFoodLogSummaryEntries(db, USER_ID, DATE)
-    expect(entries).toHaveLength(2)
-    expect(entries.some((entry) => entry.food_id == null)).toBe(true)
-    expect(FOOD_LOG_SUMMARY_SQL).toContain('LEFT JOIN foods')
-  })
+  it("LEFT JOIN query keeps null food_id rows in the result set", () => {
+    const entries = fetchFoodLogSummaryEntries(db, USER_ID, DATE);
+    expect(entries).toHaveLength(2);
+    expect(entries.some((entry) => entry.food_id == null)).toBeTruthy();
+    expect(FOOD_LOG_SUMMARY_SQL).toContain("LEFT JOIN foods");
+  });
 
-  it('includes null food_id rows in daily calorie and macro totals', () => {
-    const entries = fetchFoodLogSummaryEntries(db, USER_ID, DATE)
-    expect(sumFoodLogEntryTotals(entries)).toEqual({
+  it("includes null food_id rows in daily calorie and macro totals", () => {
+    const entries = fetchFoodLogSummaryEntries(db, USER_ID, DATE);
+    expect(sumFoodLogEntryTotals(entries)).toStrictEqual({
       calories: 615,
-      protein_g: 49,
       carbs_g: 40,
       fat_g: 23.6,
       fiber_g: 0,
-    })
-  })
-})
+      protein_g: 49,
+    });
+  });
+});

@@ -8,12 +8,12 @@ import {
   ProgressBar,
   Text,
   VStack,
-} from '@astryxdesign/core'
-import { macroProgress } from '~/lib/dashboard'
-import type { DailyTargets } from '~/lib/api'
-import type { NutritionTotals } from '~/lib/nutrition'
-import { calorieRemainingLabel } from '~/lib/dashboard'
-import { formatDisplayInteger } from '~/lib/format-number'
+} from "@astryxdesign/core";
+
+import type { DailyTargets } from "~/lib/api";
+import { macroProgress,calorieRemainingLabel } from "~/lib/dashboard";
+import { formatDisplayInteger } from "~/lib/format-number";
+import type { NutritionTotals } from "~/lib/nutrition";
 
 /**
  * Sticky macro summary header for the nutrition page.
@@ -27,11 +27,15 @@ export function StickyMacroHeader({
   targets,
   onLogFood,
 }: {
-  totals: NutritionTotals
-  targets: DailyTargets
-  onLogFood?: () => void
+  totals: NutritionTotals;
+  targets: DailyTargets;
+  onLogFood?: () => void;
 }) {
-  const calorieState = macroProgress(totals.calories, targets.calories, 'accent')
+  const calorieState = macroProgress(
+    totals.calories,
+    targets.calories,
+    "accent"
+  );
 
   return (
     <Card padding={4}>
@@ -39,7 +43,12 @@ export function StickyMacroHeader({
         <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
           <Heading level={2}>Daily Summary</Heading>
           {onLogFood ? (
-            <Button label="Log food" variant="primary" size="lg" clickAction={onLogFood}>
+            <Button
+              label="Log food"
+              variant="primary"
+              size="lg"
+              clickAction={onLogFood}
+            >
               Log food
             </Button>
           ) : undefined}
@@ -57,7 +66,9 @@ export function StickyMacroHeader({
           variant={calorieState.variant}
           isLabelHidden
         />
-        <Text type="supporting">{calorieRemainingLabel(totals.calories, targets.calories)}</Text>
+        <Text type="supporting">
+          {calorieRemainingLabel(totals.calories, targets.calories)}
+        </Text>
         <MetadataList>
           <MetadataListItem label="Protein">
             <Text hasTabularNumbers>
@@ -77,5 +88,5 @@ export function StickyMacroHeader({
         </MetadataList>
       </VStack>
     </Card>
-  )
+  );
 }

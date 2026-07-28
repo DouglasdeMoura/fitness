@@ -7,18 +7,18 @@
  */
 
 export type InstallMode =
-  | 'installed'
-  | 'prompt'
-  | 'ios-instructions'
-  | 'unavailable'
+  | "installed"
+  | "prompt"
+  | "ios-instructions"
+  | "unavailable";
 
-export type InstallEnvironment = {
-  userAgent: string
-  platform: string
-  maxTouchPoints: number
+export interface InstallEnvironment {
+  userAgent: string;
+  platform: string;
+  maxTouchPoints: number;
   /** true when display-mode is standalone, or iOS navigator.standalone */
-  isStandalone: boolean
-  hasDeferredPrompt: boolean
+  isStandalone: boolean;
+  hasDeferredPrompt: boolean;
 }
 
 /**
@@ -28,14 +28,14 @@ export type InstallEnvironment = {
  * isIosDevice({ userAgent: '…iPhone…', platform: 'iPhone', maxTouchPoints: 5 })
  */
 export function isIosDevice(env: {
-  userAgent: string
-  platform: string
-  maxTouchPoints: number
+  userAgent: string;
+  platform: string;
+  maxTouchPoints: number;
 }): boolean {
-  const ua = env.userAgent
-  if (/iPhone|iPad|iPod/i.test(ua)) return true
+  const ua = env.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) {return true;}
   // iPadOS 13+ reports as MacIntel but remains a touch tablet.
-  return env.platform === 'MacIntel' && env.maxTouchPoints > 1
+  return env.platform === "MacIntel" && env.maxTouchPoints > 1;
 }
 
 /**
@@ -45,10 +45,10 @@ export function isIosDevice(env: {
  * getInstallMode({ …, isStandalone: false, hasDeferredPrompt: true }) // 'prompt'
  */
 export function getInstallMode(env: InstallEnvironment): InstallMode {
-  if (env.isStandalone) return 'installed'
-  if (env.hasDeferredPrompt) return 'prompt'
-  if (isIosDevice(env)) return 'ios-instructions'
-  return 'unavailable'
+  if (env.isStandalone) {return "installed";}
+  if (env.hasDeferredPrompt) {return "prompt";}
+  if (isIosDevice(env)) {return "ios-instructions";}
+  return "unavailable";
 }
 
 /**
@@ -61,26 +61,26 @@ export function getInstallMode(env: InstallEnvironment): InstallMode {
  * with `Navigator`, so TypeScript rejected `window` outright. Intersecting with
  * `Navigator` keeps the fake usable while letting the real thing through.
  */
-export type StandaloneWindowLike = {
-  matchMedia: (query: string) => { matches: boolean }
-  navigator: { standalone?: boolean } & Partial<Navigator>
+export interface StandaloneWindowLike {
+  matchMedia: (query: string) => { matches: boolean };
+  navigator: { standalone?: boolean } & Partial<Navigator>;
 }
 
 export function readIsStandalone(win: StandaloneWindowLike): boolean {
-  if (win.matchMedia('(display-mode: standalone)').matches) return true
-  return win.navigator.standalone === true
+  if (win.matchMedia("(display-mode: standalone)").matches) {return true;}
+  return win.navigator.standalone === true;
 }
 
 export const IOS_INSTALL_STEPS = [
-  'Tap the Share button in Safari',
-  'Scroll and tap “Add to Home Screen”',
-  'Tap Add to confirm',
-] as const
+  "Tap the Share button in Safari",
+  "Scroll and tap “Add to Home Screen”",
+  "Tap Add to confirm",
+] as const;
 
-export const INSTALL_CARD_TITLE = 'Install App'
-export const INSTALL_BUTTON_LABEL = 'Add to home screen'
-export const INSTALLED_MESSAGE = 'FitTrack is installed on this device.'
+export const INSTALL_CARD_TITLE = "Install App";
+export const INSTALL_BUTTON_LABEL = "Add to home screen";
+export const INSTALLED_MESSAGE = "FitTrack is installed on this device.";
 export const UNAVAILABLE_MESSAGE =
-  'Install is offered by your browser when FitTrack meets its install criteria. Check the browser menu for “Install app” or “Add to Home Screen”.'
+  "Install is offered by your browser when FitTrack meets its install criteria. Check the browser menu for “Install app” or “Add to Home Screen”.";
 export const IOS_INSTALL_DESCRIPTION =
-  'On iPhone and iPad, add FitTrack from the Safari Share sheet:'
+  "On iPhone and iPad, add FitTrack from the Safari Share sheet:";

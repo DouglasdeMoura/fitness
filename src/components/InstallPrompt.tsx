@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   Button,
   Card,
@@ -7,95 +6,87 @@ import {
   ListItem,
   Text,
   VStack,
-} from '@astryxdesign/core'
-import {
-  INSTALL_BUTTON_LABEL,
-  INSTALL_CARD_TITLE,
-  INSTALLED_MESSAGE,
-  IOS_INSTALL_DESCRIPTION,
-  IOS_INSTALL_STEPS,
-  UNAVAILABLE_MESSAGE,
-  getInstallMode,
-  isIosDevice,
-  readIsStandalone,
-  type InstallMode,
-} from '~/lib/pwa-install'
+} from "@astryxdesign/core";
+import { useEffect, useState } from "react";
+
+import { INSTALL_BUTTON_LABEL, INSTALL_CARD_TITLE, INSTALLED_MESSAGE, IOS_INSTALL_DESCRIPTION, IOS_INSTALL_STEPS, UNAVAILABLE_MESSAGE, getInstallMode, isIosDevice, readIsStandalone } from '~/lib/pwa-install';
+import type { InstallMode } from '~/lib/pwa-install';
 
 type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 /**
  * Settings card that offers "Add to home screen" when Chromium fires
  * beforeinstallprompt, or Share-sheet steps on iOS Safari (issue #48).
  */
 export function InstallPrompt() {
-  const [mode, setMode] = useState<InstallMode | null>(null)
+  const [mode, setMode] = useState<InstallMode | null>(null);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
-    null,
-  )
-  const [installing, setInstalling] = useState(false)
+    null
+  );
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    const standalone = readIsStandalone(window)
+    const standalone = readIsStandalone(window);
     const ios = isIosDevice({
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
       maxTouchPoints: navigator.maxTouchPoints,
-    })
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+    });
 
     const refresh = (hasPrompt: boolean) => {
       setMode(
         getInstallMode({
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          maxTouchPoints: navigator.maxTouchPoints,
-          isStandalone: standalone,
           hasDeferredPrompt: hasPrompt,
-        }),
-      )
-    }
+          isStandalone: standalone,
+          maxTouchPoints: navigator.maxTouchPoints,
+          platform: navigator.platform,
+          userAgent: navigator.userAgent,
+        })
+      );
+    };
 
-    refresh(false)
+    refresh(false);
 
-    if (standalone || ios) return
+    if (standalone || ios) {return;}
 
     const onBeforeInstall = (event: Event) => {
-      event.preventDefault()
-      const bip = event as BeforeInstallPromptEvent
-      setDeferred(bip)
-      refresh(true)
-    }
+      event.preventDefault();
+      const bip = event as BeforeInstallPromptEvent;
+      setDeferred(bip);
+      refresh(true);
+    };
 
-    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
-    }
-  }, [])
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+    };
+  }, []);
 
-  if (mode == null) return null
+  if (mode == null) {return null;}
 
   const handleInstall = async () => {
-    if (!deferred) return
-    setInstalling(true)
+    if (!deferred) {return;}
+    setInstalling(true);
     try {
-      await deferred.prompt()
-      await deferred.userChoice
-      setDeferred(null)
+      await deferred.prompt();
+      await deferred.userChoice;
+      setDeferred(null);
       setMode(
         getInstallMode({
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          maxTouchPoints: navigator.maxTouchPoints,
-          isStandalone: readIsStandalone(window),
           hasDeferredPrompt: false,
-        }),
-      )
+          isStandalone: readIsStandalone(window),
+          maxTouchPoints: navigator.maxTouchPoints,
+          platform: navigator.platform,
+          userAgent: navigator.userAgent,
+        })
+      );
     } finally {
-      setInstalling(false)
+      setInstalling(false);
     }
-  }
+  };
 
   return (
     <Card>
@@ -108,7 +99,7 @@ export function InstallPrompt() {
         />
       </VStack>
     </Card>
-  )
+  );
 }
 
 function InstallPromptBody({
@@ -116,15 +107,15 @@ function InstallPromptBody({
   installing,
   onInstall,
 }: {
-  mode: InstallMode
-  installing: boolean
-  onInstall: () => void | Promise<void>
+  mode: InstallMode;
+  installing: boolean;
+  onInstall: () => void | Promise<void>;
 }) {
-  if (mode === 'installed') {
-    return <Text type="supporting">{INSTALLED_MESSAGE}</Text>
+  if (mode === "installed") {
+    return <Text type="supporting">{INSTALLED_MESSAGE}</Text>;
   }
 
-  if (mode === 'prompt') {
+  if (mode === "prompt") {
     return (
       <VStack gap={3}>
         <Text type="supporting">
@@ -139,10 +130,10 @@ function InstallPromptBody({
           clickAction={onInstall}
         />
       </VStack>
-    )
+    );
   }
 
-  if (mode === 'ios-instructions') {
+  if (mode === "ios-instructions") {
     return (
       <VStack gap={3}>
         <Text type="supporting">{IOS_INSTALL_DESCRIPTION}</Text>
@@ -156,8 +147,8 @@ function InstallPromptBody({
           ))}
         </List>
       </VStack>
-    )
+    );
   }
 
-  return <Text type="supporting">{UNAVAILABLE_MESSAGE}</Text>
+  return <Text type="supporting">{UNAVAILABLE_MESSAGE}</Text>;
 }

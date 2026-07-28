@@ -1,10 +1,15 @@
-import type Database from 'better-sqlite3'
-import type { FoodLogEntry } from './db'
-import { addDays, type MealType } from './nutrition'
+import type Database from "better-sqlite3";
+
+import type { FoodLogEntry } from "./db";
+import { addDays } from './nutrition';
+import type { MealType } from './nutrition';
 
 /** Entries for one meal on a given day. */
-export function entriesForMeal(entries: FoodLogEntry[], mealType: MealType): FoodLogEntry[] {
-  return entries.filter((entry) => entry.meal_type === mealType)
+export function entriesForMeal(
+  entries: FoodLogEntry[],
+  mealType: MealType
+): FoodLogEntry[] {
+  return entries.filter((entry) => entry.meal_type === mealType);
 }
 
 /**
@@ -14,12 +19,12 @@ export function entriesForMeal(entries: FoodLogEntry[], mealType: MealType): Foo
 export function canCopyMealFromDate(
   targetDayEntries: FoodLogEntry[],
   sourceDayEntries: FoodLogEntry[],
-  mealType: MealType,
+  mealType: MealType
 ): boolean {
   return (
     entriesForMeal(targetDayEntries, mealType).length === 0 &&
     entriesForMeal(sourceDayEntries, mealType).length > 0
-  )
+  );
 }
 
 /**
@@ -28,39 +33,39 @@ export function canCopyMealFromDate(
  */
 export function canCopyDayFromDate(
   targetDayEntries: FoodLogEntry[],
-  sourceDayEntries: FoodLogEntry[],
+  sourceDayEntries: FoodLogEntry[]
 ): boolean {
-  return targetDayEntries.length === 0 && sourceDayEntries.length > 0
+  return targetDayEntries.length === 0 && sourceDayEntries.length > 0;
 }
 
 /** Calendar day immediately before `date` (YYYY-MM-DD). */
 export function previousDay(date: string): string {
-  return addDays(date, -1)
+  return addDays(date, -1);
 }
 
-export type CopyFoodLogResult = {
-  entries: FoodLogEntry[]
+export interface CopyFoodLogResult {
+  entries: FoodLogEntry[];
 }
 
 const SELECT_BY_DATE = `
   SELECT * FROM food_log
   WHERE user_id = ? AND date = ?
   ORDER BY meal_type, created_at
-`
+`;
 
 const INSERT_ENTRY = `
   INSERT INTO food_log (
     user_id, food_id, custom_name, date, meal_type,
     servings, calories, protein_g, carbs_g, fat_g, notes
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
+`;
 
 function loadDayEntries(
   db: Database.Database,
   userId: number,
-  date: string,
+  date: string
 ): FoodLogEntry[] {
-  return db.prepare(SELECT_BY_DATE).all(userId, date) as FoodLogEntry[]
+  return db.prepare(SELECT_BY_DATE).all(userId, date) as FoodLogEntry[];
 }
 
 function insertClonedEntry(
@@ -68,7 +73,7 @@ function insertClonedEntry(
   userId: number,
   source: FoodLogEntry,
   toDate: string,
-  mealType: MealType,
+  mealType: MealType
 ): FoodLogEntry {
   const result = db
     .prepare(INSERT_ENTRY)
@@ -83,11 +88,11 @@ function insertClonedEntry(
       source.protein_g,
       source.carbs_g,
       source.fat_g,
-      source.notes,
-    )
+      source.notes
+    );
   return db
-    .prepare('SELECT * FROM food_log WHERE id = ?')
-    .get(result.lastInsertRowid) as FoodLogEntry
+    .prepare("SELECT * FROM food_log WHERE id = ?")
+    .get(result.lastInsertRowid) as FoodLogEntry;
 }
 
 /**
@@ -99,21 +104,23 @@ export function copyMealEntriesInDb(
   userId: number,
   fromDate: string,
   toDate: string,
-  mealType: MealType,
+  mealType: MealType
 ): CopyFoodLogResult {
-  const targetDay = loadDayEntries(db, userId, toDate)
-  const sourceDay = loadDayEntries(db, userId, fromDate)
+  const targetDay = loadDayEntries(db, userId, toDate);
+  const sourceDay = loadDayEntries(db, userId, fromDate);
   if (!canCopyMealFromDate(targetDay, sourceDay, mealType)) {
     throw new Error(
-      `Cannot copy ${mealType} from ${fromDate} to ${toDate}: target meal must be empty and source meal must have entries`,
-    )
+      `Cannot copy ${mealType} from ${fromDate} to ${toDate}: target meal must be empty and source meal must have entries`
+    );
   }
 
-  const sources = entriesForMeal(sourceDay, mealType)
+  const sources = entriesForMeal(sourceDay, mealType);
   const copy = db.transaction(() =>
-    sources.map((source) => insertClonedEntry(db, userId, source, toDate, mealType)),
-  )
-  return { entries: copy() }
+    sources.map((source) =>
+      insertClonedEntry(db, userId, source, toDate, mealType)
+    )
+  );
+  return { entries: copy() };
 }
 
 /**
@@ -124,20 +131,22 @@ export function copyDayEntriesInDb(
   db: Database.Database,
   userId: number,
   fromDate: string,
-  toDate: string,
+  toDate: string
 ): CopyFoodLogResult {
-  const targetDay = loadDayEntries(db, userId, toDate)
-  const sourceDay = loadDayEntries(db, userId, fromDate)
+  const targetDay = loadDayEntries(db, userId, toDate);
+  const sourceDay = loadDayEntries(db, userId, fromDate);
   if (!canCopyDayFromDate(targetDay, sourceDay)) {
     throw new Error(
-      `Cannot copy day from ${fromDate} to ${toDate}: target day must be empty and source day must have entries`,
-    )
+      `Cannot copy day from ${fromDate} to ${toDate}: target day must be empty and source day must have entries`
+    );
   }
 
   const copy = db.transaction(() =>
-    sourceDay.map((source) => insertClonedEntry(db, userId, source, toDate, source.meal_type)),
-  )
-  return { entries: copy() }
+    sourceDay.map((source) =>
+      insertClonedEntry(db, userId, source, toDate, source.meal_type)
+    )
+  );
+  return { entries: copy() };
 }
 
 /**
@@ -147,27 +156,29 @@ export function copyDayEntriesInDb(
 export function deleteFoodLogEntriesInDb(
   db: Database.Database,
   userId: number,
-  ids: number[],
+  ids: number[]
 ): { deleted_ids: number[] } {
   if (ids.length === 0) {
-    throw new Error('deleteFoodLogEntriesInDb requires at least one id')
+    throw new Error("deleteFoodLogEntriesInDb requires at least one id");
   }
 
-  const remove = db.prepare('DELETE FROM food_log WHERE id = ? AND user_id = ?')
+  const remove = db.prepare(
+    "DELETE FROM food_log WHERE id = ? AND user_id = ?"
+  );
   const deleted = db.transaction(() => {
-    const removed: number[] = []
+    const removed: number[] = [];
     for (const id of ids) {
-      const outcome = remove.run(id, userId)
-      if (outcome.changes > 0) removed.push(id)
+      const outcome = remove.run(id, userId);
+      if (outcome.changes > 0) {removed.push(id);}
     }
-    return removed
-  })()
+    return removed;
+  })();
 
   if (deleted.length !== ids.length) {
     throw new Error(
-      `Expected to delete ${ids.length} food_log rows but removed ${deleted.length}: ids=${JSON.stringify(ids)}`,
-    )
+      `Expected to delete ${ids.length} food_log rows but removed ${deleted.length}: ids=${JSON.stringify(ids)}`
+    );
   }
 
-  return { deleted_ids: deleted }
+  return { deleted_ids: deleted };
 }

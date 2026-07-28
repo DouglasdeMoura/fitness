@@ -1,125 +1,109 @@
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  FormLayout,
-  Grid,
-  Heading,
-  HStack,
-  MetadataList,
-  MetadataListItem,
-  NumberInput,
-  Selector,
-  Table,
-  Text,
-  TextArea,
-  TextInput,
-  VStack,
-  proportional,
-  type TableColumn,
-} from "@astryxdesign/core";
+import { Badge, Button, Card, EmptyState, FormLayout, Grid, Heading, HStack, MetadataList, MetadataListItem, NumberInput, Selector, Table, Text, TextArea, TextInput, VStack, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
+import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useStore } from "@tanstack/react-store";
+import { useMemo, useState } from "react";
+
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import {
+  deleteMealTemplate,
+  getMealTemplate,
+  saveMealTemplate,
+  searchFoods,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-store";
-import { useMemo, useState } from "react";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
-import { deleteMealTemplate, getMealTemplate, saveMealTemplate, searchFoods } from "~/lib/api";
+import type { Food } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
-import type { Food } from "~/lib/db";
-import {
-  calculateFoodMacros,
-  MEAL_TYPE_LABELS,
-  sumNutritionTotals,
-  todayString,
-  type MealType,
-} from "~/lib/nutrition";
-import { searchCachedFoods } from "~/lib/offline";
 import { formatDisplayInteger } from "~/lib/format-number";
-import { TemplateIcon } from "~/components/icons/FitTrackIcons";
-import {
-  buildTemplateSavePayload,
-  editableItemFromFood,
-  EMPTY_TEMPLATE_FORM,
-  templateFormDefaults,
-  validateTemplateItems,
-  type EditableItem,
-  type TemplateFormValues,
-} from "~/lib/template-form";
+import { calculateFoodMacros, MEAL_TYPE_LABELS, sumNutritionTotals, todayString } from '~/lib/nutrition';
+import type { MealType } from '~/lib/nutrition';
+import { searchCachedFoods } from "~/lib/offline";
+import { buildTemplateSavePayload, editableItemFromFood, EMPTY_TEMPLATE_FORM, templateFormDefaults, validateTemplateItems } from '~/lib/template-form';
+import type { EditableItem, TemplateFormValues } from '~/lib/template-form';
 
 export const Route = createFileRoute("/nutrition/templates/$templateId")({
-  head: () => ({ meta: [{ title: "Edit Meal Template - FitTrack" }] }),
   component: MealTemplateDetailPage,
+  head: () => ({ meta: [{ title: "Edit Meal Template - FitTrack" }] }),
 });
 
-type UpdateTemplateItem = (tempId: string, patch: Partial<EditableItem>) => void;
+type UpdateTemplateItem = (
+  tempId: string,
+  patch: Partial<EditableItem>
+) => void;
 type RemoveTemplateItem = (tempId: string) => void;
 
-const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 
 function mealTemplateItemColumns(
   updateItem: UpdateTemplateItem,
-  removeItem: RemoveTemplateItem,
+  removeItem: RemoveTemplateItem
 ): TableColumn<EditableItem>[] {
   return [
     {
-      key: "food_name",
       header: "Food",
-      width: proportional(2),
+      key: "food_name",
       renderCell: (item) => (
         <VStack gap={1}>
           <Text weight="bold">{item.food_name}</Text>
           <Badge label={item.serving_unit} variant="neutral" />
         </VStack>
       ),
+      width: proportional(2),
     },
     {
-      key: "servings",
       header: "Servings",
-      width: proportional(1),
+      key: "servings",
       renderCell: (item) => (
         <NumberInput
           label={`Servings for ${item.food_name}`}
           isLabelHidden
           value={item.servings}
-          onChange={(value) => updateItem(item.tempId, { servings: value ?? 1 })}
+          onChange={(value) =>
+            updateItem(item.tempId, { servings: value ?? 1 })
+          }
           min={0.25}
           step={0.25}
         />
       ),
+      width: proportional(1),
     },
     {
-      key: "macros",
       header: "Macros",
-      width: proportional(2),
+      key: "macros",
       renderCell: (item) => {
         const macros = calculateFoodMacros(item, item.servings);
         return (
           <Text type="supporting" hasTabularNumbers>
-            {formatDisplayInteger(macros.calories)} kcal · P {formatDisplayInteger(macros.protein_g)} · C{" "}
-            {formatDisplayInteger(macros.carbs_g)} · F {formatDisplayInteger(macros.fat_g)}
+            {formatDisplayInteger(macros.calories)} kcal · P{" "}
+            {formatDisplayInteger(macros.protein_g)} · C{" "}
+            {formatDisplayInteger(macros.carbs_g)} · F{" "}
+            {formatDisplayInteger(macros.fat_g)}
           </Text>
         );
       },
+      width: proportional(2),
     },
     {
-      key: "actions",
       header: "Actions",
+      key: "actions",
       renderCell: (item) => (
         <Button
           label={`Remove ${item.food_name}`}
@@ -143,12 +127,14 @@ function MealTemplateDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const logTemplate = useLogMealTemplate(todayString());
   const templateQuery = useDataLoadQuery({
-    queryKey: ["meal-template", id],
     queryFn: () => getMealTemplate({ data: { id } }),
+    queryKey: ["meal-template", id],
   });
 
   const form = useForm({
-    defaultValues: (templateQuery.data ? templateFormDefaults(templateQuery.data) : EMPTY_TEMPLATE_FORM) as TemplateFormValues,
+    defaultValues: (templateQuery.data
+      ? templateFormDefaults(templateQuery.data)
+      : EMPTY_TEMPLATE_FORM) as TemplateFormValues,
     onSubmit: async ({ value }) => {
       await saveMealTemplate({ data: buildTemplateSavePayload(value, id) });
       await queryClient.invalidateQueries({ queryKey: ["meal-template", id] });
@@ -159,11 +145,17 @@ function MealTemplateDetailPage() {
   const items = useStore(form.store, (state) => state.values.items);
   const templateName = useStore(form.store, (state) => state.values.name);
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-  const isSubmitSuccessful = useStore(form.store, (state) => state.isSubmitSuccessful);
+  const isSubmitSuccessful = useStore(
+    form.store,
+    (state) => state.isSubmitSuccessful
+  );
 
   const previewTotals = useMemo(
-    () => sumNutritionTotals(items.map((item) => calculateFoodMacros(item, item.servings))),
-    [items],
+    () =>
+      sumNutritionTotals(
+        items.map((item) => calculateFoodMacros(item, item.servings))
+      ),
+    [items]
   );
 
   if (isDataLoadPending(templateQuery)) {
@@ -183,7 +175,6 @@ function MealTemplateDetailPage() {
 
   const template = templateQuery.data;
 
-
   if (!template) {
     return (
       <VStack gap={4}>
@@ -195,7 +186,11 @@ function MealTemplateDetailPage() {
               description={`No meal template exists for id ${templateId}.`}
               headingLevel={1}
             />
-            <Button label="Back to templates" href="/nutrition/templates" variant="secondary" />
+            <Button
+              label="Back to templates"
+              href="/nutrition/templates"
+              variant="secondary"
+            />
           </VStack>
         </Card>
       </VStack>
@@ -216,9 +211,9 @@ function MealTemplateDetailPage() {
 
   const saveLabel = isSubmitting
     ? "Saving..."
-    : isSubmitSuccessful
+    : (isSubmitSuccessful
       ? "Saved!"
-      : "Save Template";
+      : "Save Template");
 
   return (
     <VStack gap={4}>
@@ -245,20 +240,24 @@ function MealTemplateDetailPage() {
             size="sm"
             clickAction={() =>
               logTemplate({
-                templateId: id,
-                mealType: template.default_meal_type,
                 expectedKcal: previewTotals.calories,
+                mealType: template.default_meal_type,
+                templateId: id,
               })
             }
             isDisabled={items.length === 0}
           >
             Log this
           </Button>
-          <Button label={saveLabel} variant="secondary" clickAction={form.handleSubmit} />
+          <Button
+            label={saveLabel}
+            variant="secondary"
+            clickAction={form.handleSubmit}
+          />
         </HStack>
       </HStack>
 
-      <Grid columns={{ minWidth: 320, max: 2, repeat: "fit" }} gap={4}>
+      <Grid columns={{ max: 2, minWidth: 320, repeat: "fit" }} gap={4}>
         <Card>
           <VStack gap={3}>
             <Heading level={2}>Template Settings</Heading>
@@ -308,11 +307,13 @@ function MealTemplateDetailPage() {
               <MetadataListItem label="Carbs">
                 {formatDisplayInteger(previewTotals.carbs_g)}g
               </MetadataListItem>
-              <MetadataListItem label="Fat">{formatDisplayInteger(previewTotals.fat_g)}g</MetadataListItem>
+              <MetadataListItem label="Fat">
+                {formatDisplayInteger(previewTotals.fat_g)}g
+              </MetadataListItem>
             </MetadataList>
             <Text type="supporting">
-              Totals sum per-serving food label values (Atwater factors). Reference: USDA NLEA
-              labeling.
+              Totals sum per-serving food label values (Atwater factors).
+              Reference: USDA NLEA labeling.
             </Text>
           </VStack>
         </Card>
@@ -324,17 +325,24 @@ function MealTemplateDetailPage() {
       >
         {(itemsField) => {
           const updateItem: UpdateTemplateItem = (tempId, patch) => {
-            const index = itemsField.state.value.findIndex((item) => item.tempId === tempId);
-            if (index === -1) return;
-            itemsField.replaceValue(index, { ...itemsField.state.value[index], ...patch });
+            const index = itemsField.state.value.findIndex(
+              (item) => item.tempId === tempId
+            );
+            if (index === -1) {return;}
+            itemsField.replaceValue(index, {
+              ...itemsField.state.value[index],
+              ...patch,
+            });
           };
           const removeItem: RemoveTemplateItem = (tempId) => {
-            const index = itemsField.state.value.findIndex((item) => item.tempId === tempId);
-            if (index !== -1) itemsField.removeValue(index);
+            const index = itemsField.state.value.findIndex(
+              (item) => item.tempId === tempId
+            );
+            if (index !== -1) {itemsField.removeValue(index);}
           };
           const addFood = (food: Food) => {
             itemsField.pushValue(
-              editableItemFromFood(food, itemsField.state.value.length + 1),
+              editableItemFromFood(food, itemsField.state.value.length + 1)
             );
           };
           return (
@@ -375,13 +383,13 @@ function AddFoodsCard({
   const [results, setResults] = useState<Food[]>([]);
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
+    if (!query.trim()) {return;}
     const cached = await searchCachedFoods(query);
     if (cached.length > 0) {
       setResults(cached);
       return;
     }
-    setResults(await searchFoods({ data: { query, limit: 10 } }));
+    setResults(await searchFoods({ data: { limit: 10, query } }));
   };
 
   const handleAdd = (food: Food) => {
@@ -402,7 +410,11 @@ function AddFoodsCard({
             placeholder="Search foods..."
             onEnter={handleSearch}
           />
-          <Button label="Search" variant="secondary" clickAction={handleSearch} />
+          <Button
+            label="Search"
+            variant="secondary"
+            clickAction={handleSearch}
+          />
         </HStack>
         {results.length > 0 ? (
           <VStack gap={2}>

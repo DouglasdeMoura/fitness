@@ -8,7 +8,7 @@
  */
 
 /** Base colour tone for a macro bar before the over-target override kicks in. */
-export type MacroTone = 'success' | 'warning' | 'accent'
+export type MacroTone = "success" | "warning" | "accent";
 
 /**
  * Shape consumed by Astryx `ProgressBar`. `variant` is the union of the macro
@@ -16,11 +16,11 @@ export type MacroTone = 'success' | 'warning' | 'accent'
  */
 export interface ProgressBarState {
   /** Fill value, clamped to the target so the bar never overflows its track. */
-  value: number
+  value: number;
   /** Target value used as the bar maximum (>= 1 to avoid a zero-height track). */
-  max: number
+  max: number;
   /** Semantic tone; flips to `error` on an over-target day. */
-  variant: MacroTone | 'error'
+  variant: MacroTone | "error";
 }
 
 /**
@@ -33,14 +33,14 @@ export interface ProgressBarState {
 export function macroProgress(
   consumed: number,
   target: number,
-  tone: MacroTone,
+  tone: MacroTone
 ): ProgressBarState {
-  const max = target > 0 ? target : 1
+  const max = target > 0 ? target : 1;
   return {
-    value: Math.min(consumed, target),
     max,
-    variant: target > 0 && consumed > target ? 'error' : tone,
-  }
+    value: Math.min(consumed, target),
+    variant: target > 0 && consumed > target ? "error" : tone,
+  };
 }
 
 /**
@@ -50,10 +50,15 @@ export function macroProgress(
  * when above it. `Math.round` matches the displayed precision elsewhere on the
  * dashboard (calorie values are whole numbers from the food database).
  */
-export function calorieRemainingLabel(consumed: number, target: number): string {
-  const diff = target - consumed
-  const magnitude = Math.abs(Math.round(diff))
-  return diff >= 0 ? `${magnitude} kcal remaining` : `${magnitude} kcal over target`
+export function calorieRemainingLabel(
+  consumed: number,
+  target: number
+): string {
+  const diff = target - consumed;
+  const magnitude = Math.abs(Math.round(diff));
+  return diff >= 0
+    ? `${magnitude} kcal remaining`
+    : `${magnitude} kcal over target`;
 }
 
 /**
@@ -66,13 +71,13 @@ export function calorieRemainingLabel(consumed: number, target: number): string 
  * (they'll have workout or weight history).
  */
 export function isFirstTimeUser(stats: {
-  consumed: { calories: number }
-  workoutDaysThisMonth: number
-  recentBodyweight: ReadonlyArray<unknown>
+  consumed: { calories: number };
+  workoutDaysThisMonth: number;
+  recentBodyweight: readonly unknown[];
 }): boolean {
   return (
     stats.consumed.calories === 0 &&
     stats.workoutDaysThisMonth === 0 &&
     stats.recentBodyweight.length === 0
-  )
+  );
 }

@@ -5,18 +5,18 @@ import {
   Kbd,
   Text,
   VStack,
-} from '@astryxdesign/core'
+} from "@astryxdesign/core";
 
 interface ShortcutsHelpDialogProps {
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const SHORTCUTS = [
-  { key: '/', description: 'Focus search input' },
-  { key: 'n', description: 'New entry (food log on Nutrition page)' },
-  { key: '?', description: 'Show this shortcuts help' },
-] as const
+  { description: "Focus search input", key: "/" },
+  { description: "New entry (food log on Nutrition page)", key: "n" },
+  { description: "Show this shortcuts help", key: "?" },
+] as const;
 
 export function ShortcutsHelpDialog({
   isOpen,
@@ -47,5 +47,5 @@ export function ShortcutsHelpDialog({
         </VStack>
       </VStack>
     </Dialog>
-  )
+  );
 }

@@ -7,13 +7,13 @@
 
 /** Whole-number display for calories, reps, set counts, and similar metrics. */
 export function formatDisplayInteger(value: number): string {
-  return Math.round(value).toLocaleString('en-US')
+  return Math.round(value).toLocaleString("en-US");
 }
 
 /** Fixed-decimal display for weights, trends, and per-week averages. */
 export function formatDisplayDecimal(value: number, decimals = 1): string {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
+  return value.toLocaleString("en-US", {
     maximumFractionDigits: decimals,
-  })
+    minimumFractionDigits: decimals,
+  });
 }

@@ -1,6 +1,7 @@
-import Database from 'better-sqlite3'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { FoodLogEntry } from '~/lib/db'
+import Database from "better-sqlite3";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import type { FoodLogEntry } from "~/lib/db";
 import {
   canCopyDayFromDate,
   canCopyMealFromDate,
@@ -9,29 +10,29 @@ import {
   deleteFoodLogEntriesInDb,
   entriesForMeal,
   previousDay,
-} from '~/lib/food-log-copy'
+} from "~/lib/food-log-copy";
 
-const USER_ID = 1
-const FROM_DATE = '2020-01-01'
-const TO_DATE = '2020-01-02'
+const USER_ID = 1;
+const FROM_DATE = "2020-01-01";
+const TO_DATE = "2020-01-02";
 
 function makeEntry(
-  partial: Partial<FoodLogEntry> & Pick<FoodLogEntry, 'id' | 'meal_type'>,
+  partial: Partial<FoodLogEntry> & Pick<FoodLogEntry, "id" | "meal_type">
 ): FoodLogEntry {
   return {
-    user_id: USER_ID,
-    food_id: 1,
+    calories: 165,
+    carbs_g: 0,
+    created_at: "2020-01-01T08:00:00Z",
     custom_name: null,
     date: FROM_DATE,
-    servings: 1,
-    calories: 165,
-    protein_g: 31,
-    carbs_g: 0,
     fat_g: 3.6,
+    food_id: 1,
     notes: null,
-    created_at: '2020-01-01T08:00:00Z',
+    protein_g: 31,
+    servings: 1,
+    user_id: USER_ID,
     ...partial,
-  }
+  };
 }
 
 const TEST_SCHEMA = `
@@ -65,18 +66,18 @@ CREATE TABLE food_log (
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
-`
+`;
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:')
-  db.pragma('foreign_keys = ON')
-  db.exec(TEST_SCHEMA)
-  db.prepare('INSERT INTO users (id, name) VALUES (?, ?)').run(USER_ID, 'Test')
+  const db = new Database(":memory:");
+  db.pragma("foreign_keys = ON");
+  db.exec(TEST_SCHEMA);
+  db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(USER_ID, "Test");
   db.prepare(
     `INSERT INTO foods (id, name, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, source)
-     VALUES (1, 'Chicken Breast (raw)', 100, 'g', 165, 31, 0, 3.6, 'seed')`,
-  ).run()
-  return db
+     VALUES (1, 'Chicken Breast (raw)', 100, 'g', 165, 31, 0, 3.6, 'seed')`
+  ).run();
+  return db;
 }
 
 function seedEntry(db: Database.Database, entry: FoodLogEntry): void {
@@ -84,7 +85,7 @@ function seedEntry(db: Database.Database, entry: FoodLogEntry): void {
     `INSERT INTO food_log (
       id, user_id, food_id, custom_name, date, meal_type,
       servings, calories, protein_g, carbs_g, fat_g, notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     entry.id,
     entry.user_id,
@@ -98,91 +99,130 @@ function seedEntry(db: Database.Database, entry: FoodLogEntry): void {
     entry.carbs_g,
     entry.fat_g,
     entry.notes,
-    entry.created_at,
-  )
+    entry.created_at
+  );
 }
 
-describe('copy visibility predicates (issue #55)', () => {
-  const breakfast = [makeEntry({ id: 1, meal_type: 'breakfast' })]
+describe("copy visibility predicates (issue #55)", () => {
+  const breakfast = [makeEntry({ id: 1, meal_type: "breakfast" })];
 
-  it('shows meal copy only when the target meal is empty and the source meal is not', () => {
-    expect(canCopyMealFromDate([], breakfast, 'breakfast')).toBe(true)
-    expect(canCopyMealFromDate([], breakfast, 'lunch')).toBe(false)
-    expect(canCopyMealFromDate(breakfast, breakfast, 'breakfast')).toBe(false)
-  })
+  it("shows meal copy only when the target meal is empty and the source meal is not", () => {
+    expect(canCopyMealFromDate([], breakfast, "breakfast")).toBeTruthy();
+    expect(canCopyMealFromDate([], breakfast, "lunch")).toBeFalsy();
+    expect(canCopyMealFromDate(breakfast, breakfast, "breakfast")).toBeFalsy();
+  });
 
-  it('shows day copy only when the target day is empty and the source day is not', () => {
-    expect(canCopyDayFromDate([], breakfast)).toBe(true)
-    expect(canCopyDayFromDate(breakfast, breakfast)).toBe(false)
-    expect(canCopyDayFromDate([], [])).toBe(false)
-  })
+  it("shows day copy only when the target day is empty and the source day is not", () => {
+    expect(canCopyDayFromDate([], breakfast)).toBeTruthy();
+    expect(canCopyDayFromDate(breakfast, breakfast)).toBeFalsy();
+    expect(canCopyDayFromDate([], [])).toBeFalsy();
+  });
 
-  it('resolves the previous calendar day', () => {
-    expect(previousDay('2020-01-02')).toBe('2020-01-01')
-  })
-})
+  it("resolves the previous calendar day", () => {
+    expect(previousDay("2020-01-02")).toBe("2020-01-01");
+  });
+});
 
-describe('food log copy transactions (issue #55)', () => {
-  let db: Database.Database
+describe("food log copy transactions (issue #55)", () => {
+  let db: Database.Database;
 
   beforeEach(() => {
-    db = createTestDb()
-    seedEntry(db, makeEntry({ id: 1, meal_type: 'breakfast' }))
-    seedEntry(db, makeEntry({ id: 2, meal_type: 'breakfast', calories: 78, protein_g: 6.3 }))
-    seedEntry(db, makeEntry({ id: 3, meal_type: 'lunch', calories: 130, protein_g: 2.7 }))
-  })
+    db = createTestDb();
+    seedEntry(db, makeEntry({ id: 1, meal_type: "breakfast" }));
+    seedEntry(
+      db,
+      makeEntry({ calories: 78, id: 2, meal_type: "breakfast", protein_g: 6.3 })
+    );
+    seedEntry(
+      db,
+      makeEntry({ calories: 130, id: 3, meal_type: "lunch", protein_g: 2.7 })
+    );
+  });
 
   afterEach(() => {
-    db.close()
-  })
+    db.close();
+  });
 
-  it('copies every entry in a meal inside one transaction', () => {
-    const result = copyMealEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE, 'breakfast')
-    expect(result.entries).toHaveLength(2)
+  it("copies every entry in a meal inside one transaction", () => {
+    const result = copyMealEntriesInDb(
+      db,
+      USER_ID,
+      FROM_DATE,
+      TO_DATE,
+      "breakfast"
+    );
+    expect(result.entries).toHaveLength(2);
     const copied = entriesForMeal(
-      db.prepare('SELECT * FROM food_log WHERE date = ?').all(TO_DATE) as FoodLogEntry[],
-      'breakfast',
-    )
-    expect(copied).toHaveLength(2)
-    expect(copied.every((entry) => entry.date === TO_DATE)).toBe(true)
-  })
+      db
+        .prepare("SELECT * FROM food_log WHERE date = ?")
+        .all(TO_DATE) as FoodLogEntry[],
+      "breakfast"
+    );
+    expect(copied).toHaveLength(2);
+    expect(copied.every((entry) => entry.date === TO_DATE)).toBeTruthy();
+  });
 
-  it('writes nothing when a meal copy would be a no-op', () => {
-    seedEntry(db, makeEntry({ id: 4, date: TO_DATE, meal_type: 'breakfast' }))
-    expect(() => copyMealEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE, 'breakfast')).toThrow()
+  it("writes nothing when a meal copy would be a no-op", () => {
+    seedEntry(db, makeEntry({ date: TO_DATE, id: 4, meal_type: "breakfast" }));
+    expect(() =>
+      copyMealEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE, "breakfast")
+    ).toThrow();
     const targetBreakfast = entriesForMeal(
-      db.prepare('SELECT * FROM food_log WHERE date = ?').all(TO_DATE) as FoodLogEntry[],
-      'breakfast',
-    )
-    expect(targetBreakfast).toHaveLength(1)
-  })
+      db
+        .prepare("SELECT * FROM food_log WHERE date = ?")
+        .all(TO_DATE) as FoodLogEntry[],
+      "breakfast"
+    );
+    expect(targetBreakfast).toHaveLength(1);
+  });
 
-  it('copies a full day and undo deletes exactly the created rows', () => {
-    const result = copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE)
-    expect(result.entries).toHaveLength(3)
-    const createdIds = result.entries.map((entry) => entry.id)
+  it("copies a full day and undo deletes exactly the created rows", () => {
+    const result = copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE);
+    expect(result.entries).toHaveLength(3);
+    const createdIds = result.entries.map((entry) => entry.id);
 
-    const undo = deleteFoodLogEntriesInDb(db, USER_ID, createdIds)
-    expect(undo.deleted_ids).toEqual(createdIds)
+    const undo = deleteFoodLogEntriesInDb(db, USER_ID, createdIds);
+    expect(undo.deleted_ids).toStrictEqual(createdIds);
     expect(
-      (db.prepare('SELECT COUNT(*) AS count FROM food_log WHERE date = ?').get(TO_DATE) as {
-        count: number
-      }).count,
-    ).toBe(0)
+      (
+        db
+          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
+          .get(TO_DATE) as {
+          count: number;
+        }
+      ).count
+    ).toBe(0);
     expect(
-      (db.prepare('SELECT COUNT(*) AS count FROM food_log WHERE date = ?').get(FROM_DATE) as {
-        count: number
-      }).count,
-    ).toBe(3)
-  })
+      (
+        db
+          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
+          .get(FROM_DATE) as {
+          count: number;
+        }
+      ).count
+    ).toBe(3);
+  });
 
-  it('rolls back a day copy when the target day already has entries', () => {
-    seedEntry(db, makeEntry({ id: 9, date: TO_DATE, meal_type: 'snack', calories: 50, protein_g: 1 }))
-    expect(() => copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE)).toThrow()
+  it("rolls back a day copy when the target day already has entries", () => {
+    seedEntry(
+      db,
+      makeEntry({
+        calories: 50,
+        date: TO_DATE,
+        id: 9,
+        meal_type: "snack",
+        protein_g: 1,
+      })
+    );
+    expect(() => copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE)).toThrow();
     expect(
-      (db.prepare('SELECT COUNT(*) AS count FROM food_log WHERE date = ?').get(TO_DATE) as {
-        count: number
-      }).count,
-    ).toBe(1)
-  })
-})
+      (
+        db
+          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
+          .get(TO_DATE) as {
+          count: number;
+        }
+      ).count
+    ).toBe(1);
+  });
+});

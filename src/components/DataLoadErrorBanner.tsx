@@ -1,13 +1,14 @@
-import { Banner } from '@astryxdesign/core/Banner'
-import { Button } from '@astryxdesign/core/Button'
-import { Heading, VStack } from '@astryxdesign/core'
-import type { DataLoadQueryResult } from '~/lib/data-load-query'
+import { Heading, VStack } from "@astryxdesign/core";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
 
-type DataLoadErrorBannerProps = {
-  title: string
-  description?: string
-  onRetry: () => void
-  isRetrying?: boolean
+import type { DataLoadQueryResult } from "~/lib/data-load-query";
+
+interface DataLoadErrorBannerProps {
+  title: string;
+  description?: string;
+  onRetry: () => void;
+  isRetrying?: boolean;
 }
 
 /** Persistent load failure with a Retry action (PRD 05 §5, issue #29). */
@@ -32,17 +33,21 @@ export function DataLoadErrorBanner({
         />
       }
     />
-  )
+  );
 }
 
-type DataLoadErrorViewProps = {
-  heading: string
-  title: string
-  query: DataLoadQueryResult<unknown>
+interface DataLoadErrorViewProps {
+  heading: string;
+  title: string;
+  query: DataLoadQueryResult<unknown>;
 }
 
 /** Full-page error state: heading + banner with Retry wired to the failed query. */
-export function DataLoadErrorView({ heading, title, query }: DataLoadErrorViewProps) {
+export function DataLoadErrorView({
+  heading,
+  title,
+  query,
+}: DataLoadErrorViewProps) {
   return (
     <VStack as="main" gap={6}>
       <Heading level={1}>{heading}</Heading>
@@ -52,5 +57,5 @@ export function DataLoadErrorView({ heading, title, query }: DataLoadErrorViewPr
         isRetrying={query.isFetching}
       />
     </VStack>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 
 /**
  * SVG circular progress ring for the dashboard calorie display.
@@ -14,24 +14,24 @@ import React from 'react'
  */
 interface CalorieRingProps {
   /** Calories consumed so far today. */
-  consumed: number
+  consumed: number;
   /** Daily calorie target. */
-  target: number
+  target: number;
 }
 
-const RADIUS = 80
-const CENTER = 100
-const STROKE_WIDTH = 12
-const VIEWBOX = 200
+const RADIUS = 80;
+const CENTER = 100;
+const STROKE_WIDTH = 12;
+const VIEWBOX = 200;
 // 2 * π * radius, used for dasharray/dashoffset fill animation
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export function CalorieRing({ consumed, target }: CalorieRingProps) {
-  const fraction = target > 0 ? Math.min(consumed / target, 1) : 0
-  const dashOffset = CIRCUMFERENCE * (1 - fraction)
-  const isOver = target > 0 && consumed > target
+  const fraction = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const dashOffset = CIRCUMFERENCE * (1 - fraction);
+  const isOver = target > 0 && consumed > target;
   // Accent when under/at target, error when over (matches macroProgress convention)
-  const strokeColor = isOver ? 'var(--color-error)' : 'var(--color-accent)'
+  const strokeColor = isOver ? "var(--color-error)" : "var(--color-accent)";
 
   return (
     <svg
@@ -80,5 +80,5 @@ export function CalorieRing({ consumed, target }: CalorieRingProps) {
         transform={`rotate(-90 ${CENTER} ${CENTER})`}
       />
     </svg>
-  )
+  );
 }

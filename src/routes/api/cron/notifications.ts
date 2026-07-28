@@ -1,20 +1,21 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { getDb } from '~/lib/db'
-import { handleSchedulerCronRequest } from '~/lib/scheduler'
-import { readVapidConfig } from '~/lib/push'
-import { webPushClient } from '~/lib/push-server'
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/api/cron/notifications')({
+import { getDb } from "~/lib/db";
+import { readVapidConfig } from "~/lib/push";
+import { webPushClient } from "~/lib/push-server";
+import { handleSchedulerCronRequest } from "~/lib/scheduler";
+
+export const Route = createFileRoute("/api/cron/notifications")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const db = getDb()
+        const db = getDb();
         return handleSchedulerCronRequest(request, {
-          db,
           client: webPushClient,
+          db,
           vapid: readVapidConfig(),
-        })
+        });
       },
     },
   },
-})
+});

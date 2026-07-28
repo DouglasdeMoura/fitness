@@ -1,42 +1,35 @@
-import { describe, it, expect } from 'vitest'
-import type { MealTemplateDetail } from '~/lib/api'
-import type { Food } from '~/lib/db'
-import {
-  buildCreateTemplatePayload,
-  buildTemplateSavePayload,
-  editableItemFromFood,
-  makeTempId,
-  templateFormDefaults,
-  validateCreateTemplateName,
-  validateTemplateItems,
-  type EditableItem,
-} from '~/lib/template-form'
+import { describe, it, expect } from "vitest";
+
+import type { MealTemplateDetail } from "~/lib/api";
+import type { Food } from "~/lib/db";
+import { buildCreateTemplatePayload, buildTemplateSavePayload, editableItemFromFood, makeTempId, templateFormDefaults, validateCreateTemplateName, validateTemplateItems } from '~/lib/template-form';
+import type { EditableItem } from '~/lib/template-form';
 
 const chicken: Food = {
-  id: 11,
-  name: 'Chicken Breast (raw)',
   brand: null,
-  serving_size: 100,
-  serving_unit: 'g',
   calories_per_serving: 165,
-  protein_g: 31,
   carbs_g: 0,
+  created_at: "2025-01-01T00:00:00Z",
   fat_g: 3.6,
   fiber_g: 0,
-  sugar_g: 0,
+  id: 11,
+  name: "Chicken Breast (raw)",
+  protein_g: 31,
+  serving_size: 100,
+  serving_unit: "g",
   sodium_mg: 74,
-  source: 'usda',
-  created_at: '2025-01-01T00:00:00Z',
-}
+  source: "usda",
+  sugar_g: 0,
+};
 
-function detailFixture(overrides: Partial<MealTemplateDetail> = {}): MealTemplateDetail {
+function detailFixture(
+  overrides: Partial<MealTemplateDetail> = {}
+): MealTemplateDetail {
   return {
+    created_at: "2025-01-01T00:00:00Z",
+    default_meal_type: "lunch",
+    description: " Everyday lunch ",
     id: 1,
-    user_id: 1,
-    name: 'Lunch Bowl',
-    description: ' Everyday lunch ',
-    default_meal_type: 'lunch',
-    created_at: '2025-01-01T00:00:00Z',
     items: [
       {
         id: 100,
@@ -53,168 +46,185 @@ function detailFixture(overrides: Partial<MealTemplateDetail> = {}): MealTemplat
         fiber_g: chicken.fiber_g,
       },
     ],
-    totals: { calories: 248, protein_g: 46.5, carbs_g: 0, fat_g: 5.4, fiber_g: 0 },
+    name: "Lunch Bowl",
+    totals: {
+      calories: 248,
+      carbs_g: 0,
+      fat_g: 5.4,
+      fiber_g: 0,
+      protein_g: 46.5,
+    },
+    user_id: 1,
     ...overrides,
-  }
+  };
 }
 
-describe('templateFormDefaults', () => {
-  it('seeds form fields from the query row and tags each item with a stable tempId', () => {
-    const defaults = templateFormDefaults(detailFixture())
+describe(templateFormDefaults, () => {
+  it("seeds form fields from the query row and tags each item with a stable tempId", () => {
+    const defaults = templateFormDefaults(detailFixture());
 
-    expect(defaults.name).toBe('Lunch Bowl')
-    expect(defaults.defaultMealType).toBe('lunch')
-    expect(defaults.items).toHaveLength(1)
+    expect(defaults.name).toBe("Lunch Bowl");
+    expect(defaults.defaultMealType).toBe("lunch");
+    expect(defaults.items).toHaveLength(1);
     expect(defaults.items[0]).toMatchObject({
-      tempId: 'item-100',
       food_id: chicken.id,
-      servings: 1.5,
       food_name: chicken.name,
-    })
-  })
+      servings: 1.5,
+      tempId: "item-100",
+    });
+  });
 
-  it('coerces a null description into an empty string for a controlled input', () => {
-    const defaults = templateFormDefaults(detailFixture({ description: null }))
-    expect(defaults.description).toBe('')
-  })
-})
+  it("coerces a null description into an empty string for a controlled input", () => {
+    const defaults = templateFormDefaults(detailFixture({ description: null }));
+    expect(defaults.description).toBe("");
+  });
+});
 
-describe('editableItemFromFood', () => {
-  it('maps a searched food into a one-serving item at the given sort position', () => {
-    const item = editableItemFromFood(chicken, 2)
-    expect(item.food_id).toBe(chicken.id)
-    expect(item.servings).toBe(1)
-    expect(item.sort_order).toBe(2)
-    expect(item.tempId).toMatch(/^tmp-/)
-  })
-})
+describe(editableItemFromFood, () => {
+  it("maps a searched food into a one-serving item at the given sort position", () => {
+    const item = editableItemFromFood(chicken, 2);
+    expect(item.food_id).toBe(chicken.id);
+    expect(item.servings).toBe(1);
+    expect(item.sort_order).toBe(2);
+    expect(item.tempId).toMatch(/^tmp-/);
+  });
+});
 
-describe('buildTemplateSavePayload', () => {
-  it('trims text, drops empty descriptions, and reindexes sort_order from position', () => {
+describe(buildTemplateSavePayload, () => {
+  it("trims text, drops empty descriptions, and reindexes sort_order from position", () => {
     const itemA: EditableItem = {
-      tempId: 'tmp-a',
-      food_id: 11,
-      servings: 2,
-      sort_order: 99,
-      food_name: 'Chicken Breast (raw)',
-      serving_unit: 'g',
       calories_per_serving: 165,
-      protein_g: 31,
       carbs_g: 0,
       fat_g: 3.6,
       fiber_g: 0,
-    }
-    const itemB: EditableItem = { ...itemA, tempId: 'tmp-b', food_id: 22 }
+      food_id: 11,
+      food_name: "Chicken Breast (raw)",
+      protein_g: 31,
+      serving_unit: "g",
+      servings: 2,
+      sort_order: 99,
+      tempId: "tmp-a",
+    };
+    const itemB: EditableItem = { ...itemA, food_id: 22, tempId: "tmp-b" };
 
     const payload = buildTemplateSavePayload(
       {
-        name: '  Dinner  ',
-        description: '   ',
-        defaultMealType: 'dinner',
+        defaultMealType: "dinner",
+        description: "   ",
         items: [itemA, itemB],
+        name: "  Dinner  ",
       },
-      7,
-    )
+      7
+    );
 
-    expect(payload).toEqual({
-      id: 7,
-      name: 'Dinner',
+    expect(payload).toStrictEqual({
+      default_meal_type: "dinner",
       description: undefined,
-      default_meal_type: 'dinner',
+      id: 7,
       items: [
         { food_id: 11, servings: 2, sort_order: 1 },
         { food_id: 22, servings: 2, sort_order: 2 },
       ],
-    })
-  })
+      name: "Dinner",
+    });
+  });
 
-  it('keeps a non-empty trimmed description', () => {
+  it("keeps a non-empty trimmed description", () => {
     const payload = buildTemplateSavePayload(
-      { name: 'X', description: ' high protein ', defaultMealType: 'snack', items: [] },
-      1,
-    )
-    expect(payload.description).toBe('high protein')
-  })
-})
+      {
+        defaultMealType: "snack",
+        description: " high protein ",
+        items: [],
+        name: "X",
+      },
+      1
+    );
+    expect(payload.description).toBe("high protein");
+  });
+});
 
-describe('validateTemplateItems', () => {
+describe(validateTemplateItems, () => {
   const valid = (overrides: Partial<EditableItem> = {}): EditableItem => ({
-    tempId: 'tmp-1',
-    food_id: 11,
-    servings: 1,
-    sort_order: 1,
-    food_name: 'Chicken Breast (raw)',
-    serving_unit: 'g',
     calories_per_serving: 165,
-    protein_g: 31,
     carbs_g: 0,
     fat_g: 3.6,
     fiber_g: 0,
+    food_id: 11,
+    food_name: "Chicken Breast (raw)",
+    protein_g: 31,
+    serving_unit: "g",
+    servings: 1,
+    sort_order: 1,
+    tempId: "tmp-1",
     ...overrides,
-  })
+  });
 
-  it('allows an empty template (save clears all items)', () => {
-    expect(validateTemplateItems([])).toBeUndefined()
-  })
+  it("allows an empty template (save clears all items)", () => {
+    expect(validateTemplateItems([])).toBeUndefined();
+  });
 
-  it('passes for well-formed items', () => {
-    expect(validateTemplateItems([valid()])).toBeUndefined()
-  })
+  it("passes for well-formed items", () => {
+    expect(validateTemplateItems([valid()])).toBeUndefined();
+  });
 
-  it('flags a non-positive serving count with the offending food name', () => {
+  it("flags a non-positive serving count with the offending food name", () => {
     expect(validateTemplateItems([valid({ servings: 0 })])).toBe(
-      'Chicken Breast (raw) needs servings greater than 0',
-    )
-  })
+      "Chicken Breast (raw) needs servings greater than 0"
+    );
+  });
 
-  it('flags an item missing its food reference', () => {
-    expect(validateTemplateItems([valid({ food_id: 0 })])).toBe('Every item needs a food')
-  })
-})
+  it("flags an item missing its food reference", () => {
+    expect(validateTemplateItems([valid({ food_id: 0 })])).toBe(
+      "Every item needs a food"
+    );
+  });
+});
 
-describe('makeTempId', () => {
-  it('produces unique client ids prefixed with tmp-', () => {
-    const a = makeTempId()
-    const b = makeTempId()
-    expect(a).toMatch(/^tmp-/)
-    expect(a).not.toBe(b)
-  })
-})
+describe(makeTempId, () => {
+  it("produces unique client ids prefixed with tmp-", () => {
+    const a = makeTempId();
+    const b = makeTempId();
+    expect(a).toMatch(/^tmp-/);
+    expect(a).not.toBe(b);
+  });
+});
 
-describe('validateCreateTemplateName', () => {
-  it('rejects blank names', () => {
-    expect(validateCreateTemplateName('')).toBe('Template name is required.')
-    expect(validateCreateTemplateName('  ')).toBe('Template name is required.')
-  })
+describe(validateCreateTemplateName, () => {
+  it("rejects blank names", () => {
+    expect(validateCreateTemplateName("")).toBe("Template name is required.");
+    expect(validateCreateTemplateName("  ")).toBe("Template name is required.");
+  });
 
-  it('accepts non-empty names', () => {
-    expect(validateCreateTemplateName('High-protein breakfast')).toBeUndefined()
-  })
-})
+  it("accepts non-empty names", () => {
+    expect(
+      validateCreateTemplateName("High-protein breakfast")
+    ).toBeUndefined();
+  });
+});
 
-describe('buildCreateTemplatePayload', () => {
-  it('trims fields and starts with an empty item list', () => {
+describe(buildCreateTemplatePayload, () => {
+  it("trims fields and starts with an empty item list", () => {
     const payload = buildCreateTemplatePayload({
-      name: '  Dinner bowl  ',
-      description: '  Notes  ',
-      defaultMealType: 'dinner',
-    })
+      defaultMealType: "dinner",
+      description: "  Notes  ",
+      name: "  Dinner bowl  ",
+    });
 
-    expect(payload).toEqual({
-      name: 'Dinner bowl',
-      description: 'Notes',
-      default_meal_type: 'dinner',
+    expect(payload).toStrictEqual({
+      default_meal_type: "dinner",
+      description: "Notes",
       items: [],
-    })
-  })
+      name: "Dinner bowl",
+    });
+  });
 
-  it('omits description when blank', () => {
+  it("omits description when blank", () => {
     const payload = buildCreateTemplatePayload({
-      name: 'Lunch',
-      description: '   ',
-      defaultMealType: 'lunch',
-    })
+      defaultMealType: "lunch",
+      description: "   ",
+      name: "Lunch",
+    });
 
-    expect(payload.description).toBeUndefined()
-  })
-})
+    expect(payload.description).toBeUndefined();
+  });
+});

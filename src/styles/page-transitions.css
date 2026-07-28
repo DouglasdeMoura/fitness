@@ -22,7 +22,8 @@
 }
 
 [data-page-transition] {
-  animation: page-enter var(--duration-medium, 410ms) var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1)) both;
+  animation: page-enter var(--duration-medium, 410ms)
+    var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1)) both;
 }
 
 /*
@@ -30,5 +31,6 @@
  * Fast duration (175 ms) so it never feels laggy.
  */
 [data-clickable-card] {
-  transition: box-shadow var(--duration-fast, 175ms) var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1));
+  transition: box-shadow var(--duration-fast, 175ms)
+    var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1));
 }

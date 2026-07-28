@@ -1,47 +1,27 @@
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  FormLayout,
-  Heading,
-  HStack,
-  NumberInput,
-  Selector,
-  Table,
-  Text,
-  TextArea,
-  TextInput,
-  VStack,
-  proportional,
-  type TableColumn,
-} from "@astryxdesign/core";
-import { TemplateIcon } from '~/components/icons/FitTrackIcons'
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { ScrollableTable } from "~/components/ScrollableTable";
+import { Badge, Button, Card, EmptyState, FormLayout, Heading, HStack, NumberInput, Selector, Table, Text, TextArea, TextInput, VStack, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
+import { ScrollableTable } from "~/components/ScrollableTable";
+import { deleteProgram, getPrograms, saveProgram, setActiveProgram } from '~/lib/api';
+import type { ProgramSummary } from '~/lib/api';
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import {
-  deleteProgram,
-  getPrograms,
-  saveProgram,
-  setActiveProgram,
-  type ProgramSummary,
-} from "~/lib/api";
+import type { PeriodizationType } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
-import type { PeriodizationType } from "~/lib/db";
 import {
   buildCreateProgramPayload,
   CREATE_PROGRAM_FORM_DEFAULTS,
@@ -49,53 +29,61 @@ import {
 } from "~/lib/program-form";
 
 export const Route = createFileRoute("/workout/programs/")({
-  head: () => ({ meta: [{ title: "Training Programs - FitTrack" }] }),
   component: ProgramsPage,
+  head: () => ({ meta: [{ title: "Training Programs - FitTrack" }] }),
 });
 
 const PERIODIZATION_LABELS: Record<PeriodizationType, string> = {
-  linear: "Linear progression",
   dup: "Daily undulating (DUP)",
+  linear: "Linear progression",
 };
 
-const PERIODIZATION_OPTIONS = Object.entries(PERIODIZATION_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+const PERIODIZATION_OPTIONS = Object.entries(PERIODIZATION_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 
 type ProgramAction = (id: number) => Promise<void>;
 
 function programColumns(
   activateProgram: ProgramAction,
-  removeProgram: ProgramAction,
+  removeProgram: ProgramAction
 ): TableColumn<ProgramSummary>[] {
   return [
     {
-      key: "name",
       header: "Program",
-      width: proportional(2),
+      key: "name",
       renderCell: (program) => (
         <VStack gap={1}>
           <Text weight="bold">{program.name}</Text>
-          {program.description ? <Text type="supporting">{program.description}</Text> : null}
+          {program.description ? (
+            <Text type="supporting">{program.description}</Text>
+          ) : null}
         </VStack>
       ),
+      width: proportional(2),
     },
     {
-      key: "periodization_type",
       header: "Status",
-      width: proportional(1),
+      key: "periodization_type",
       renderCell: (program) => (
         <HStack gap={1} wrap="wrap">
-          {program.is_active ? <Badge label="Active" variant="success" /> : null}
-          <Badge label={PERIODIZATION_LABELS[program.periodization_type]} variant="info" />
+          {program.is_active ? (
+            <Badge label="Active" variant="success" />
+          ) : null}
+          <Badge
+            label={PERIODIZATION_LABELS[program.periodization_type]}
+            variant="info"
+          />
         </HStack>
       ),
+      width: proportional(1),
     },
     {
-      key: "day_count",
       header: "Schedule",
-      width: proportional(1),
+      key: "day_count",
       renderCell: (program) => (
         <VStack gap={1}>
           <Text hasTabularNumbers>
@@ -106,11 +94,11 @@ function programColumns(
           </Text>
         </VStack>
       ),
+      width: proportional(1),
     },
     {
-      key: "progression_increment_pct",
       header: "Progression",
-      width: proportional(1),
+      key: "progression_increment_pct",
       renderCell: (program) => (
         <Text type="supporting" hasTabularNumbers>
           {program.periodization_type === "linear"
@@ -118,10 +106,11 @@ function programColumns(
             : "Rotating rep zones"}
         </Text>
       ),
+      width: proportional(1),
     },
     {
-      key: "actions",
       header: "Actions",
+      key: "actions",
       renderCell: (program) => (
         <HStack gap={2} wrap="wrap">
           {!program.is_active ? (
@@ -160,8 +149,8 @@ function ProgramsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const programsQuery = useDataLoadQuery({
-    queryKey: ["programs"],
     queryFn: () => getPrograms(),
+    queryKey: ["programs"],
   });
 
   const [showCreate, setShowCreate] = useState(false);
@@ -181,8 +170,8 @@ function ProgramsPage() {
       formApi.reset();
       if (program?.id) {
         await navigate({
-          to: "/workout/programs/$programId",
           params: { programId: String(program.id) },
+          to: "/workout/programs/$programId",
         });
       }
     },
@@ -227,7 +216,7 @@ function ProgramsPage() {
   };
 
   const confirmDelete = async () => {
-    if (pendingDeleteId == null) return;
+    if (pendingDeleteId == null) {return;}
     setIsDeleting(true);
     try {
       await deleteProgram({ data: { id: pendingDeleteId } });
@@ -238,14 +227,21 @@ function ProgramsPage() {
     }
   };
 
-  const pendingProgram = programs.find((program) => program.id === pendingDeleteId);
+  const pendingProgram = programs.find(
+    (program) => program.id === pendingDeleteId
+  );
 
   return (
     <VStack gap={4}>
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>Training Programs</Heading>
         <HStack gap={2} wrap="wrap">
-          <Button label="Back to Workout" href="/workout" variant="secondary" size="sm" />
+          <Button
+            label="Back to Workout"
+            href="/workout"
+            variant="secondary"
+            size="sm"
+          />
           <Button
             label={showCreate ? "Cancel" : "New Program"}
             variant="primary"
@@ -257,9 +253,10 @@ function ProgramsPage() {
 
       <Card>
         <Text type="supporting">
-          Build reusable multi-day programs with target sets, reps, and RPE. Linear programs
-          progress load when autoregulation criteria are met; DUP rotates rep zones across training
-          days within the week (Rhea et al. 2002; Prestes et al. 2009).
+          Build reusable multi-day programs with target sets, reps, and RPE.
+          Linear programs progress load when autoregulation criteria are met;
+          DUP rotates rep zones across training days within the week (Rhea et
+          al. 2002; Prestes et al. 2009).
         </Text>
       </Card>
 
@@ -270,7 +267,9 @@ function ProgramsPage() {
             <FormLayout>
               <form.Field
                 name="name"
-                validators={{ onChange: ({ value }) => validateCreateProgramName(value) }}
+                validators={{
+                  onChange: ({ value }) => validateCreateProgramName(value),
+                }}
               >
                 {(field) => (
                   <TextInput
@@ -299,7 +298,9 @@ function ProgramsPage() {
                   <Selector
                     label="Periodization"
                     value={field.state.value}
-                    onChange={(value) => field.handleChange(value as PeriodizationType)}
+                    onChange={(value) =>
+                      field.handleChange(value as PeriodizationType)
+                    }
                     options={PERIODIZATION_OPTIONS}
                   />
                 )}
@@ -315,7 +316,9 @@ function ProgramsPage() {
                 )}
               </form.Field>
             </FormLayout>
-            <form.Subscribe selector={(state) => ({ isSubmitting: state.isSubmitting })}>
+            <form.Subscribe
+              selector={(state) => ({ isSubmitting: state.isSubmitting })}
+            >
               {({ isSubmitting }) => (
                 <Button
                   label={isSubmitting ? "Creating..." : "Create Program"}
@@ -348,18 +351,18 @@ function ProgramsPage() {
         <ScrollableTable scrollLabel="programs-list">
           <Table
             aria-label="Training programs"
-          columns={programColumns(handleSetActive, requestDelete)}
-          data={programs}
-          idKey="id"
-          density="compact"
-          hasHover
+            columns={programColumns(handleSetActive, requestDelete)}
+            data={programs}
+            idKey="id"
+            density="compact"
+            hasHover
           />
         </ScrollableTable>
       )}
       <DeleteConfirmationDialog
         isOpen={pendingDeleteId != null}
         onOpenChange={(open) => {
-          if (!open) setPendingDeleteId(null);
+          if (!open) {setPendingDeleteId(null);}
         }}
         title={deleteNamedEntityTitle(pendingProgram?.name ?? "program")}
         subtitle={deleteCannotBeUndoneSubtitle()}

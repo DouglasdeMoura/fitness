@@ -1,13 +1,14 @@
-import Database from 'better-sqlite3'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { MealType } from '~/lib/nutrition'
+import Database from "better-sqlite3";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import {
   logMealTemplateInDb,
   sortTemplatesForMealSection,
-} from '~/lib/meal-template-log'
+} from "~/lib/meal-template-log";
+import type { MealType } from "~/lib/nutrition";
 
-const USER_ID = 1
-const DATE = '2020-01-01'
+const USER_ID = 1;
+const DATE = "2020-01-01";
 
 const TEST_SCHEMA = `
 CREATE TABLE users (
@@ -56,81 +57,110 @@ CREATE TABLE food_log (
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
-`
+`;
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:')
-  db.exec(TEST_SCHEMA)
-  db.prepare('INSERT INTO users (id, name) VALUES (?, ?)').run(USER_ID, 'Test')
+  const db = new Database(":memory:");
+  db.exec(TEST_SCHEMA);
+  db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(USER_ID, "Test");
   db.prepare(
     `INSERT INTO foods (id, name, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g)
-     VALUES (1, 'Chicken', 100, 'g', 165, 31, 0, 3.6)`,
-  ).run()
-  return db
+     VALUES (1, 'Chicken', 100, 'g', 165, 31, 0, 3.6)`
+  ).run();
+  return db;
 }
 
-describe('sortTemplatesForMealSection (issue #56)', () => {
-  it('lists matching default meal type before others', () => {
+describe("sortTemplatesForMealSection (issue #56)", () => {
+  it("lists matching default meal type before others", () => {
     const templates = [
-      { id: 1, default_meal_type: 'lunch' as MealType, item_count: 2, name: 'Lunch' },
-      { id: 2, default_meal_type: 'breakfast' as MealType, item_count: 1, name: 'Breakfast' },
-      { id: 3, default_meal_type: 'dinner' as MealType, item_count: 1, name: 'Dinner' },
-    ]
-    const sorted = sortTemplatesForMealSection(templates, 'breakfast')
-    expect(sorted.map((t) => t.id)).toEqual([2, 1, 3])
-  })
+      {
+        default_meal_type: "lunch" as MealType,
+        id: 1,
+        item_count: 2,
+        name: "Lunch",
+      },
+      {
+        default_meal_type: "breakfast" as MealType,
+        id: 2,
+        item_count: 1,
+        name: "Breakfast",
+      },
+      {
+        default_meal_type: "dinner" as MealType,
+        id: 3,
+        item_count: 1,
+        name: "Dinner",
+      },
+    ];
+    const sorted = sortTemplatesForMealSection(templates, "breakfast");
+    expect(sorted.map((t) => t.id)).toStrictEqual([2, 1, 3]);
+  });
 
-  it('skips templates with zero items', () => {
+  it("skips templates with zero items", () => {
     const templates = [
-      { id: 1, default_meal_type: 'breakfast' as MealType, item_count: 0, name: 'Empty' },
-      { id: 2, default_meal_type: 'breakfast' as MealType, item_count: 1, name: 'Ready' },
-    ]
-    expect(sortTemplatesForMealSection(templates, 'breakfast').map((t) => t.id)).toEqual([2])
-  })
-})
+      {
+        default_meal_type: "breakfast" as MealType,
+        id: 1,
+        item_count: 0,
+        name: "Empty",
+      },
+      {
+        default_meal_type: "breakfast" as MealType,
+        id: 2,
+        item_count: 1,
+        name: "Ready",
+      },
+    ];
+    expect(
+      sortTemplatesForMealSection(templates, "breakfast").map((t) => t.id)
+    ).toStrictEqual([2]);
+  });
+});
 
-describe('logMealTemplateInDb (issue #56)', () => {
-  let db: Database.Database
+describe("logMealTemplateInDb (issue #56)", () => {
+  let db: Database.Database;
 
   beforeEach(() => {
-    db = createTestDb()
+    db = createTestDb();
     db.prepare(
       `INSERT INTO meal_templates (id, user_id, name, default_meal_type)
-       VALUES (10, ?, 'Morning', 'breakfast')`,
-    ).run(USER_ID)
+       VALUES (10, ?, 'Morning', 'breakfast')`
+    ).run(USER_ID);
     db.prepare(
       `INSERT INTO meal_template_items (template_id, food_id, servings, sort_order)
-       VALUES (10, 1, 1, 1)`,
-    ).run()
-  })
+       VALUES (10, 1, 1, 1)`
+    ).run();
+  });
 
   afterEach(() => {
-    db.close()
-  })
+    db.close();
+  });
 
-  it('expands template items into food_log rows in one transaction', () => {
-    const result = logMealTemplateInDb(db, USER_ID, 10, DATE, 'breakfast')
-    expect(result.template_name).toBe('Morning')
-    expect(result.total_calories).toBe(165)
-    expect(result.entries).toHaveLength(1)
-    expect(result.entries[0].meal_type).toBe('breakfast')
-    expect(result.entries[0].calories).toBe(165)
+  it("expands template items into food_log rows in one transaction", () => {
+    const result = logMealTemplateInDb(db, USER_ID, 10, DATE, "breakfast");
+    expect(result.template_name).toBe("Morning");
+    expect(result.total_calories).toBe(165);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].meal_type).toBe("breakfast");
+    expect(result.entries[0].calories).toBe(165);
 
     const rows = db
-      .prepare('SELECT COUNT(*) as count FROM food_log WHERE user_id = ? AND date = ?')
-      .get(USER_ID, DATE) as { count: number }
-    expect(rows.count).toBe(1)
-  })
+      .prepare(
+        "SELECT COUNT(*) as count FROM food_log WHERE user_id = ? AND date = ?"
+      )
+      .get(USER_ID, DATE) as { count: number };
+    expect(rows.count).toBe(1);
+  });
 
-  it('logs to the requested meal type even when default differs', () => {
-    const result = logMealTemplateInDb(db, USER_ID, 10, DATE, 'lunch')
-    expect(result.entries[0].meal_type).toBe('lunch')
-  })
+  it("logs to the requested meal type even when default differs", () => {
+    const result = logMealTemplateInDb(db, USER_ID, 10, DATE, "lunch");
+    expect(result.entries[0].meal_type).toBe("lunch");
+  });
 
-  it('throws when the template has no items', () => {
-    db.prepare('DELETE FROM meal_template_items WHERE template_id = 10').run()
-    expect(() => logMealTemplateInDb(db, USER_ID, 10, DATE, 'breakfast')).toThrow(
-      /has no items to log/,
-    )
-  })
-})
+  it("throws when the template has no items", () => {
+    db.prepare("DELETE FROM meal_template_items WHERE template_id = 10").run();
+    expect(() =>
+      logMealTemplateInDb(db, USER_ID, 10, DATE, "breakfast")
+    ).toThrow(/has no items to log/);
+  });
+});

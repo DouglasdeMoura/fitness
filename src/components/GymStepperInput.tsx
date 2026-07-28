@@ -1,17 +1,18 @@
-import { HStack, NumberInput } from '@astryxdesign/core'
-import { IconButton } from '@astryxdesign/core/IconButton'
-import { adjustByStep } from '~/lib/gym-input'
+import { HStack, NumberInput } from "@astryxdesign/core";
+import { IconButton } from "@astryxdesign/core/IconButton";
 
-type GymStepperInputProps = {
-  label: string
-  value: number
-  onChange: (value: number) => void
-  step: number
-  inputMode: 'decimal' | 'numeric'
-  min?: number
-  max?: number | null
-  units?: string | null
-  isIntegerOnly?: boolean
+import { adjustByStep } from "~/lib/gym-input";
+
+interface GymStepperInputProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  step: number;
+  inputMode: "decimal" | "numeric";
+  min?: number;
+  max?: number | null;
+  units?: string | null;
+  isIntegerOnly?: boolean;
 }
 
 /**
@@ -30,17 +31,17 @@ export function GymStepperInput({
   isIntegerOnly = false,
 }: GymStepperInputProps) {
   const decrease = () => {
-    onChange(adjustByStep(value, step, -1, min))
-  }
+    onChange(adjustByStep(value, step, -1, min));
+  };
 
   const increase = () => {
-    const next = adjustByStep(value, step, 1, min)
+    const next = adjustByStep(value, step, 1, min);
     if (max != null && next > max) {
-      onChange(max)
-      return
+      onChange(max);
+      return;
     }
-    onChange(next)
-  }
+    onChange(next);
+  };
 
   return (
     <HStack gap={2} vAlign="center">
@@ -62,7 +63,7 @@ export function GymStepperInput({
         units={units}
         isIntegerOnly={isIntegerOnly}
         size="lg"
-        {...({ inputMode } as { inputMode: 'decimal' | 'numeric' })}
+        {...({ inputMode } as { inputMode: "decimal" | "numeric" })}
       />
       <IconButton
         label={`Increase ${label}`}
@@ -72,5 +73,5 @@ export function GymStepperInput({
         onClick={increase}
       />
     </HStack>
-  )
+  );
 }

@@ -1,37 +1,31 @@
-import {
-  Badge,
-  Button,
-  HStack,
-  Table,
-  Text,
-  proportional,
-  type TableColumn,
-} from '@astryxdesign/core'
-import { GymStepperInput } from '~/components/GymStepperInput'
-import { ScrollableTable } from '~/components/ScrollableTable'
-import { REPS_STEP, WEIGHT_STEP_KG } from '~/lib/gym-input'
-import type { RecordKind } from '~/lib/records'
-import { formatDisplayInteger } from '~/lib/format-number'
-import { calculateVolume } from '~/lib/workout'
+import { Badge, Button, HStack, Table, Text, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
 
-export type WorkoutSetRow = {
-  reps: number
-  weight: number
-  rpe: number
-  id?: number
-  recordKinds?: RecordKind[]
+import { GymStepperInput } from "~/components/GymStepperInput";
+import { ScrollableTable } from "~/components/ScrollableTable";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { REPS_STEP, WEIGHT_STEP_KG } from "~/lib/gym-input";
+import type { RecordKind } from "~/lib/records";
+import { calculateVolume } from "~/lib/workout";
+
+export interface WorkoutSetRow {
+  reps: number;
+  weight: number;
+  rpe: number;
+  id?: number;
+  recordKinds?: RecordKind[];
 }
 
 type WorkoutSetTableRow = WorkoutSetRow & {
-  rowIndex: number
-}
+  rowIndex: number;
+};
 
-type WorkoutSetsTableProps = {
-  sets: WorkoutSetRow[]
-  exerciseName: string
-  onChangeSet: (index: number, patch: Partial<WorkoutSetRow>) => void
-  onSaveSet: (set: WorkoutSetRow, index: number) => void
-  onDeleteSet: (index: number) => void
+interface WorkoutSetsTableProps {
+  sets: WorkoutSetRow[];
+  exerciseName: string;
+  onChangeSet: (index: number, patch: Partial<WorkoutSetRow>) => void;
+  onSaveSet: (set: WorkoutSetRow, index: number) => void;
+  onDeleteSet: (index: number) => void;
 }
 
 /**
@@ -47,8 +41,13 @@ export function WorkoutSetsTable({
   const tableRows: WorkoutSetTableRow[] = sets.map((set, rowIndex) => ({
     ...set,
     rowIndex,
-  }))
-  const columns = workoutSetColumns(exerciseName, onChangeSet, onSaveSet, onDeleteSet)
+  }));
+  const columns = workoutSetColumns(
+    exerciseName,
+    onChangeSet,
+    onSaveSet,
+    onDeleteSet
+  );
 
   return (
     <ScrollableTable scrollLabel="workout-sets">
@@ -61,20 +60,19 @@ export function WorkoutSetsTable({
         hasHover
       />
     </ScrollableTable>
-  )
+  );
 }
 
 function workoutSetColumns(
   exerciseName: string,
-  onChangeSet: WorkoutSetsTableProps['onChangeSet'],
-  onSaveSet: WorkoutSetsTableProps['onSaveSet'],
-  onDeleteSet: WorkoutSetsTableProps['onDeleteSet'],
+  onChangeSet: WorkoutSetsTableProps["onChangeSet"],
+  onSaveSet: WorkoutSetsTableProps["onSaveSet"],
+  onDeleteSet: WorkoutSetsTableProps["onDeleteSet"]
 ): TableColumn<WorkoutSetTableRow>[] {
   return [
     {
-      key: 'set_number',
-      header: 'Set',
-      width: proportional(1),
+      header: "Set",
+      key: "set_number",
       renderCell: (row) => (
         <HStack gap={2} wrap="wrap" vAlign="center">
           <Text hasTabularNumbers>{row.rowIndex + 1}</Text>
@@ -83,11 +81,11 @@ function workoutSetColumns(
           ) : null}
         </HStack>
       ),
+      width: proportional(1),
     },
     {
-      key: 'weight',
-      header: 'Weight (kg)',
-      width: proportional(2),
+      header: "Weight (kg)",
+      key: "weight",
       renderCell: (row) => (
         <GymStepperInput
           label={`Weight for set ${row.rowIndex + 1} of ${exerciseName}`}
@@ -98,11 +96,11 @@ function workoutSetColumns(
           units="kg"
         />
       ),
+      width: proportional(2),
     },
     {
-      key: 'reps',
-      header: 'Reps',
-      width: proportional(2),
+      header: "Reps",
+      key: "reps",
       renderCell: (row) => (
         <GymStepperInput
           label={`Reps for set ${row.rowIndex + 1} of ${exerciseName}`}
@@ -113,11 +111,11 @@ function workoutSetColumns(
           isIntegerOnly
         />
       ),
+      width: proportional(2),
     },
     {
-      key: 'rpe',
-      header: 'RPE',
-      width: proportional(1),
+      header: "RPE",
+      key: "rpe",
       renderCell: (row) => (
         <GymStepperInput
           label={`RPE for set ${row.rowIndex + 1} of ${exerciseName}`}
@@ -130,19 +128,21 @@ function workoutSetColumns(
           isIntegerOnly
         />
       ),
-    },
-    {
-      key: 'volume',
-      header: 'Volume',
       width: proportional(1),
-      renderCell: (row) => (
-        <Text hasTabularNumbers>{formatDisplayInteger(calculateVolume(1, row.reps, row.weight))} kg</Text>
-      ),
     },
     {
-      key: 'actions',
-      header: 'Actions',
-      width: proportional(2),
+      header: "Volume",
+      key: "volume",
+      renderCell: (row) => (
+        <Text hasTabularNumbers>
+          {formatDisplayInteger(calculateVolume(1, row.reps, row.weight))} kg
+        </Text>
+      ),
+      width: proportional(1),
+    },
+    {
+      header: "Actions",
+      key: "actions",
       renderCell: (row) => (
         <HStack gap={2} wrap="wrap">
           <Button
@@ -159,6 +159,7 @@ function workoutSetColumns(
           />
         </HStack>
       ),
+      width: proportional(2),
     },
-  ]
+  ];
 }

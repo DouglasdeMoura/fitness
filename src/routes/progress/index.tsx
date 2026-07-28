@@ -1,11 +1,3 @@
-import { createFileRoute } from '@tanstack/react-router'
-import * as React from 'react'
-import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
-import {
-  isDataLoadPending,
-  pickFailedDataLoadQuery,
-  useDataLoadQuery,
-} from '~/lib/data-load-query'
 import {
   Badge,
   Button,
@@ -23,18 +15,26 @@ import {
   Text,
   VStack,
   proportional,
-} from '@astryxdesign/core'
+} from "@astryxdesign/core";
+import { createFileRoute } from "@tanstack/react-router";
+import * as React from "react";
+
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import {
-  getBodyLogs,
-  getProgressHighlights,
-  getWorkoutSessions,
-  getWeeklyNutrition,
-  getWeeklyVolume,
-  type MuscleVolume,
-  type ProgressHighlights,
-  type WeeklyNutritionReport,
-} from '~/lib/api'
-import type { BodyLog } from '~/lib/db'
+  ScaleIcon,
+  BarChartIcon,
+  MealIcon,
+} from "~/components/icons/FitTrackIcons";
+import { ProgressSkeleton } from "~/components/loading/PageSkeletons";
+import { getBodyLogs, getProgressHighlights, getWorkoutSessions, getWeeklyNutrition, getWeeklyVolume } from '~/lib/api';
+import type { MuscleVolume, ProgressHighlights, WeeklyNutritionReport } from '~/lib/api';
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
+import type { BodyLog } from "~/lib/db";
+import { formatDisplayInteger } from "~/lib/format-number";
 import {
   areaChartPath,
   capitalizeMuscleGroup,
@@ -44,21 +44,19 @@ import {
   weightChartGeometry,
   weightChartPoints,
   weightTrend,
-} from '~/lib/progress'
-import { formatDisplayInteger } from '~/lib/format-number'
-import { ProgressSkeleton } from '~/components/loading/PageSkeletons'
-import { ScaleIcon, BarChartIcon, MealIcon } from '~/components/icons/FitTrackIcons'
+} from "~/lib/progress";
 
 /** 90-day window the progress page analyses (matches the data fetch limit). */
-const PROGRESS_WINDOW_DAYS = 90
+const PROGRESS_WINDOW_DAYS = 90;
 
 /** SMA window for the weight trend line (Apple Health uses 7 days). */
-const SMA_WINDOW = 7
+const SMA_WINDOW = 7;
 
-type TabView = 'weight' | 'volume' | 'nutrition'
+type TabView = "weight" | "volume" | "nutrition";
 
-export const Route = createFileRoute('/progress/')({
-  head: () => ({ meta: [{ title: 'Progress - FitTrack' }] }),
+export const Route = createFileRoute("/progress/")({
+  component: ProgressPage,
+  head: () => ({ meta: [{ title: "Progress - FitTrack" }] }),
   loader: async () => {
     const [bodyLogs, sessions, weeklyVolume, weeklyNutrition, highlights] =
       await Promise.all([
@@ -67,50 +65,50 @@ export const Route = createFileRoute('/progress/')({
         getWeeklyVolume(),
         getWeeklyNutrition(),
         getProgressHighlights(),
-      ])
-    return { bodyLogs, sessions, weeklyVolume, weeklyNutrition, highlights }
+      ]);
+    return { bodyLogs, sessions, weeklyVolume, weeklyNutrition, highlights };
   },
   pendingComponent: ProgressSkeleton,
-  component: ProgressPage,
-})
+});
 
 function ProgressPage() {
-  return <ProgressPageContent />
+  return <ProgressPageContent />;
 }
 
 function ProgressPageContent() {
-  const loaderData = Route.useLoaderData()
-  const [activeTab, setActiveTab] = React.useState<TabView>('weight')
+  const loaderData = Route.useLoaderData();
+  const [activeTab, setActiveTab] = React.useState<TabView>("weight");
 
   const bodyLogsQuery = useDataLoadQuery({
-    queryKey: ['body-logs'],
-    queryFn: () => getBodyLogs({ data: { limit: PROGRESS_WINDOW_DAYS } }),
     initialData: loaderData.bodyLogs,
-  })
+    queryFn: () => getBodyLogs({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+    queryKey: ["body-logs"],
+  });
 
   const sessionsQuery = useDataLoadQuery({
-    queryKey: ['workout-sessions-progress'],
-    queryFn: () => getWorkoutSessions({ data: { limit: PROGRESS_WINDOW_DAYS } }),
     initialData: loaderData.sessions,
-  })
+    queryFn: () =>
+      getWorkoutSessions({ data: { limit: PROGRESS_WINDOW_DAYS } }),
+    queryKey: ["workout-sessions-progress"],
+  });
 
   const weeklyVolumeQuery = useDataLoadQuery({
-    queryKey: ['weekly-volume'],
-    queryFn: () => getWeeklyVolume(),
     initialData: loaderData.weeklyVolume,
-  })
+    queryFn: () => getWeeklyVolume(),
+    queryKey: ["weekly-volume"],
+  });
 
   const weeklyNutritionQuery = useDataLoadQuery({
-    queryKey: ['weekly-nutrition'],
-    queryFn: () => getWeeklyNutrition(),
     initialData: loaderData.weeklyNutrition,
-  })
+    queryFn: () => getWeeklyNutrition(),
+    queryKey: ["weekly-nutrition"],
+  });
 
   const highlightsQuery = useDataLoadQuery({
-    queryKey: ['progress-highlights'],
-    queryFn: () => getProgressHighlights(),
     initialData: loaderData.highlights,
-  })
+    queryFn: () => getProgressHighlights(),
+    queryKey: ["progress-highlights"],
+  });
 
   if (
     isDataLoadPending(bodyLogsQuery) ||
@@ -119,7 +117,7 @@ function ProgressPageContent() {
     isDataLoadPending(weeklyNutritionQuery) ||
     isDataLoadPending(highlightsQuery)
   ) {
-    return <ProgressSkeleton />
+    return <ProgressSkeleton />;
   }
 
   const failedQuery = pickFailedDataLoadQuery([
@@ -128,7 +126,7 @@ function ProgressPageContent() {
     weeklyVolumeQuery,
     weeklyNutritionQuery,
     highlightsQuery,
-  ])
+  ]);
   if (failedQuery) {
     return (
       <DataLoadErrorView
@@ -136,14 +134,14 @@ function ProgressPageContent() {
         title="Failed to load progress data"
         query={failedQuery}
       />
-    )
+    );
   }
 
-  const bodyLogs = bodyLogsQuery.data!
-  const sessions = sessionsQuery.data!
-  const weeklyVolume = weeklyVolumeQuery.data!
-  const weeklyNutrition = weeklyNutritionQuery.data!
-  const highlights = highlightsQuery.data!
+  const bodyLogs = bodyLogsQuery.data!;
+  const sessions = sessionsQuery.data!;
+  const weeklyVolume = weeklyVolumeQuery.data!;
+  const weeklyNutrition = weeklyNutritionQuery.data!;
+  const highlights = highlightsQuery.data!;
 
   return (
     <VStack as="main" gap={6}>
@@ -165,19 +163,15 @@ function ProgressPageContent() {
             <Tab value="nutrition" label="Nutrition" />
           </TabList>
 
-          {activeTab === 'weight' && (
-            <WeightView bodyLogs={bodyLogs} />
-          )}
-          {activeTab === 'volume' && (
-            <VolumeView volume={weeklyVolume} />
-          )}
-          {activeTab === 'nutrition' && (
+          {activeTab === "weight" && <WeightView bodyLogs={bodyLogs} />}
+          {activeTab === "volume" && <VolumeView volume={weeklyVolume} />}
+          {activeTab === "nutrition" && (
             <NutritionView weekly={weeklyNutrition} />
           )}
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -186,20 +180,21 @@ function ProgressPageContent() {
 
 function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
   return (
-    <Grid columns={{ minWidth: 140, max: 3 }} gap={4}>
+    <Grid columns={{ max: 3, minWidth: 140 }} gap={4}>
       <Card padding={4}>
         <VStack gap={1}>
           <Text type="label">Best Lift This Month</Text>
           {highlights.bestLift ? (
             <>
               <Heading level={3}>
-                {highlights.bestLift.weightKg}{' '}
+                {highlights.bestLift.weightKg}{" "}
                 <Text type="body" size="base" weight="normal">
                   kg
                 </Text>
               </Heading>
               <Text type="supporting">
-                {highlights.bestLift.exercise} &times; {highlights.bestLift.reps}
+                {highlights.bestLift.exercise} &times;{" "}
+                {highlights.bestLift.reps}
               </Text>
             </>
           ) : (
@@ -214,7 +209,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
         <VStack gap={1}>
           <Text type="label">Monthly Volume</Text>
           <Heading level={3}>
-            {formatDisplayInteger(highlights.monthlyVolumeKg)}{' '}
+            {formatDisplayInteger(highlights.monthlyVolumeKg)}{" "}
             <Text type="body" size="base" weight="normal">
               kg
             </Text>
@@ -227,16 +222,16 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
         <VStack gap={1}>
           <Text type="label">Workout Streak</Text>
           <Heading level={3}>
-            {highlights.workoutStreak}{' '}
+            {highlights.workoutStreak}{" "}
             <Text type="body" size="base" weight="normal">
-              day{highlights.workoutStreak !== 1 ? 's' : ''}
+              day{highlights.workoutStreak === 1 ? "" : "s"}
             </Text>
           </Heading>
           <Text type="supporting">Consecutive days</Text>
         </VStack>
       </Card>
     </Grid>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -244,12 +239,12 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
 // ---------------------------------------------------------------------------
 
 function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
-  const trend = weightTrend(bodyLogs)
+  const trend = weightTrend(bodyLogs);
   const weighted = bodyLogs
     .filter(
-      (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null,
+      (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
     )
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
 
   if (weighted.length === 0) {
     return (
@@ -258,25 +253,21 @@ function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
         title="No weight logs yet"
         description="Log your weight in Settings to start tracking trends."
         actions={
-          <Button
-            label="Log your weight"
-            variant="primary"
-            href="/settings"
-          />
+          <Button label="Log your weight" variant="primary" href="/settings" />
         }
       />
-    )
+    );
   }
 
-  const weights = weighted.map((log) => log.weight_kg)
-  const sma = movingAverage(weights, SMA_WINDOW)
+  const weights = weighted.map((log) => log.weight_kg);
+  const sma = movingAverage(weights, SMA_WINDOW);
 
   return (
     <VStack gap={4}>
       <WeightAreaChart weights={weights} sma={sma} trend={trend!} />
       <RecentWeightTable bodyLogs={bodyLogs} />
     </VStack>
-  )
+  );
 }
 
 function WeightAreaChart({
@@ -284,33 +275,31 @@ function WeightAreaChart({
   sma,
   trend,
 }: {
-  weights: number[]
-  sma: (number | null)[]
-  trend: { min: number; max: number }
+  weights: number[];
+  sma: (number | null)[];
+  trend: { min: number; max: number };
 }) {
-  const geometry = weightChartGeometry(weights.length)
-  const points = weightChartPoints(weights, trend.min, trend.max, geometry)
-  const areaPath = areaChartPath(points, geometry)
+  const geometry = weightChartGeometry(weights.length);
+  const points = weightChartPoints(weights, trend.min, trend.max, geometry);
+  const areaPath = areaChartPath(points, geometry);
 
   // Map SMA values to chart points, skipping nulls with breaks in the line
   const smaPoints = sma
     .map((value, index) => {
-      if (value === null) return null
-      const point = weightChartPoints([value], trend.min, trend.max, geometry)
+      if (value === null) {return null;}
+      const point = weightChartPoints([value], trend.min, trend.max, geometry);
       return {
         x: (index / Math.max(weights.length - 1, 1)) * geometry.width,
         y: point[0].y,
-      }
+      };
     })
-    .filter((p): p is { x: number; y: number } => p !== null)
+    .filter((p): p is { x: number; y: number } => p !== null);
 
   const smaLine =
-    smaPoints.length > 0
-      ? smaPoints.map((p) => `${p.x},${p.y}`).join(' ')
-      : ''
+    smaPoints.length > 0 ? smaPoints.map((p) => `${p.x},${p.y}`).join(" ") : "";
 
-  const accentColor = 'var(--color-accent)'
-  const accentColorFaded = 'var(--color-accent)'
+  const accentColor = "var(--color-accent)";
+  const accentColorFaded = "var(--color-accent)";
 
   return (
     <svg
@@ -328,14 +317,11 @@ function WeightAreaChart({
       </defs>
 
       {/* Area fill under raw data */}
-      <path
-        d={areaPath}
-        fill="url(#weight-area-fill)"
-      />
+      <path d={areaPath} fill="url(#weight-area-fill)" />
 
       {/* Raw data line */}
       <polyline
-        points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+        points={points.map((p) => `${p.x},${p.y}`).join(" ")}
         fill="none"
         stroke={accentColor}
         strokeWidth={1.5}
@@ -369,23 +355,23 @@ function WeightAreaChart({
         />
       ))}
     </svg>
-  )
+  );
 }
 
 interface WeightLogRow extends Record<string, unknown> {
-  id: number
-  date: string
-  weight: string
-  bodyFat: string
+  id: number;
+  date: string;
+  weight: string;
+  bodyFat: string;
 }
 
 function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
   const rows: WeightLogRow[] = bodyLogs.slice(0, 10).map((log) => ({
-    id: log.id,
+    bodyFat: log.body_fat_pct ? `${log.body_fat_pct}%` : "\u2014",
     date: log.date,
-    weight: log.weight_kg ? `${log.weight_kg} kg` : '\u2014',
-    bodyFat: log.body_fat_pct ? `${log.body_fat_pct}%` : '\u2014',
-  }))
+    id: log.id,
+    weight: log.weight_kg ? `${log.weight_kg} kg` : "\u2014",
+  }));
 
   return (
     <Table
@@ -394,12 +380,12 @@ function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
       idKey="id"
       density="compact"
       columns={[
-        { key: 'date', header: 'Date', width: proportional(1) },
-        { key: 'weight', header: 'Weight', width: proportional(1) },
-        { key: 'bodyFat', header: 'Body Fat', width: proportional(1) },
+        { header: "Date", key: "date", width: proportional(1) },
+        { header: "Weight", key: "weight", width: proportional(1) },
+        { header: "Body Fat", key: "bodyFat", width: proportional(1) },
       ]}
     />
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -408,25 +394,25 @@ function RecentWeightTable({ bodyLogs }: { bodyLogs: BodyLog[] }) {
 
 function VolumeView({ volume }: { volume: MuscleVolume[] }) {
   // Stagger bar entrance: reveal one bar every 80 ms
-  const [visibleCount, setVisibleCount] = React.useState(0)
+  const [visibleCount, setVisibleCount] = React.useState(0);
 
   React.useEffect(() => {
-    if (volume.length === 0) return
-    setVisibleCount(0)
+    if (volume.length === 0) {return;}
+    setVisibleCount(0);
     // Check for reduced motion preference
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches) {
-      setVisibleCount(volume.length)
-      return
+      setVisibleCount(volume.length);
+      return;
     }
-    let i = 1
+    let i = 1;
     const timer = setInterval(() => {
-      setVisibleCount(i)
-      i++
-      if (i > volume.length) clearInterval(timer)
-    }, 80)
-    return () => clearInterval(timer)
-  }, [volume.length])
+      setVisibleCount(i);
+      i++;
+      if (i > volume.length) {clearInterval(timer);}
+    }, 80);
+    return () => clearInterval(timer);
+  }, [volume.length]);
 
   if (volume.length === 0) {
     return (
@@ -436,7 +422,7 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
         title="No training data"
         description="No training data in the last 7 days. Log a workout to see volume analysis."
       />
-    )
+    );
   }
 
   return (
@@ -444,7 +430,8 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
       <VStack gap={1}>
         <Text weight="semibold">Weekly Volume by Muscle Group</Text>
         <Text type="supporting">
-          Schoenfeld et al. 2017: 10&ndash;20 sets per muscle group per week for hypertrophy
+          Schoenfeld et al. 2017: 10&ndash;20 sets per muscle group per week for
+          hypertrophy
         </Text>
       </VStack>
       <VStack gap={3}>
@@ -457,18 +444,18 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
         ))}
       </VStack>
     </VStack>
-  )
+  );
 }
 
 function AnimatedVolumeRow({
   volume,
   visible,
 }: {
-  volume: MuscleVolume
-  visible: boolean
+  volume: MuscleVolume;
+  visible: boolean;
 }) {
-  const bar = volumeProgress(volume)
-  const status = volumeStatusBadge(volume.status)
+  const bar = volumeProgress(volume);
+  const status = volumeStatusBadge(volume.status);
 
   return (
     <VStack gap={1} aria-hidden={!visible}>
@@ -505,7 +492,7 @@ function AnimatedVolumeRow({
         Volume: {formatDisplayInteger(volume.total_volume)} kg
       </Text>
     </VStack>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -513,7 +500,7 @@ function AnimatedVolumeRow({
 // ---------------------------------------------------------------------------
 
 function NutritionView({ weekly }: { weekly: WeeklyNutritionReport }) {
-  const hasData = weekly.daily.length > 0
+  const hasData = weekly.daily.length > 0;
 
   return (
     <VStack gap={3}>
@@ -545,5 +532,5 @@ function NutritionView({ weekly }: { weekly: WeeklyNutritionReport }) {
         />
       )}
     </VStack>
-  )
+  );
 }

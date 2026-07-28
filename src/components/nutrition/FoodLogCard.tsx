@@ -1,66 +1,36 @@
-import { useState } from 'react'
-import { useForm } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
-import {
-  Badge,
-  Button,
-  Card,
-  Collapsible,
-  Dialog,
-  DialogHeader,
-  FormLayout,
-  Grid,
-  Heading,
-  HStack,
-  MetadataList,
-  MetadataListItem,
-  NumberInput,
-  Table,
-  Text,
-  TextInput,
-  VStack,
-  proportional,
-  type TableColumn,
-} from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
-import { ScrollableTable } from '~/components/ScrollableTable'
-import { useLogMealTemplate } from '~/components/nutrition/useLogMealTemplate'
-import { ToastUndoButton } from '~/components/ToastUndoButton'
-import {
-  addFoodLogEntry,
-  copyMealFromDate,
-  deleteFoodLogEntries,
-  type MealTemplateSummary,
-} from '~/lib/api'
-import type { FoodLogEntry } from '~/lib/db'
+import { Badge, Button, Card, Collapsible, Dialog, DialogHeader, FormLayout, Grid, Heading, HStack, MetadataList, MetadataListItem, NumberInput, Table, Text, TextInput, VStack, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
+import { useToast } from "@astryxdesign/core/Toast";
+import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import { ScrollableTable } from "~/components/ScrollableTable";
+import { ToastUndoButton } from "~/components/ToastUndoButton";
+import { addFoodLogEntry, copyMealFromDate, deleteFoodLogEntries } from '~/lib/api';
+import type { MealTemplateSummary } from '~/lib/api';
+import type { FoodLogEntry } from "~/lib/db";
 import {
   canCopyMealFromDate,
   entriesForMeal,
   previousDay,
-} from '~/lib/food-log-copy'
-import { sortTemplatesForMealSection } from '~/lib/meal-template-log'
-import {
-  MEAL_TYPE_LABELS,
-  MEAL_TYPES,
-  buildQuickAddDraft,
-  isApproximateFoodLogEntry,
-  mealSubtotals,
-  type MealType,
-  type NutritionTotals,
-  type QuickAddInput,
-} from '~/lib/nutrition'
+} from "~/lib/food-log-copy";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { sortTemplatesForMealSection } from "~/lib/meal-template-log";
+import { MEAL_TYPE_LABELS, MEAL_TYPES, buildQuickAddDraft, isApproximateFoodLogEntry, mealSubtotals } from '~/lib/nutrition';
+import type { MealType, NutritionTotals, QuickAddInput } from '~/lib/nutrition';
+import { runOrQueue } from "~/lib/offline";
 import {
   copyCompletedBody,
   foodLoggedBody,
   mutationFailedBody,
   TOAST_DURATION_MS,
-} from '~/lib/toasts'
-import { runOrQueue } from '~/lib/offline'
-import { formatDisplayInteger } from '~/lib/format-number'
+} from "~/lib/toasts";
 
-type RequestDeleteFoodEntry = (entry: FoodLogEntry) => void
-type CopyMealFromYesterday = (mealType: MealType) => Promise<void>
-type FoodLogRow = FoodLogEntry & { food_name?: string | null }
+type RequestDeleteFoodEntry = (entry: FoodLogEntry) => void;
+type CopyMealFromYesterday = (mealType: MealType) => Promise<void>;
+type FoodLogRow = FoodLogEntry & { food_name?: string | null };
 
 /**
  * Displays food entries grouped by meal with copy-from-yesterday shortcuts.
@@ -73,20 +43,21 @@ export function FoodLogCard({
   mealTemplates,
   onDeleteEntry,
 }: {
-  entries: FoodLogRow[]
-  sourceDayEntries: FoodLogRow[]
-  selectedDate: string
-  mealTemplates: MealTemplateSummary[]
-  onAddMeal?: () => void
-  onDeleteEntry: RequestDeleteFoodEntry
+  entries: FoodLogRow[];
+  sourceDayEntries: FoodLogRow[];
+  selectedDate: string;
+  mealTemplates: MealTemplateSummary[];
+  onAddMeal?: () => void;
+  onDeleteEntry: RequestDeleteFoodEntry;
 }) {
-  const copyMeal = useCopyMealFromYesterday(selectedDate, sourceDayEntries)
+  const copyMeal = useCopyMealFromYesterday(selectedDate, sourceDayEntries);
 
   return (
     <VStack gap={5}>
       {entries.length === 0 ? (
         <Text type="supporting">
-          No food logged yet. Use the quick-add or log-food buttons to get started.
+          No food logged yet. Use the quick-add or log-food buttons to get
+          started.
         </Text>
       ) : undefined}
       {MEAL_TYPES.map((mealType) => (
@@ -96,13 +67,17 @@ export function FoodLogCard({
           entries={entriesForMeal(entries, mealType)}
           mealTemplates={mealTemplates}
           selectedDate={selectedDate}
-          showCopyAction={canCopyMealFromDate(entries, sourceDayEntries, mealType)}
+          showCopyAction={canCopyMealFromDate(
+            entries,
+            sourceDayEntries,
+            mealType
+          )}
           onCopy={() => copyMeal(mealType)}
           onDelete={onDeleteEntry}
         />
       ))}
     </VStack>
-  )
+  );
 }
 
 /**
@@ -119,22 +94,22 @@ function MealLogSection({
   onCopy,
   onDelete,
 }: {
-  mealType: MealType
-  entries: FoodLogRow[]
-  mealTemplates: MealTemplateSummary[]
-  selectedDate: string
-  showCopyAction: boolean
-  onCopy: () => void
-  onDelete: RequestDeleteFoodEntry
+  mealType: MealType;
+  entries: FoodLogRow[];
+  mealTemplates: MealTemplateSummary[];
+  selectedDate: string;
+  showCopyAction: boolean;
+  onCopy: () => void;
+  onDelete: RequestDeleteFoodEntry;
 }) {
-  const [quickAddOpen, setQuickAddOpen] = useState(false)
-  const mealLabel = MEAL_TYPE_LABELS[mealType]
-  const sectionTemplates = sortTemplatesForMealSection(mealTemplates, mealType)
-  const logTemplate = useLogMealTemplate(selectedDate)
-  const logQuickAdd = useQuickAddFood(selectedDate, mealType)
-  const hasTemplateActions = sectionTemplates.length > 0
-  const subtotals = mealSubtotals(entries)
-  const hasEntries = entries.length > 0
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const mealLabel = MEAL_TYPE_LABELS[mealType];
+  const sectionTemplates = sortTemplatesForMealSection(mealTemplates, mealType);
+  const logTemplate = useLogMealTemplate(selectedDate);
+  const logQuickAdd = useQuickAddFood(selectedDate, mealType);
+  const hasTemplateActions = sectionTemplates.length > 0;
+  const subtotals = mealSubtotals(entries);
+  const hasEntries = entries.length > 0;
 
   const triggerContent = (
     <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
@@ -149,7 +124,7 @@ function MealLogSection({
         )}
       </HStack>
     </HStack>
-  )
+  );
 
   return (
     <Collapsible trigger={triggerContent} defaultIsOpen={hasEntries}>
@@ -157,16 +132,24 @@ function MealLogSection({
         {hasEntries ? (
           <MetadataList>
             <MetadataListItem label="Calories">
-              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.calories)} kcal</Text>
+              <Text hasTabularNumbers>
+                {formatDisplayInteger(subtotals.calories)} kcal
+              </Text>
             </MetadataListItem>
             <MetadataListItem label="Protein">
-              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.protein_g)} g</Text>
+              <Text hasTabularNumbers>
+                {formatDisplayInteger(subtotals.protein_g)} g
+              </Text>
             </MetadataListItem>
             <MetadataListItem label="Carbs">
-              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.carbs_g)} g</Text>
+              <Text hasTabularNumbers>
+                {formatDisplayInteger(subtotals.carbs_g)} g
+              </Text>
             </MetadataListItem>
             <MetadataListItem label="Fat">
-              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.fat_g)} g</Text>
+              <Text hasTabularNumbers>
+                {formatDisplayInteger(subtotals.fat_g)} g
+              </Text>
             </MetadataListItem>
           </MetadataList>
         ) : undefined}
@@ -201,9 +184,9 @@ function MealLogSection({
                 size="lg"
                 clickAction={() =>
                   logTemplate({
-                    templateId: template.id,
-                    mealType,
                     expectedKcal: template.totals.calories,
+                    mealType,
+                    templateId: template.id,
                   })
                 }
               />
@@ -232,7 +215,7 @@ function MealLogSection({
         ) : undefined}
       </VStack>
     </Collapsible>
-  )
+  );
 }
 
 function QuickAddDialog({
@@ -241,35 +224,40 @@ function QuickAddDialog({
   onOpenChange,
   onSubmit,
 }: {
-  mealLabel: string
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (input: QuickAddInput) => Promise<void>
+  mealLabel: string;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (input: QuickAddInput) => Promise<void>;
 }) {
   const form = useForm({
     defaultValues: {
-      name: '',
       calories: 0,
-      protein_g: 0,
       carbs_g: 0,
       fat_g: 0,
+      name: "",
+      protein_g: 0,
     },
     onSubmit: async ({ value, formApi }) => {
-      if (!value.calories || value.calories <= 0) return
+      if (!value.calories || value.calories <= 0) {return;}
       await onSubmit({
-        name: value.name,
         calories: value.calories,
-        protein_g: value.protein_g > 0 ? value.protein_g : undefined,
         carbs_g: value.carbs_g > 0 ? value.carbs_g : undefined,
         fat_g: value.fat_g > 0 ? value.fat_g : undefined,
-      })
-      formApi.reset()
-      onOpenChange(false)
+        name: value.name,
+        protein_g: value.protein_g > 0 ? value.protein_g : undefined,
+      });
+      formApi.reset();
+      onOpenChange(false);
     },
-  })
+  });
 
   return (
-    <Dialog isOpen={isOpen} onOpenChange={onOpenChange} purpose="form" width={360}>
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      purpose="form"
+      width={360}
+    >
       <DialogHeader
         title={`Quick add — ${mealLabel}`}
         subtitle="Approximate calories still count toward your daily total."
@@ -277,8 +265,8 @@ function QuickAddDialog({
       />
       <form
         onSubmit={(event) => {
-          event.preventDefault()
-          void form.handleSubmit()
+          event.preventDefault();
+          void form.handleSubmit();
         }}
       >
         <VStack gap={3}>
@@ -350,95 +338,111 @@ function QuickAddDialog({
             >
               Cancel
             </Button>
-            <Button label="Log quick add" variant="primary" size="lg" type="submit" />
+            <Button
+              label="Log quick add"
+              variant="primary"
+              size="lg"
+              type="submit"
+            />
           </HStack>
         </VStack>
       </form>
     </Dialog>
-  )
+  );
 }
 
 function useQuickAddFood(selectedDate: string, mealType: MealType) {
-  const queryClient = useQueryClient()
-  const toast = useToast()
+  const queryClient = useQueryClient();
+  const toast = useToast();
 
   return async (input: QuickAddInput) => {
-    const entry = buildQuickAddDraft(input, selectedDate, mealType)
+    const entry = buildQuickAddDraft(input, selectedDate, mealType);
     try {
-      const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
-        addFoodLogEntry({ data: entry }),
-      )
-      toast({ body: foodLoggedBody() })
+      const outcome = await runOrQueue("addFoodLogEntry", entry, () =>
+        addFoodLogEntry({ data: entry })
+      );
+      toast({ body: foodLoggedBody() });
       if (!outcome.queued) {
-        await queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] })
+        await queryClient.invalidateQueries({
+          queryKey: ["food-log", selectedDate],
+        });
       }
     } catch {
-      toast({ body: mutationFailedBody('Log food'), type: 'error' })
-      throw new Error('quick add failed')
+      toast({ body: mutationFailedBody("Log food"), type: "error" });
+      throw new Error("quick add failed");
     }
-  }
+  };
 }
 
 function useInvalidateFoodLog(selectedDate: string) {
-  const queryClient = useQueryClient()
-  const sourceDate = previousDay(selectedDate)
+  const queryClient = useQueryClient();
+  const sourceDate = previousDay(selectedDate);
 
   return async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
-      queryClient.invalidateQueries({ queryKey: ['food-log', sourceDate] }),
-    ])
-  }
+      queryClient.invalidateQueries({ queryKey: ["food-log", selectedDate] }),
+      queryClient.invalidateQueries({ queryKey: ["food-log", sourceDate] }),
+    ]);
+  };
 }
 
 function useCopyMealFromYesterday(
   selectedDate: string,
-  sourceDayEntries: FoodLogRow[],
+  sourceDayEntries: FoodLogRow[]
 ): CopyMealFromYesterday {
-  const toast = useToast()
-  const invalidateFoodLog = useInvalidateFoodLog(selectedDate)
-  const sourceDate = previousDay(selectedDate)
+  const toast = useToast();
+  const invalidateFoodLog = useInvalidateFoodLog(selectedDate);
+  const sourceDate = previousDay(selectedDate);
 
   return async (mealType) => {
-    const payload = { fromDate: sourceDate, toDate: selectedDate, mealType }
+    const payload = { fromDate: sourceDate, mealType, toDate: selectedDate };
     try {
-      const outcome = await runOrQueue('copyMealFromDate', payload, () =>
-        copyMealFromDate({ data: payload }),
-      )
+      const outcome = await runOrQueue("copyMealFromDate", payload, () =>
+        copyMealFromDate({ data: payload })
+      );
       if (!outcome.queued) {
-        await invalidateFoodLog()
-        const entryIds = outcome.result.entries.map((entry) => entry.id)
-        let dismiss = () => {}
+        await invalidateFoodLog();
+        const entryIds = outcome.result.entries.map((entry) => entry.id);
+        let dismiss = () => {};
         dismiss = toast({
-          body: copyCompletedBody(entryIds.length),
           autoHideDuration: TOAST_DURATION_MS.undo,
+          body: copyCompletedBody(entryIds.length),
           endContent: (
             <ToastUndoButton
               onUndo={async () => {
-                dismiss()
+                dismiss();
                 try {
-                  await runOrQueue('deleteFoodLogEntries', { ids: entryIds }, () =>
-                    deleteFoodLogEntries({ data: { ids: entryIds } }),
-                  )
-                  await invalidateFoodLog()
+                  await runOrQueue(
+                    "deleteFoodLogEntries",
+                    { ids: entryIds },
+                    () => deleteFoodLogEntries({ data: { ids: entryIds } })
+                  );
+                  await invalidateFoodLog();
                 } catch {
-                  toast({ body: mutationFailedBody('Undo copy'), type: 'error' })
+                  toast({
+                    body: mutationFailedBody("Undo copy"),
+                    type: "error",
+                  });
                 }
               }}
             />
           ),
-        })
-        return
+        });
+        return;
       }
-      toast({ body: copyCompletedBody(entriesForMeal(sourceDayEntries, mealType).length) })
+      toast({
+        body: copyCompletedBody(
+          entriesForMeal(sourceDayEntries, mealType).length
+        ),
+      });
     } catch {
-      toast({ body: mutationFailedBody('Copy meal'), type: 'error' })
+      toast({ body: mutationFailedBody("Copy meal"), type: "error" });
     }
-  }
+  };
 }
 
 function foodEntryName(entry: FoodLogRow): string {
-  return entry.custom_name || entry.food_name || `Food #${entry.food_id}`
+  return entry.custom_name || entry.food_name || `Food #${entry.food_id}`;
 }
 
 function foodEntryLabel(entry: FoodLogRow) {
@@ -449,45 +453,48 @@ function foodEntryLabel(entry: FoodLogRow) {
         <Badge variant="warning" label="Approximate" />
       ) : undefined}
     </HStack>
-  )
+  );
 }
 
 const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
   {
-    key: 'custom_name',
-    header: 'Food',
-    width: proportional(2),
+    header: "Food",
+    key: "custom_name",
     renderCell: foodEntryLabel,
+    width: proportional(2),
   },
   {
-    key: 'calories',
-    header: 'Calories',
-    align: 'end',
-    width: proportional(1),
+    align: "end",
+    header: "Calories",
+    key: "calories",
     renderCell: (entry) => (
       <Text hasTabularNumbers>{formatDisplayInteger(entry.calories)}</Text>
     ),
+    width: proportional(1),
   },
   {
-    key: 'macros',
-    header: 'P / C / F',
-    width: proportional(1),
+    header: "P / C / F",
+    key: "macros",
     renderCell: (entry) => (
       <Text type="supporting" hasTabularNumbers>
-        {formatDisplayInteger(entry.protein_g)} / {formatDisplayInteger(entry.carbs_g)} /{' '}
+        {formatDisplayInteger(entry.protein_g)} /{" "}
+        {formatDisplayInteger(entry.carbs_g)} /{" "}
         {formatDisplayInteger(entry.fat_g)} g
       </Text>
     ),
+    width: proportional(1),
   },
-]
+];
 
-function foodLogColumns(onDelete: RequestDeleteFoodEntry): TableColumn<FoodLogRow>[] {
+function foodLogColumns(
+  onDelete: RequestDeleteFoodEntry
+): TableColumn<FoodLogRow>[] {
   return [
     ...FOOD_LOG_COLUMNS,
     {
-      key: 'actions',
-      header: 'Actions',
-      align: 'end',
+      align: "end",
+      header: "Actions",
+      key: "actions",
       renderCell: (entry) => (
         <Button
           label={`Delete ${foodEntryName(entry)}`}
@@ -499,5 +506,5 @@ function foodLogColumns(onDelete: RequestDeleteFoodEntry): TableColumn<FoodLogRo
         </Button>
       ),
     },
-  ]
+  ];
 }

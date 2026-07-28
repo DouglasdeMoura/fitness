@@ -1,7 +1,3 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from '@tanstack/react-form'
-import { useStore } from '@tanstack/react-store'
-import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import {
   Badge,
   Button,
@@ -19,69 +15,61 @@ import {
   Text,
   TextInput,
   VStack,
-} from '@astryxdesign/core'
-import { Icon } from '@astryxdesign/core/Icon'
-import { useToast } from '@astryxdesign/core/Toast'
+} from "@astryxdesign/core";
+import { Icon } from "@astryxdesign/core/Icon";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useForm } from "@tanstack/react-form";
 import {
-  addFood,
-  addFoodLogEntry,
-  getLoggedFoodStats,
-  getRecentFoods,
-  searchFoods,
-  type LoggedFoodSummary,
-} from '~/lib/api'
-import type { Food } from '~/lib/db'
-import {
-  buildFoodLogDraft,
-  mealTypeForHour,
-  MEAL_TYPE_LABELS,
-  type MealType,
-} from '~/lib/nutrition'
-import { runOrQueue, searchCachedFoods } from '~/lib/offline'
-import {
-  customFoodPayload,
-  EMPTY_CUSTOM_FOOD_DRAFT,
-  isCustomFoodDraftValid,
-  type CustomFoodDraft,
-} from '~/lib/custom-food'
-import { useDebouncedValue } from '~/hooks/use-debounced-value'
-import {
-  FOOD_SEARCH_MIN_LENGTH,
-  isFoodSearchPending,
-  rankFoodSearchResults,
-  type RankedFoodSearchResult,
-} from '~/lib/food-search'
-import { BarcodeScanner } from '~/components/nutrition/BarcodeScanner'
-import { foodLoggedBody, mutationFailedBody } from '~/lib/toasts'
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useStore } from "@tanstack/react-store";
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+
+import { BarcodeScanner } from "~/components/nutrition/BarcodeScanner";
+import { useDebouncedValue } from "~/hooks/use-debounced-value";
+import { addFood, addFoodLogEntry, getLoggedFoodStats, getRecentFoods, searchFoods } from '~/lib/api';
+import type { LoggedFoodSummary } from '~/lib/api';
+import { customFoodPayload, EMPTY_CUSTOM_FOOD_DRAFT, isCustomFoodDraftValid } from '~/lib/custom-food';
+import type { CustomFoodDraft } from '~/lib/custom-food';
+import type { Food } from "~/lib/db";
+import { FOOD_SEARCH_MIN_LENGTH, isFoodSearchPending, rankFoodSearchResults } from '~/lib/food-search';
+import type { RankedFoodSearchResult } from '~/lib/food-search';
+import { buildFoodLogDraft, mealTypeForHour, MEAL_TYPE_LABELS } from '~/lib/nutrition';
+import type { MealType } from '~/lib/nutrition';
+import { runOrQueue, searchCachedFoods } from "~/lib/offline";
+import { foodLoggedBody, mutationFailedBody } from "~/lib/toasts";
 
 const MEAL_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
   label,
   value,
-}))
+}));
 
 const SERVING_UNIT_OPTIONS = [
-  { label: 'Grams (g)', value: 'g' },
-  { label: 'Milliliters (ml)', value: 'ml' },
-  { label: 'Piece', value: 'piece' },
-  { label: 'Cup', value: 'cup' },
-]
+  { label: "Grams (g)", value: "g" },
+  { label: "Milliliters (ml)", value: "ml" },
+  { label: "Piece", value: "piece" },
+  { label: "Cup", value: "cup" },
+];
 
 // Below 2 chars the LIKE query is more noise than signal; 300 ms is short
 // enough to feel instant, long enough to skip mid-word request storms.
-const SEARCH_DEBOUNCE_MS = 300
-const SEARCH_MIN_LENGTH = FOOD_SEARCH_MIN_LENGTH
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MIN_LENGTH = FOOD_SEARCH_MIN_LENGTH;
 
-type FoodLogEntryValues = {
-  selectedFood: Food | null
-  servings: number | null
-  mealType: MealType
+interface FoodLogEntryValues {
+  selectedFood: Food | null;
+  servings: number | null;
+  mealType: MealType;
 }
 
-type FoodLogEntryForm = ReturnType<typeof useFoodLogEntryForm>
-type CustomFoodFormApi = ReturnType<typeof useCustomFoodForm>
+type FoodLogEntryForm = ReturnType<typeof useFoodLogEntryForm>;
+type CustomFoodFormApi = ReturnType<typeof useCustomFoodForm>;
 
-export type AddFoodCardHandle = {
-  focusSearch: () => void
+export interface AddFoodCardHandle {
+  focusSearch: () => void;
 }
 
 /**
@@ -91,37 +79,41 @@ export type AddFoodCardHandle = {
  * `useState` left is the custom-food-form visibility toggle.
  * @example <AddFoodCard ref={addFoodRef} selectedDate="2026-07-25" />
  */
-export const AddFoodCard = forwardRef<AddFoodCardHandle, { selectedDate: string }>(
-  function AddFoodCard({ selectedDate }, ref) {
-    const form = useFoodLogEntryForm(selectedDate)
-    const selectedFood = useStore(form.store, (state) => state.values.selectedFood)
-    const searchFocusRef = useRef<() => void>(() => {})
-    useImperativeHandle(ref, () => ({
-      focusSearch: () => searchFocusRef.current(),
-    }))
+export const AddFoodCard = forwardRef<
+  AddFoodCardHandle,
+  { selectedDate: string }
+>(({ selectedDate }, ref) => {
+  const form = useFoodLogEntryForm(selectedDate);
+  const selectedFood = useStore(
+    form.store,
+    (state) => state.values.selectedFood
+  );
+  const searchFocusRef = useRef<() => void>(() => {});
+  useImperativeHandle(ref, () => ({
+    focusSearch: () => searchFocusRef.current(),
+  }));
 
-    return (
-      <Card>
-        <VStack gap={3}>
-          <Heading level={2}>Add Food</Heading>
-          {selectedFood ? (
-            <SelectedFoodEntry
-              form={form}
-              food={selectedFood}
-              onCancel={() => form.reset()}
-            />
-          ) : (
-            <FoodSearchForm
-              selectedDate={selectedDate}
-              onSelect={(food) => form.setFieldValue('selectedFood', food)}
-              searchFocusRef={searchFocusRef}
-            />
-          )}
-        </VStack>
-      </Card>
-    )
-  },
-)
+  return (
+    <Card>
+      <VStack gap={3}>
+        <Heading level={2}>Add Food</Heading>
+        {selectedFood ? (
+          <SelectedFoodEntry
+            form={form}
+            food={selectedFood}
+            onCancel={() => form.reset()}
+          />
+        ) : (
+          <FoodSearchForm
+            selectedDate={selectedDate}
+            onSelect={(food) => form.setFieldValue("selectedFood", food)}
+            searchFocusRef={searchFocusRef}
+          />
+        )}
+      </VStack>
+    </Card>
+  );
+});
 
 /**
  * Entry form: holds the picked food plus the servings/meal-type fields the
@@ -129,40 +121,42 @@ export const AddFoodCard = forwardRef<AddFoodCardHandle, { selectedDate: string 
  * search view; Cancel resets without persisting.
  */
 function useFoodLogEntryForm(selectedDate: string) {
-  const queryClient = useQueryClient()
-  const toast = useToast()
+  const queryClient = useQueryClient();
+  const toast = useToast();
   return useForm({
     defaultValues: {
+      mealType: mealTypeForHour(new Date().getHours()),
       selectedFood: null,
       servings: 1,
-      mealType: mealTypeForHour(new Date().getHours()),
     } as FoodLogEntryValues,
     onSubmit: async ({ value, formApi }) => {
-      if (!value.selectedFood) return
+      if (!value.selectedFood) {return;}
       const entry = buildFoodLogDraft(
         value.selectedFood,
         value.servings ?? 1,
         selectedDate,
-        value.mealType,
-      )
+        value.mealType
+      );
       try {
-        const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
-          addFoodLogEntry({ data: entry }),
-        )
-        formApi.reset()
-        toast({ body: foodLoggedBody() })
+        const outcome = await runOrQueue("addFoodLogEntry", entry, () =>
+          addFoodLogEntry({ data: entry })
+        );
+        formApi.reset();
+        toast({ body: foodLoggedBody() });
         if (!outcome.queued) {
           await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
-            queryClient.invalidateQueries({ queryKey: ['recent-foods'] }),
-            queryClient.invalidateQueries({ queryKey: ['logged-food-stats'] }),
-          ])
+            queryClient.invalidateQueries({
+              queryKey: ["food-log", selectedDate],
+            }),
+            queryClient.invalidateQueries({ queryKey: ["recent-foods"] }),
+            queryClient.invalidateQueries({ queryKey: ["logged-food-stats"] }),
+          ]);
         }
       } catch {
-        toast({ body: mutationFailedBody('Log food'), type: 'error' })
+        toast({ body: mutationFailedBody("Log food"), type: "error" });
       }
     },
-  })
+  });
 }
 
 function SelectedFoodEntry({
@@ -170,9 +164,9 @@ function SelectedFoodEntry({
   food,
   onCancel,
 }: {
-  form: FoodLogEntryForm
-  food: Food
-  onCancel: () => void
+  form: FoodLogEntryForm;
+  food: Food;
+  onCancel: () => void;
 }) {
   return (
     <VStack gap={3}>
@@ -210,7 +204,7 @@ function SelectedFoodEntry({
         <Button label="Cancel" clickAction={onCancel} />
       </HStack>
     </VStack>
-  )
+  );
 }
 
 function FoodSelectionSummary({ food }: { food: Food }) {
@@ -219,11 +213,11 @@ function FoodSelectionSummary({ food }: { food: Food }) {
       <Heading level={3}>{food.name}</Heading>
       <Text type="supporting">
         {food.calories_per_serving} kcal per {food.serving_size}
-        {food.serving_unit} · P {food.protein_g} g · C {food.carbs_g} g · F{' '}
+        {food.serving_unit} · P {food.protein_g} g · C {food.carbs_g} g · F{" "}
         {food.fat_g} g
       </Text>
     </VStack>
-  )
+  );
 }
 
 /**
@@ -236,34 +230,36 @@ function FoodSearchForm({
   onSelect,
   searchFocusRef,
 }: {
-  selectedDate: string
-  onSelect: (food: Food) => void
-  searchFocusRef: MutableRefObject<() => void>
+  selectedDate: string;
+  onSelect: (food: Food) => void;
+  searchFocusRef: MutableRefObject<() => void>;
 }) {
   const searchForm = useForm({
-    defaultValues: { query: '' } as { query: string },
+    defaultValues: { query: "" } as { query: string },
     onSubmit: async () => {
       // Auto-search runs on input via useQuery; submit is intentionally empty.
     },
-  })
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const [customFoodOpen, setCustomFoodOpen] = useState(false)
-  const [prefillBarcode, setPrefillBarcode] = useState('')
-  searchFocusRef.current = () => searchInputRef.current?.focus()
-  const query = useStore(searchForm.store, (state) => state.values.query)
-  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
-  const searchState = useFoodSearchResults(debouncedQuery)
-  const quickLog = useQuickLogFood(selectedDate)
-  const trimmedQuery = query.trim()
-  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH
-  const recentFoods = useRecentFoods(showRecent)
-  const loggedHistory = useLoggedFoodHistory(!showRecent || searchState.hasSearched)
+  });
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [customFoodOpen, setCustomFoodOpen] = useState(false);
+  const [prefillBarcode, setPrefillBarcode] = useState("");
+  searchFocusRef.current = () => searchInputRef.current?.focus();
+  const query = useStore(searchForm.store, (state) => state.values.query);
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const searchState = useFoodSearchResults(debouncedQuery);
+  const quickLog = useQuickLogFood(selectedDate);
+  const trimmedQuery = query.trim();
+  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH;
+  const recentFoods = useRecentFoods(showRecent);
+  const loggedHistory = useLoggedFoodHistory(
+    !showRecent || searchState.hasSearched
+  );
   const searchPending = isFoodSearchPending(
     trimmedQuery,
     debouncedQuery.trim(),
     searchState.isFetching,
-    SEARCH_MIN_LENGTH,
-  )
+    SEARCH_MIN_LENGTH
+  );
 
   return (
     <VStack gap={3}>
@@ -271,8 +267,8 @@ function FoodSearchForm({
         selectedDate={selectedDate}
         onSelectFood={onSelect}
         onCreateFood={(barcode) => {
-          setPrefillBarcode(barcode)
-          setCustomFoodOpen(true)
+          setPrefillBarcode(barcode);
+          setCustomFoodOpen(true);
         }}
       />
       <searchForm.Field name="query">
@@ -305,27 +301,27 @@ function FoodSearchForm({
         onCreated={onSelect}
         isOpen={customFoodOpen}
         onOpenChange={(open) => {
-          setCustomFoodOpen(open)
-          if (!open) setPrefillBarcode('')
+          setCustomFoodOpen(open);
+          if (!open) {setPrefillBarcode("");}
         }}
         initialBarcode={prefillBarcode}
       />
     </VStack>
-  )
+  );
 }
 
-type FoodSearchResultsState = {
-  results: Food[]
-  hasSearched: boolean
-  isFetching: boolean
+interface FoodSearchResultsState {
+  results: Food[];
+  hasSearched: boolean;
+  isFetching: boolean;
 }
 
 async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
   try {
-    return await searchFoods({ data: { query: searchQuery } })
+    return await searchFoods({ data: { query: searchQuery } });
   } catch {
     // No network: fall back to the food database cached for offline use.
-    return searchCachedFoods(searchQuery)
+    return searchCachedFoods(searchQuery);
   }
 }
 
@@ -335,80 +331,83 @@ async function searchFoodCatalog(searchQuery: string): Promise<Food[]> {
  * keeps the old list visible while the next page of results loads.
  */
 function useFoodSearchResults(debouncedQuery: string): FoodSearchResultsState {
-  const trimmed = debouncedQuery.trim()
-  const enabled = trimmed.length >= SEARCH_MIN_LENGTH
+  const trimmed = debouncedQuery.trim();
+  const enabled = trimmed.length >= SEARCH_MIN_LENGTH;
   const { data, isFetched, isFetching } = useQuery({
-    queryKey: ['food-search', trimmed],
-    queryFn: () => searchFoodCatalog(trimmed),
     enabled,
     placeholderData: keepPreviousData,
+    queryFn: () => searchFoodCatalog(trimmed),
+    queryKey: ["food-search", trimmed],
     staleTime: 1000 * 60,
-  })
+  });
   return {
-    results: data ?? [],
     hasSearched: enabled && isFetched,
     isFetching,
-  }
+    results: data ?? [],
+  };
 }
 
 function useQuickLogFood(selectedDate: string) {
-  const queryClient = useQueryClient()
-  const toast = useToast()
+  const queryClient = useQueryClient();
+  const toast = useToast();
 
   return async (food: Food, servings: number, mealType: MealType) => {
-    const entry = buildFoodLogDraft(food, servings, selectedDate, mealType)
+    const entry = buildFoodLogDraft(food, servings, selectedDate, mealType);
     try {
-      const outcome = await runOrQueue('addFoodLogEntry', entry, () =>
-        addFoodLogEntry({ data: entry }),
-      )
-      toast({ body: foodLoggedBody() })
+      const outcome = await runOrQueue("addFoodLogEntry", entry, () =>
+        addFoodLogEntry({ data: entry })
+      );
+      toast({ body: foodLoggedBody() });
       if (!outcome.queued) {
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
-          queryClient.invalidateQueries({ queryKey: ['recent-foods'] }),
-          queryClient.invalidateQueries({ queryKey: ['logged-food-stats'] }),
-        ])
+          queryClient.invalidateQueries({
+            queryKey: ["food-log", selectedDate],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["recent-foods"] }),
+          queryClient.invalidateQueries({ queryKey: ["logged-food-stats"] }),
+        ]);
       }
     } catch {
-      toast({ body: mutationFailedBody('Log food'), type: 'error' })
+      toast({ body: mutationFailedBody("Log food"), type: "error" });
     }
-  }
+  };
 }
 
 function useRecentFoods(enabled: boolean) {
   const { data } = useQuery({
-    queryKey: ['recent-foods'],
-    queryFn: () => getRecentFoods(),
     enabled,
+    queryFn: () => getRecentFoods(),
+    queryKey: ["recent-foods"],
     staleTime: 1000 * 60,
-  })
-  return data ?? []
+  });
+  return data ?? [];
 }
 
 function useLoggedFoodHistory(enabled: boolean) {
   const { data } = useQuery({
-    queryKey: ['logged-food-stats'],
-    queryFn: () => getLoggedFoodStats(),
     enabled,
+    queryFn: () => getLoggedFoodStats(),
+    queryKey: ["logged-food-stats"],
     staleTime: 1000 * 60,
-  })
-  return data ?? []
+  });
+  return data ?? [];
 }
 
 function recentFoodDescription(food: LoggedFoodSummary): string {
-  const mealLabel = MEAL_TYPE_LABELS[food.last_meal_type]
-  const servingLabel = food.last_servings === 1 ? '1 serving' : `${food.last_servings} servings`
-  return `${servingLabel} · ${mealLabel} · ${food.calories_per_serving * food.last_servings} kcal`
+  const mealLabel = MEAL_TYPE_LABELS[food.last_meal_type];
+  const servingLabel =
+    food.last_servings === 1 ? "1 serving" : `${food.last_servings} servings`;
+  return `${servingLabel} · ${mealLabel} · ${food.calories_per_serving * food.last_servings} kcal`;
 }
 
 function RecentFoodsList({
   foods,
   onQuickLog,
 }: {
-  foods: LoggedFoodSummary[]
-  onQuickLog: (food: LoggedFoodSummary) => void
+  foods: LoggedFoodSummary[];
+  onQuickLog: (food: LoggedFoodSummary) => void;
 }) {
-  if (foods.length === 0) return null
+  if (foods.length === 0) {return null;}
   return (
     <VStack gap={1}>
       <Text type="label">Recent</Text>
@@ -421,7 +420,7 @@ function RecentFoodsList({
         />
       ))}
     </VStack>
-  )
+  );
 }
 
 function FoodSearchResultItem({
@@ -429,12 +428,13 @@ function FoodSearchResultItem({
   onSelect,
   onQuickLog,
 }: {
-  result: RankedFoodSearchResult
-  onSelect: (food: Food) => void
-  onQuickLog: (food: Food, servings: number, mealType: MealType) => void
+  result: RankedFoodSearchResult;
+  onSelect: (food: Food) => void;
+  onQuickLog: (food: Food, servings: number, mealType: MealType) => void;
 }) {
-  const { food, logCount, lastServings, lastMealType } = result
-  const hasHistory = logCount !== null && lastServings !== null && lastMealType !== null
+  const { food, logCount, lastServings, lastMealType } = result;
+  const hasHistory =
+    logCount !== null && lastServings !== null && lastMealType !== null;
   return (
     <ListItem
       label={food.name}
@@ -446,13 +446,13 @@ function FoodSearchResultItem({
       }
       onClick={() => {
         if (hasHistory) {
-          onQuickLog(food, lastServings, lastMealType)
-          return
+          onQuickLog(food, lastServings, lastMealType);
+          return;
         }
-        onSelect(food)
+        onSelect(food);
       }}
     />
-  )
+  );
 }
 
 function FoodSearchResults({
@@ -464,27 +464,29 @@ function FoodSearchResults({
   onQuickLog,
   onCreateCustomFood,
 }: {
-  searchState: FoodSearchResultsState
-  trimmedQuery: string
-  recentFoods: LoggedFoodSummary[]
-  loggedHistory: Awaited<ReturnType<typeof getLoggedFoodStats>>
-  onSelect: (food: Food) => void
-  onQuickLog: (food: Food, servings: number, mealType: MealType) => void
-  onCreateCustomFood: () => void
+  searchState: FoodSearchResultsState;
+  trimmedQuery: string;
+  recentFoods: LoggedFoodSummary[];
+  loggedHistory: Awaited<ReturnType<typeof getLoggedFoodStats>>;
+  onSelect: (food: Food) => void;
+  onQuickLog: (food: Food, servings: number, mealType: MealType) => void;
+  onCreateCustomFood: () => void;
 }) {
-  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH
+  const showRecent = trimmedQuery.length < SEARCH_MIN_LENGTH;
 
   if (showRecent) {
     return (
       <RecentFoodsList
         foods={recentFoods}
-        onQuickLog={(food) => onQuickLog(food, food.last_servings, food.last_meal_type)}
+        onQuickLog={(food) =>
+          onQuickLog(food, food.last_servings, food.last_meal_type)
+        }
       />
-    )
+    );
   }
 
   if (searchState.results.length > 0) {
-    const ranked = rankFoodSearchResults(searchState.results, loggedHistory)
+    const ranked = rankFoodSearchResults(searchState.results, loggedHistory);
     return (
       <List header={<Text type="label">Search results</Text>} hasDividers>
         {ranked.map((result) => (
@@ -496,10 +498,10 @@ function FoodSearchResults({
           />
         ))}
       </List>
-    )
+    );
   }
 
-  if (!searchState.hasSearched) return null
+  if (!searchState.hasSearched) {return null;}
 
   return (
     <EmptyState
@@ -507,12 +509,16 @@ function FoodSearchResults({
       title="No foods found"
       description="Try a different search or create a custom food."
       actions={
-        <Button label="Create a custom food" variant="primary" clickAction={onCreateCustomFood} />
+        <Button
+          label="Create a custom food"
+          variant="primary"
+          clickAction={onCreateCustomFood}
+        />
       }
       headingLevel={3}
       isCompact
     />
-  )
+  );
 }
 
 /**
@@ -523,16 +529,16 @@ function CustomFoodForm({
   onCreated,
   isOpen: controlledOpen,
   onOpenChange,
-  initialBarcode = '',
+  initialBarcode = "",
 }: {
-  onCreated: (food: Food) => void
-  isOpen?: boolean
-  onOpenChange?: (open: boolean) => void
-  initialBarcode?: string
+  onCreated: (food: Food) => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  initialBarcode?: string;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false)
-  const isOpen = controlledOpen ?? internalOpen
-  const setOpen = onOpenChange ?? setInternalOpen
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   if (!isOpen) {
     return (
       <Button
@@ -540,30 +546,30 @@ function CustomFoodForm({
         size="sm"
         clickAction={() => setOpen(true)}
       />
-    )
+    );
   }
   return (
     <CustomFoodEditor
       initialBarcode={initialBarcode}
       onCreated={(food) => {
-        onCreated(food)
-        setOpen(false)
+        onCreated(food);
+        setOpen(false);
       }}
       onCancel={() => setOpen(false)}
     />
-  )
+  );
 }
 
 function CustomFoodEditor({
   onCreated,
   onCancel,
-  initialBarcode = '',
+  initialBarcode = "",
 }: {
-  onCreated: (food: Food) => void
-  onCancel: () => void
-  initialBarcode?: string
+  onCreated: (food: Food) => void;
+  onCancel: () => void;
+  initialBarcode?: string;
 }) {
-  const form = useCustomFoodForm(onCreated, onCancel, initialBarcode)
+  const form = useCustomFoodForm(onCreated, onCancel, initialBarcode);
   return (
     <VStack gap={3}>
       <Heading level={3}>New Custom Food</Heading>
@@ -571,7 +577,9 @@ function CustomFoodEditor({
       <CustomFoodServing form={form} />
       <CustomFoodMacros form={form} />
       <HStack gap={2} wrap="wrap">
-        <form.Subscribe selector={(state) => isCustomFoodDraftValid(state.values)}>
+        <form.Subscribe
+          selector={(state) => isCustomFoodDraftValid(state.values)}
+        >
           {(isValid) => (
             <Button
               label="Save Food"
@@ -584,29 +592,32 @@ function CustomFoodEditor({
         <Button label="Cancel" clickAction={onCancel} />
       </HStack>
     </VStack>
-  )
+  );
 }
 
 function useCustomFoodForm(
   onCreated: (food: Food) => void,
   onCancel: () => void,
-  initialBarcode = '',
+  initialBarcode = ""
 ) {
   return useForm({
-    defaultValues: { ...EMPTY_CUSTOM_FOOD_DRAFT, barcode: initialBarcode } as CustomFoodDraft,
+    defaultValues: {
+      ...EMPTY_CUSTOM_FOOD_DRAFT,
+      barcode: initialBarcode,
+    } as CustomFoodDraft,
     onSubmit: async ({ value, formApi }) => {
-      if (!isCustomFoodDraftValid(value)) return
-      const payload = customFoodPayload(value)
-      const outcome = await runOrQueue('addFood', payload, () =>
-        addFood({ data: payload }),
-      )
-      formApi.reset()
-      onCancel()
+      if (!isCustomFoodDraftValid(value)) {return;}
+      const payload = customFoodPayload(value);
+      const outcome = await runOrQueue("addFood", payload, () =>
+        addFood({ data: payload })
+      );
+      formApi.reset();
+      onCancel();
       // Queued (offline) mutations return no row yet; the outbox replay will
       // surface the food via the search cache invalidate elsewhere.
-      if (!outcome.queued) onCreated(outcome.result)
+      if (!outcome.queued) {onCreated(outcome.result);}
     },
-  })
+  });
 }
 
 function CustomFoodIdentity({ form }: { form: CustomFoodFormApi }) {
@@ -645,7 +656,7 @@ function CustomFoodIdentity({ form }: { form: CustomFoodFormApi }) {
         )}
       </form.Field>
     </FormLayout>
-  )
+  );
 }
 
 function CustomFoodServing({ form }: { form: CustomFoodFormApi }) {
@@ -674,7 +685,7 @@ function CustomFoodServing({ form }: { form: CustomFoodFormApi }) {
         )}
       </form.Field>
     </FormLayout>
-  )
+  );
 }
 
 function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
@@ -722,5 +733,5 @@ function CustomFoodMacros({ form }: { form: CustomFoodFormApi }) {
         )}
       </form.Field>
     </Grid>
-  )
+  );
 }

@@ -1,5 +1,6 @@
-import { Link as TanStackLink } from '@tanstack/react-router'
-import { forwardRef, type AnchorHTMLAttributes } from 'react'
+import { Link as TanStackLink } from "@tanstack/react-router";
+import { forwardRef } from 'react';
+import type { AnchorHTMLAttributes } from 'react';
 
 /**
  * Adapts TanStack Router's Link for Astryx LinkProvider so TopNav / AppShell
@@ -8,10 +9,10 @@ import { forwardRef, type AnchorHTMLAttributes } from 'react'
 export const RouterLink = forwardRef<
   HTMLAnchorElement,
   AnchorHTMLAttributes<HTMLAnchorElement> & { href?: string }
->(function RouterLink({ href, children, ...props }, ref) {
+>(({ href, children, ...props }, ref) => {
   return (
-    <TanStackLink to={href || '/'} ref={ref} {...props}>
+    <TanStackLink to={href || "/"} ref={ref} {...props}>
       {children}
     </TanStackLink>
-  )
-})
+  );
+});

@@ -1,25 +1,17 @@
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
-import {
-  isDataLoadPending,
-  pickFailedDataLoadQuery,
-  useDataLoadQuery,
-} from '~/lib/data-load-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import {
-  Button,
-  Heading,
-  HStack,
-  VStack,
-} from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
-import { DeleteConfirmationDialog } from '~/components/DeleteConfirmationDialog'
-import { DateNavigationBar } from '~/components/DateNavigationBar'
-import { FoodLogCard } from '~/components/nutrition/FoodLogCard'
-import { FoodLogDialog } from '~/components/nutrition/FoodLogDialog'
-import { StickyMacroHeader } from '~/components/nutrition/StickyMacroHeader'
-import { ToastUndoButton } from '~/components/ToastUndoButton'
+import { Button, Heading, HStack, VStack } from "@astryxdesign/core";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DateNavigationBar } from "~/components/DateNavigationBar";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
+import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import { FoodLogCard } from "~/components/nutrition/FoodLogCard";
+import { FoodLogDialog } from "~/components/nutrition/FoodLogDialog";
+import { StickyMacroHeader } from "~/components/nutrition/StickyMacroHeader";
+import { ToastUndoButton } from "~/components/ToastUndoButton";
 import {
   addFoodLogEntry,
   copyDayFromDate,
@@ -28,83 +20,101 @@ import {
   getDailyTargets,
   getMealTemplates,
   getNutritionSummary,
-} from '~/lib/api'
-import { deleteFoodEntryTitle } from '~/lib/delete-confirmation'
-import { canCopyDayFromDate, previousDay } from '~/lib/food-log-copy'
-import type { FoodLogEntry } from '~/lib/db'
+} from "~/lib/api";
 import {
-  parseSearchDate,
-  resolveSelectedDate,
-} from '~/lib/nutrition'
-import { NutritionSkeleton } from '~/components/loading/PageSkeletons'
-import { runOrQueue } from '~/lib/offline'
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
+import type { FoodLogEntry } from "~/lib/db";
+import { deleteFoodEntryTitle } from "~/lib/delete-confirmation";
+import { canCopyDayFromDate, previousDay } from "~/lib/food-log-copy";
+import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
+import { runOrQueue } from "~/lib/offline";
 import {
   copyCompletedBody,
   entryDeletedBody,
   mutationFailedBody,
   TOAST_DURATION_MS,
-} from '~/lib/toasts'
+} from "~/lib/toasts";
 
-type NutritionSearch = {
-  date?: string
+interface NutritionSearch {
+  date?: string;
 }
 
-export const Route = createFileRoute('/nutrition/')({
-  validateSearch: (search: Record<string, unknown>): NutritionSearch => ({
-    date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
-  }),
-  loaderDeps: ({ search: { date } }) => ({ date }),
+export const Route = createFileRoute("/nutrition/")({
+  component: NutritionPage,
+  head: () => ({ meta: [{ title: "Nutrition - FitTrack" }] }),
   loader: async ({ deps }) => {
-    const selectedDate = resolveSelectedDate(deps.date)
-    const sourceDate = previousDay(selectedDate)
+    const selectedDate = resolveSelectedDate(deps.date);
+    const sourceDate = previousDay(selectedDate);
     const [summary, sourceSummary, targets, mealTemplates] = await Promise.all([
       getNutritionSummary({ data: { date: selectedDate } }),
       getNutritionSummary({ data: { date: sourceDate } }),
       getDailyTargets(),
       getMealTemplates(),
-    ])
-    return { selectedDate, sourceDate, summary, sourceSummary, targets, mealTemplates }
+    ]);
+    return {
+      selectedDate,
+      sourceDate,
+      summary,
+      sourceSummary,
+      targets,
+      mealTemplates,
+    };
   },
-  head: () => ({ meta: [{ title: 'Nutrition - FitTrack' }] }),
+  loaderDeps: ({ search: { date } }) => ({ date }),
   pendingComponent: NutritionSkeleton,
-  component: NutritionPage,
-})
+  validateSearch: (search: Record<string, unknown>): NutritionSearch => ({
+    date: parseSearchDate(
+      typeof search.date === "string" ? search.date : undefined
+    ),
+  }),
+});
 
 function NutritionPage() {
-  return <NutritionPageContent />
+  return <NutritionPageContent />;
 }
 
 function NutritionPageContent() {
-  const { date: dateFromSearch } = Route.useSearch()
-  const loaderData = Route.useLoaderData()
-  const selectedDate = resolveSelectedDate(dateFromSearch)
-  const navigate = useNavigate({ from: Route.fullPath })
-  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<FoodLogEntry | null>(null)
-  const [foodLogDialogOpen, setFoodLogDialogOpen] = useState(false)
-  const confirmDeleteEntry = useConfirmDeleteFoodEntry(selectedDate)
+  const { date: dateFromSearch } = Route.useSearch();
+  const loaderData = Route.useLoaderData();
+  const selectedDate = resolveSelectedDate(dateFromSearch);
+  const navigate = useNavigate({ from: Route.fullPath });
+  const [pendingDeleteEntry, setPendingDeleteEntry] =
+    useState<FoodLogEntry | null>(null);
+  const [foodLogDialogOpen, setFoodLogDialogOpen] = useState(false);
+  const confirmDeleteEntry = useConfirmDeleteFoodEntry(selectedDate);
 
-  const sourceDate = previousDay(selectedDate)
+  const sourceDate = previousDay(selectedDate);
   const summaryQuery = useDataLoadQuery({
-    queryKey: ['food-log', selectedDate],
+    initialData:
+      loaderData.selectedDate === selectedDate ? loaderData.summary : undefined,
     queryFn: () => getNutritionSummary({ data: { date: selectedDate } }),
-    initialData: loaderData.selectedDate === selectedDate ? loaderData.summary : undefined,
-  })
+    queryKey: ["food-log", selectedDate],
+  });
   const sourceSummaryQuery = useDataLoadQuery({
-    queryKey: ['food-log', sourceDate],
+    initialData:
+      loaderData.selectedDate === selectedDate
+        ? loaderData.sourceSummary
+        : undefined,
     queryFn: () => getNutritionSummary({ data: { date: sourceDate } }),
-    initialData: loaderData.selectedDate === selectedDate ? loaderData.sourceSummary : undefined,
-  })
+    queryKey: ["food-log", sourceDate],
+  });
   const targetsQuery = useDataLoadQuery({
-    queryKey: ['targets'],
-    queryFn: () => getDailyTargets(),
     initialData: loaderData.targets,
-  })
+    queryFn: () => getDailyTargets(),
+    queryKey: ["targets"],
+  });
   const mealTemplatesQuery = useDataLoadQuery({
-    queryKey: ['meal-templates'],
-    queryFn: () => getMealTemplates(),
     initialData: loaderData.mealTemplates,
-  })
-  const copyDay = useCopyDayFromYesterday(selectedDate, sourceSummaryQuery.data?.entries ?? [])
+    queryFn: () => getMealTemplates(),
+    queryKey: ["meal-templates"],
+  });
+  const copyDay = useCopyDayFromYesterday(
+    selectedDate,
+    sourceSummaryQuery.data?.entries ?? []
+  );
 
   if (
     isDataLoadPending(summaryQuery) ||
@@ -112,7 +122,7 @@ function NutritionPageContent() {
     isDataLoadPending(targetsQuery) ||
     isDataLoadPending(mealTemplatesQuery)
   ) {
-    return <NutritionSkeleton />
+    return <NutritionSkeleton />;
   }
 
   const failedQuery = pickFailedDataLoadQuery([
@@ -120,7 +130,7 @@ function NutritionPageContent() {
     sourceSummaryQuery,
     targetsQuery,
     mealTemplatesQuery,
-  ])
+  ]);
   if (failedQuery) {
     return (
       <DataLoadErrorView
@@ -128,13 +138,13 @@ function NutritionPageContent() {
         title="Failed to load nutrition data"
         query={failedQuery}
       />
-    )
+    );
   }
 
-  const summary = summaryQuery.data!
-  const sourceSummary = sourceSummaryQuery.data!
-  const targets = targetsQuery.data!
-  const mealTemplates = mealTemplatesQuery.data!
+  const summary = summaryQuery.data!;
+  const sourceSummary = sourceSummaryQuery.data!;
+  const targets = targetsQuery.data!;
+  const mealTemplates = mealTemplatesQuery.data!;
 
   const handleDateChange = (nextDate: string) => {
     navigate({
@@ -142,8 +152,8 @@ function NutritionPageContent() {
         ...prev,
         date: nextDate,
       }),
-    })
-  }
+    });
+  };
 
   return (
     <VStack as="main" gap={6}>
@@ -173,17 +183,17 @@ function NutritionPageContent() {
       <DeleteConfirmationDialog
         isOpen={pendingDeleteEntry != null}
         onOpenChange={(open) => {
-          if (!open) setPendingDeleteEntry(null)
+          if (!open) {setPendingDeleteEntry(null);}
         }}
         title={deleteFoodEntryTitle()}
         onConfirm={async () => {
-          if (!pendingDeleteEntry) return
-          await confirmDeleteEntry(pendingDeleteEntry)
-          setPendingDeleteEntry(null)
+          if (!pendingDeleteEntry) {return;}
+          await confirmDeleteEntry(pendingDeleteEntry);
+          setPendingDeleteEntry(null);
         }}
       />
     </VStack>
-  )
+  );
 }
 
 function NutritionHeader({
@@ -192,10 +202,10 @@ function NutritionHeader({
   showCopyDay,
   onCopyDay,
 }: {
-  selectedDate: string
-  onDateChange: (date: string) => void
-  showCopyDay: boolean
-  onCopyDay: () => Promise<void>
+  selectedDate: string;
+  onDateChange: (date: string) => void;
+  showCopyDay: boolean;
+  onCopyDay: () => Promise<void>;
 }) {
   return (
     <VStack gap={2}>
@@ -216,125 +226,134 @@ function NutritionHeader({
           <Button label="Weekly Plan" href="/nutrition/planning" size="sm" />
         </HStack>
       </HStack>
-      <DateNavigationBar selectedDate={selectedDate} onDateChange={onDateChange} />
+      <DateNavigationBar
+        selectedDate={selectedDate}
+        onDateChange={onDateChange}
+      />
     </VStack>
-  )
+  );
 }
 
 /** Rebuilds the addFoodLogEntry payload from a deleted row for Undo. */
 function foodEntryRestorePayload(entry: FoodLogEntry) {
   return {
-    food_id: entry.food_id ?? undefined,
+    calories: entry.calories,
+    carbs_g: entry.carbs_g,
     custom_name: entry.custom_name ?? undefined,
     date: entry.date,
-    meal_type: entry.meal_type,
-    servings: entry.servings,
-    calories: entry.calories,
-    protein_g: entry.protein_g,
-    carbs_g: entry.carbs_g,
     fat_g: entry.fat_g,
+    food_id: entry.food_id ?? undefined,
+    meal_type: entry.meal_type,
     notes: entry.notes ?? undefined,
-  }
+    protein_g: entry.protein_g,
+    servings: entry.servings,
+  };
 }
 
 function useConfirmDeleteFoodEntry(selectedDate: string) {
-  const toast = useToast()
-  const queryClient = useQueryClient()
-  const sourceDate = previousDay(selectedDate)
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const sourceDate = previousDay(selectedDate);
 
   const invalidateFoodLog = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
-      queryClient.invalidateQueries({ queryKey: ['food-log', sourceDate] }),
-    ])
-  }
+      queryClient.invalidateQueries({ queryKey: ["food-log", selectedDate] }),
+      queryClient.invalidateQueries({ queryKey: ["food-log", sourceDate] }),
+    ]);
+  };
 
   return async (entry: FoodLogEntry) => {
     try {
-      const outcome = await runOrQueue('deleteFoodLogEntry', { id: entry.id }, () =>
-        deleteFoodLogEntry({ data: { id: entry.id } }),
-      )
+      const outcome = await runOrQueue(
+        "deleteFoodLogEntry",
+        { id: entry.id },
+        () => deleteFoodLogEntry({ data: { id: entry.id } })
+      );
       if (!outcome.queued) {
-        await invalidateFoodLog()
+        await invalidateFoodLog();
       }
 
-      let dismiss = () => {}
+      let dismiss = () => {};
       dismiss = toast({
-        body: entryDeletedBody(),
         autoHideDuration: TOAST_DURATION_MS.undo,
+        body: entryDeletedBody(),
         endContent: (
           <ToastUndoButton
             onUndo={async () => {
-              dismiss()
+              dismiss();
               try {
-                const restore = foodEntryRestorePayload(entry)
-                await runOrQueue('addFoodLogEntry', restore, () =>
-                  addFoodLogEntry({ data: restore }),
-                )
-                await invalidateFoodLog()
+                const restore = foodEntryRestorePayload(entry);
+                await runOrQueue("addFoodLogEntry", restore, () =>
+                  addFoodLogEntry({ data: restore })
+                );
+                await invalidateFoodLog();
               } catch {
-                toast({ body: mutationFailedBody('Log food'), type: 'error' })
+                toast({ body: mutationFailedBody("Log food"), type: "error" });
               }
             }}
           />
         ),
-      })
+      });
     } catch {
-      toast({ body: mutationFailedBody('Delete entry'), type: 'error' })
+      toast({ body: mutationFailedBody("Delete entry"), type: "error" });
     }
-  }
+  };
 }
 
 function useCopyDayFromYesterday(
   selectedDate: string,
-  sourceDayEntries: import('~/lib/db').FoodLogEntry[],
+  sourceDayEntries: import("~/lib/db").FoodLogEntry[]
 ) {
-  const toast = useToast()
-  const queryClient = useQueryClient()
-  const sourceDate = previousDay(selectedDate)
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const sourceDate = previousDay(selectedDate);
 
   const invalidateFoodLog = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['food-log', selectedDate] }),
-      queryClient.invalidateQueries({ queryKey: ['food-log', sourceDate] }),
-    ])
-  }
+      queryClient.invalidateQueries({ queryKey: ["food-log", selectedDate] }),
+      queryClient.invalidateQueries({ queryKey: ["food-log", sourceDate] }),
+    ]);
+  };
 
   return async () => {
-    const payload = { fromDate: sourceDate, toDate: selectedDate }
+    const payload = { fromDate: sourceDate, toDate: selectedDate };
     try {
-      const outcome = await runOrQueue('copyDayFromDate', payload, () =>
-        copyDayFromDate({ data: payload }),
-      )
+      const outcome = await runOrQueue("copyDayFromDate", payload, () =>
+        copyDayFromDate({ data: payload })
+      );
       if (!outcome.queued) {
-        await invalidateFoodLog()
-        const entryIds = outcome.result.entries.map((entry) => entry.id)
-        let dismiss = () => {}
+        await invalidateFoodLog();
+        const entryIds = outcome.result.entries.map((entry) => entry.id);
+        let dismiss = () => {};
         dismiss = toast({
-          body: copyCompletedBody(entryIds.length),
           autoHideDuration: TOAST_DURATION_MS.undo,
+          body: copyCompletedBody(entryIds.length),
           endContent: (
             <ToastUndoButton
               onUndo={async () => {
-                dismiss()
+                dismiss();
                 try {
-                  await runOrQueue('deleteFoodLogEntries', { ids: entryIds }, () =>
-                    deleteFoodLogEntries({ data: { ids: entryIds } }),
-                  )
-                  await invalidateFoodLog()
+                  await runOrQueue(
+                    "deleteFoodLogEntries",
+                    { ids: entryIds },
+                    () => deleteFoodLogEntries({ data: { ids: entryIds } })
+                  );
+                  await invalidateFoodLog();
                 } catch {
-                  toast({ body: mutationFailedBody('Undo copy'), type: 'error' })
+                  toast({
+                    body: mutationFailedBody("Undo copy"),
+                    type: "error",
+                  });
                 }
               }}
             />
           ),
-        })
-        return
+        });
+        return;
       }
-      toast({ body: copyCompletedBody(sourceDayEntries.length) })
+      toast({ body: copyCompletedBody(sourceDayEntries.length) });
     } catch {
-      toast({ body: mutationFailedBody('Copy day'), type: 'error' })
+      toast({ body: mutationFailedBody("Copy day"), type: "error" });
     }
-  }
+  };
 }
-

@@ -8,23 +8,23 @@
  * (`ProgressBar`, `Badge`, the weight SVG).
  */
 
-import type { BodyLog } from './db'
-import type { MuscleVolume } from './api'
+import type { MuscleVolume } from "./api";
+import type { BodyLog } from "./db";
 
 /** Tone union accepted by Astryx `ProgressBar` `variant`. */
-export type ProgressVariant = 'accent' | 'success' | 'warning' | 'error'
+export type ProgressVariant = "accent" | "success" | "warning" | "error";
 
 export interface WeightTrend {
   /** Earliest weight in the window (kg). */
-  first: number
+  first: number;
   /** Most recent weight in the window (kg). */
-  last: number
+  last: number;
   /** `last - first`. Positive = weight gained, negative = weight lost. */
-  change: number
+  change: number;
   /** Highest weight in the window (kg). */
-  max: number
+  max: number;
   /** Lowest weight in the window (kg). */
-  min: number
+  min: number;
 }
 
 /**
@@ -40,22 +40,24 @@ export interface WeightTrend {
  */
 export function weightTrend(logs: BodyLog[]): WeightTrend | null {
   const weighted = logs
-    .filter((log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .filter(
+      (log): log is BodyLog & { weight_kg: number } => log.weight_kg !== null
+    )
+    .sort((a, b) => (a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)));
 
-  if (weighted.length === 0) return null
+  if (weighted.length === 0) {return null;}
 
-  const weights = weighted.map((log) => log.weight_kg)
-  const first = weighted[0].weight_kg
-  const last = weighted[weighted.length - 1].weight_kg
+  const weights = weighted.map((log) => log.weight_kg);
+  const first = weighted[0].weight_kg;
+  const last = weighted.at(-1).weight_kg;
 
   return {
+    change: last - first,
     first,
     last,
-    change: last - first,
     max: Math.max(...weights),
     min: Math.min(...weights),
-  }
+  };
 }
 
 /**
@@ -67,9 +69,9 @@ export function weightTrend(logs: BodyLog[]): WeightTrend | null {
  *
  * TODO: make goal-aware so `build_muscle` flips the tone (tracked separately).
  */
-export function weightChangeTone(change: number): 'success' | 'error' | null {
-  if (!Number.isFinite(change) || change === 0) return null
-  return change < 0 ? 'success' : 'error'
+export function weightChangeTone(change: number): "success" | "error" | null {
+  if (!Number.isFinite(change) || change === 0) {return null;}
+  return change < 0 ? "success" : "error";
 }
 
 /**
@@ -79,9 +81,12 @@ export function weightChangeTone(change: number): 'success' | 'error' | null {
  * @param windowDays     Window length in days (the progress page uses 90).
  * @example workoutsPerWeek(13, 90) // ~1.01 sessions/week
  */
-export function workoutsPerWeek(sessionCount: number, windowDays: number): number {
-  if (windowDays <= 0) return 0
-  return sessionCount / (windowDays / 7)
+export function workoutsPerWeek(
+  sessionCount: number,
+  windowDays: number
+): number {
+  if (windowDays <= 0) {return 0;}
+  return sessionCount / (windowDays / 7);
 }
 
 /**
@@ -93,30 +98,31 @@ export function workoutsPerWeek(sessionCount: number, windowDays: number): numbe
  * signals insufficient stimulus (caution); `high` risks junk volume and
  * fatigue accumulation (over-reaching).
  */
-export function volumeVariant(status: MuscleVolume['status']): ProgressVariant {
-  if (status === 'optimal') return 'success'
-  if (status === 'under') return 'warning'
-  return 'error' // 'high'
+export function volumeVariant(status: MuscleVolume["status"]): ProgressVariant {
+  if (status === "optimal") {return "success";}
+  if (status === "under") {return "warning";}
+  return "error"; // 'high'
 }
 
 /** Badge label + semantic variant for a volume status bucket. */
-export function volumeStatusBadge(
-  status: MuscleVolume['status'],
-): { label: string; variant: 'success' | 'warning' | 'error' } {
-  if (status === 'optimal') return { label: 'Optimal', variant: 'success' }
-  if (status === 'under') return { label: 'Under', variant: 'warning' }
-  return { label: 'High', variant: 'error' }
+export function volumeStatusBadge(status: MuscleVolume["status"]): {
+  label: string;
+  variant: "success" | "warning" | "error";
+} {
+  if (status === "optimal") {return { label: "Optimal", variant: "success" };}
+  if (status === "under") {return { label: "Under", variant: "warning" };}
+  return { label: "High", variant: "error" };
 }
 
 export interface VolumeBarState {
   /** Sets this week, clamped to the recommended max so the fill never overflows. */
-  value: number
+  value: number;
   /** Recommended weekly max; used as the bar maximum (>= 1 to avoid /0). */
-  max: number
+  max: number;
   /** Semantic tone derived from the status bucket. */
-  variant: ProgressVariant
+  variant: ProgressVariant;
   /** 0–100 percentage for the optional value label. */
-  percent: number
+  percent: number;
 }
 
 /**
@@ -127,24 +133,24 @@ export interface VolumeBarState {
  * previous custom-CSS `.progress-bar-fill` width cap.
  */
 export function volumeProgress(mv: MuscleVolume): VolumeBarState {
-  const max = mv.max_recommended > 0 ? mv.max_recommended : 1
+  const max = mv.max_recommended > 0 ? mv.max_recommended : 1;
   return {
-    value: Math.min(mv.total_sets, mv.max_recommended),
     max,
-    variant: volumeVariant(mv.status),
     percent: Math.min(100, Math.round((mv.total_sets / max) * 100)),
-  }
+    value: Math.min(mv.total_sets, mv.max_recommended),
+    variant: volumeVariant(mv.status),
+  };
 }
 
 export interface ChartGeometry {
   /** Plot width in viewBox units. */
-  width: number
+  width: number;
   /** Plot height in viewBox units. */
-  height: number
+  height: number;
   /** Top inset so the highest point isn't clipped. */
-  topPadding: number
+  topPadding: number;
   /** Total viewBox height (plot + top + bottom gutters). */
-  viewBoxHeight: number
+  viewBoxHeight: number;
 }
 
 /**
@@ -155,19 +161,19 @@ export interface ChartGeometry {
  * the card without horizontal scroll.
  */
 export function weightChartGeometry(pointCount: number): ChartGeometry {
-  const height = 200
-  const topPadding = 10
+  const height = 200;
+  const topPadding = 10;
   return {
-    width: Math.max(pointCount * 8, 100),
     height,
     topPadding,
     viewBoxHeight: height + 40,
-  }
+    width: Math.max(pointCount * 8, 100),
+  };
 }
 
 export interface ChartPoint {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 /**
@@ -180,22 +186,25 @@ export function weightChartPoints(
   weights: number[],
   min: number,
   max: number,
-  geometry: ChartGeometry,
+  geometry: ChartGeometry
 ): ChartPoint[] {
-  const range = max - min || 1
-  const denominator = Math.max(weights.length - 1, 1)
+  const range = max - min || 1;
+  const denominator = Math.max(weights.length - 1, 1);
   return weights.map((weight, index) => ({
     x: (index / denominator) * geometry.width,
-    y: geometry.height - ((weight - min) / range) * geometry.height + geometry.topPadding,
-  }))
+    y:
+      geometry.height -
+      ((weight - min) / range) * geometry.height +
+      geometry.topPadding,
+  }));
 }
 
 /** Title-cases a snake_case muscle group for display ("full_body" -> "Full body"). */
 export function capitalizeMuscleGroup(value: string): string {
   return value
-    .split('_')
+    .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+    .join(" ");
 }
 
 /**
@@ -217,27 +226,27 @@ export function capitalizeMuscleGroup(value: string): string {
  */
 export function movingAverage(
   weights: number[],
-  window: number,
+  window: number
 ): (number | null)[] {
-  if (window <= 0) return weights.map(() => null)
-  const result: (number | null)[] = []
-  let sum = 0
-  let count = 0
+  if (window <= 0) {return weights.map(() => null);}
+  const result: (number | null)[] = [];
+  let sum = 0;
+  let count = 0;
 
   for (let i = 0; i < weights.length; i++) {
-    sum += weights[i]
-    count++
+    sum += weights[i];
+    count++;
     if (i >= window) {
-      sum -= weights[i - window]
-      count = window
+      sum -= weights[i - window];
+      count = window;
     }
     if (count < window) {
-      result.push(null)
+      result.push(null);
     } else {
-      result.push(Math.round((sum / count) * 10) / 10)
+      result.push(Math.round((sum / count) * 10) / 10);
     }
   }
-  return result
+  return result;
 }
 
 /**
@@ -251,11 +260,14 @@ export function movingAverage(
  * @param geometry  ViewBox dimensions.
  * @example areaChartPath(points, geometry) // "M 0,50 L 10,45 ... L 100,160 L 0,160 Z"
  */
-export function areaChartPath(points: ChartPoint[], geometry: ChartGeometry): string {
-  if (points.length === 0) return ''
-  const top = points.map((p) => `${p.x},${p.y}`).join(' L ')
-  const bottomY = geometry.viewBoxHeight
-  const lastX = points[points.length - 1].x
-  const firstX = points[0].x
-  return `M ${top} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`
+export function areaChartPath(
+  points: ChartPoint[],
+  geometry: ChartGeometry
+): string {
+  if (points.length === 0) {return "";}
+  const top = points.map((p) => `${p.x},${p.y}`).join(" L ");
+  const bottomY = geometry.viewBoxHeight;
+  const lastX = points.at(-1).x;
+  const firstX = points[0].x;
+  return `M ${top} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
 }

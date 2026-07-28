@@ -1,6 +1,5 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
 import {
   Button,
   Card,
@@ -9,37 +8,24 @@ import {
   ListItem,
   Text,
   VStack,
-} from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
+} from "@astryxdesign/core";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useEffect, useState } from "react";
+
 import {
   getPushStatus,
   sendTestPush,
   subscribePush,
   unsubscribePush,
-} from '~/lib/api'
-import {
-  getPushUiMode,
-  PUSH_CARD_TITLE,
-  PUSH_DENIED_MESSAGE,
-  PUSH_DISABLE_BUTTON,
-  PUSH_ENABLE_BUTTON,
-  PUSH_IOS_INSTALL_MESSAGE,
-  PUSH_NOT_CONFIGURED_MESSAGE,
-  PUSH_SUBSCRIBED_MESSAGE,
-  PUSH_TEST_BUTTON,
-  PUSH_TEST_FAILURE_MESSAGE,
-  PUSH_TEST_SUCCESS_MESSAGE,
-  PUSH_UNSUPPORTED_MESSAGE,
-  subscribeBrowserPush,
-  unsubscribeBrowserPush,
-  type PushUiMode,
-} from '~/lib/push'
-import { readIsStandalone, IOS_INSTALL_STEPS } from '~/lib/pwa-install'
+} from "~/lib/api";
+import { getPushUiMode, PUSH_CARD_TITLE, PUSH_DENIED_MESSAGE, PUSH_DISABLE_BUTTON, PUSH_ENABLE_BUTTON, PUSH_IOS_INSTALL_MESSAGE, PUSH_NOT_CONFIGURED_MESSAGE, PUSH_SUBSCRIBED_MESSAGE, PUSH_TEST_BUTTON, PUSH_TEST_FAILURE_MESSAGE, PUSH_TEST_SUCCESS_MESSAGE, PUSH_UNSUPPORTED_MESSAGE, subscribeBrowserPush, unsubscribeBrowserPush } from '~/lib/push';
+import type { PushUiMode } from '~/lib/push';
+import { readIsStandalone, IOS_INSTALL_STEPS } from "~/lib/pwa-install";
 
-type PushNotificationsProps = {
-  initialConfigured: boolean
-  initialPublicKey: string | null
-  initialSubscribed: boolean
+interface PushNotificationsProps {
+  initialConfigured: boolean;
+  initialPublicKey: string | null;
+  initialSubscribed: boolean;
 }
 
 /**
@@ -51,102 +37,102 @@ export function PushNotifications({
   initialPublicKey,
   initialSubscribed,
 }: PushNotificationsProps) {
-  const toast = useToast()
-  const [configured, setConfigured] = useState(initialConfigured)
-  const [publicKey, setPublicKey] = useState(initialPublicKey)
-  const [subscribed, setSubscribed] = useState(initialSubscribed)
-  const [mode, setMode] = useState<PushUiMode | null>(null)
-  const [busy, setBusy] = useState(false)
+  const toast = useToast();
+  const [configured, setConfigured] = useState(initialConfigured);
+  const [publicKey, setPublicKey] = useState(initialPublicKey);
+  const [subscribed, setSubscribed] = useState(initialSubscribed);
+  const [mode, setMode] = useState<PushUiMode | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+    if (typeof window === "undefined") {
+      return;
     }
 
     const permission =
-      typeof Notification !== 'undefined' ? Notification.permission : 'default'
+      typeof Notification === "undefined" ? "default" : Notification.permission;
 
     setMode(
       getPushUiMode({
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        maxTouchPoints: navigator.maxTouchPoints,
+        hasNotification: typeof Notification !== "undefined",
+        hasPushManager: "PushManager" in window,
+        hasServiceWorker: "serviceWorker" in navigator,
         isStandalone: readIsStandalone(window),
-        hasServiceWorker: 'serviceWorker' in navigator,
-        hasPushManager: 'PushManager' in window,
-        hasNotification: typeof Notification !== 'undefined',
-        vapidConfigured: configured,
-        permission,
         isSubscribed: subscribed,
-      }),
-    )
-  }, [configured, subscribed])
+        maxTouchPoints: navigator.maxTouchPoints,
+        permission,
+        platform: navigator.platform,
+        userAgent: navigator.userAgent,
+        vapidConfigured: configured,
+      })
+    );
+  }, [configured, subscribed]);
 
   const refreshStatus = async () => {
-    const status = await getPushStatus()
-    setConfigured(status.configured)
-    setPublicKey(status.publicKey)
-    setSubscribed(status.subscribed)
-  }
+    const status = await getPushStatus();
+    setConfigured(status.configured);
+    setPublicKey(status.publicKey);
+    setSubscribed(status.subscribed);
+  };
 
   const handleEnable = async () => {
     if (!publicKey) {
-      return
+      return;
     }
-    setBusy(true)
+    setBusy(true);
     try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        await refreshStatus()
-        return
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        await refreshStatus();
+        return;
       }
-      const input = await subscribeBrowserPush(publicKey)
-      const result = await subscribePush({ data: input })
+      const input = await subscribeBrowserPush(publicKey);
+      const result = await subscribePush({ data: input });
       if (!result.ok) {
-        toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: 'error' })
-        return
+        toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: "error" });
+        return;
       }
-      await refreshStatus()
+      await refreshStatus();
     } catch {
-      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: 'error' })
+      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: "error" });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleDisable = async () => {
-    setBusy(true)
+    setBusy(true);
     try {
-      const endpoint = await unsubscribeBrowserPush()
+      const endpoint = await unsubscribeBrowserPush();
       if (endpoint) {
-        await unsubscribePush({ data: { endpoint } })
+        await unsubscribePush({ data: { endpoint } });
       }
-      await refreshStatus()
+      await refreshStatus();
     } catch {
-      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: 'error' })
+      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: "error" });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleTest = async () => {
-    setBusy(true)
+    setBusy(true);
     try {
-      const result = await sendTestPush()
+      const result = await sendTestPush();
       if (result.ok) {
-        toast({ body: PUSH_TEST_SUCCESS_MESSAGE })
-        return
+        toast({ body: PUSH_TEST_SUCCESS_MESSAGE });
+        return;
       }
-      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: 'error' })
+      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: "error" });
     } catch {
-      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: 'error' })
+      toast({ body: PUSH_TEST_FAILURE_MESSAGE, type: "error" });
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   if (mode == null) {
-    return null
+    return null;
   }
 
   return (
@@ -162,7 +148,7 @@ export function PushNotifications({
         />
       </VStack>
     </Card>
-  )
+  );
 }
 
 function PushNotificationsBody({
@@ -172,21 +158,21 @@ function PushNotificationsBody({
   onDisable,
   onTest,
 }: {
-  mode: PushUiMode
-  busy: boolean
-  onEnable: () => void | Promise<void>
-  onDisable: () => void | Promise<void>
-  onTest: () => void | Promise<void>
+  mode: PushUiMode;
+  busy: boolean;
+  onEnable: () => void | Promise<void>;
+  onDisable: () => void | Promise<void>;
+  onTest: () => void | Promise<void>;
 }) {
-  if (mode === 'not-configured') {
-    return <Text type="supporting">{PUSH_NOT_CONFIGURED_MESSAGE}</Text>
+  if (mode === "not-configured") {
+    return <Text type="supporting">{PUSH_NOT_CONFIGURED_MESSAGE}</Text>;
   }
 
-  if (mode === 'unsupported') {
-    return <Text type="supporting">{PUSH_UNSUPPORTED_MESSAGE}</Text>
+  if (mode === "unsupported") {
+    return <Text type="supporting">{PUSH_UNSUPPORTED_MESSAGE}</Text>;
   }
 
-  if (mode === 'ios-install-required') {
+  if (mode === "ios-install-required") {
     return (
       <VStack gap={2}>
         <Text type="supporting">{PUSH_IOS_INSTALL_MESSAGE}</Text>
@@ -196,14 +182,14 @@ function PushNotificationsBody({
           ))}
         </List>
       </VStack>
-    )
+    );
   }
 
-  if (mode === 'denied') {
-    return <Text type="supporting">{PUSH_DENIED_MESSAGE}</Text>
+  if (mode === "denied") {
+    return <Text type="supporting">{PUSH_DENIED_MESSAGE}</Text>;
   }
 
-  if (mode === 'subscribed') {
+  if (mode === "subscribed") {
     return (
       <VStack gap={3}>
         <Text type="supporting">{PUSH_SUBSCRIBED_MESSAGE}</Text>
@@ -220,13 +206,14 @@ function PushNotificationsBody({
           clickAction={onDisable}
         />
       </VStack>
-    )
+    );
   }
 
   return (
     <VStack gap={3}>
       <Text type="supporting">
-        Receive alerts when your rest timer finishes and other important updates.
+        Receive alerts when your rest timer finishes and other important
+        updates.
       </Text>
       <Button
         label={PUSH_ENABLE_BUTTON}
@@ -235,5 +222,5 @@ function PushNotificationsBody({
         clickAction={onEnable}
       />
     </VStack>
-  )
+  );
 }

@@ -1,3 +1,4 @@
+import type { DateInput, TimeInput } from "@astryxdesign/core";
 /**
  * Narrowing helpers for Astryx's date and time inputs.
  *
@@ -14,23 +15,30 @@
  *
  * @example value={asDateValue(selectedDate)}
  */
-import type { ComponentProps } from 'react'
-import type { DateInput, TimeInput } from '@astryxdesign/core'
+import type { ComponentProps } from "react";
 
-export type AstryxDateValue = NonNullable<ComponentProps<typeof DateInput>['value']>
-export type AstryxTimeValue = NonNullable<ComponentProps<typeof TimeInput>['value']>
+export type AstryxDateValue = NonNullable<
+  ComponentProps<typeof DateInput>["value"]
+>;
+export type AstryxTimeValue = NonNullable<
+  ComponentProps<typeof TimeInput>["value"]
+>;
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const ISO_TIME_PATTERN = /^\d{2}:\d{2}$/
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_TIME_PATTERN = /^\d{2}:\d{2}$/;
 
 /** Narrows `YYYY-MM-DD` to Astryx's DateInput value type. */
-export function asDateValue(value: string | null | undefined): AstryxDateValue | undefined {
-  if (!value || !ISO_DATE_PATTERN.test(value)) return undefined
-  return value as AstryxDateValue
+export function asDateValue(
+  value: string | null | undefined
+): AstryxDateValue | undefined {
+  if (!value || !ISO_DATE_PATTERN.test(value)) {return undefined;}
+  return value as AstryxDateValue;
 }
 
 /** Narrows `HH:MM` to Astryx's TimeInput value type. */
-export function asTimeValue(value: string | null | undefined): AstryxTimeValue | undefined {
-  if (!value || !ISO_TIME_PATTERN.test(value)) return undefined
-  return value as AstryxTimeValue
+export function asTimeValue(
+  value: string | null | undefined
+): AstryxTimeValue | undefined {
+  if (!value || !ISO_TIME_PATTERN.test(value)) {return undefined;}
+  return value as AstryxTimeValue;
 }

@@ -13,50 +13,46 @@ import {
   TextInput,
   VStack,
 } from "@astryxdesign/core";
+import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useStore } from "@tanstack/react-store";
+import { useState } from "react";
+
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
+import { ProgramExerciseTable } from '~/components/workout/ProgramExerciseTable';
+import type { RemoveProgramExercise, UpdateProgramExercise } from '~/components/workout/ProgramExerciseTable';
+import {
+  deleteProgram,
+  getExercises,
+  getProgram,
+  saveProgram,
+  startWorkoutFromProgram,
+} from "~/lib/api";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-store";
-import { useState } from "react";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import {
-  ProgramExerciseTable,
-  type RemoveProgramExercise,
-  type UpdateProgramExercise,
-} from "~/components/workout/ProgramExerciseTable";
-import { deleteProgram, getExercises, getProgram, saveProgram, startWorkoutFromProgram } from "~/lib/api";
+import type { PeriodizationType } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
-import type { PeriodizationType } from "~/lib/db";
-import {
-  buildProgramSavePayload,
-  editableExerciseFromExercise,
-  EMPTY_PROGRAM_FORM,
-  newProgramDay,
-  programFormDefaults,
-  validateProgramDays,
-  type EditableProgramDay,
-  type ProgramFormValues,
-} from "~/lib/program-form";
+import { buildProgramSavePayload, editableExerciseFromExercise, EMPTY_PROGRAM_FORM, newProgramDay, programFormDefaults, validateProgramDays } from '~/lib/program-form';
+import type { EditableProgramDay, ProgramFormValues } from '~/lib/program-form';
 import { getDupDayEmphasis } from "~/lib/workout";
 
 export const Route = createFileRoute("/workout/programs/$programId")({
-  head: () => ({ meta: [{ title: "Edit Program - FitTrack" }] }),
   component: ProgramDetailPage,
+  head: () => ({ meta: [{ title: "Edit Program - FitTrack" }] }),
 });
 
 const PERIODIZATION_OPTIONS = [
-  { value: "linear", label: "Linear progression" },
-  { value: "dup", label: "Daily undulating (DUP)" },
+  { label: "Linear progression", value: "linear" },
+  { label: "Daily undulating (DUP)", value: "dup" },
 ];
 
 function ProgramDetailPage() {
@@ -67,12 +63,12 @@ function ProgramDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const programQuery = useDataLoadQuery({
-    queryKey: ["program", id],
     queryFn: () => getProgram({ data: { id } }),
+    queryKey: ["program", id],
   });
   const exercisesQuery = useDataLoadQuery({
-    queryKey: ["exercises"],
     queryFn: () => getExercises({ data: {} }),
+    queryKey: ["exercises"],
   });
 
   const form = useForm({
@@ -80,22 +76,24 @@ function ProgramDetailPage() {
       ? programFormDefaults(programQuery.data)
       : EMPTY_PROGRAM_FORM) as ProgramFormValues,
     onSubmit: async ({ value, formApi }) => {
-      const saved = await saveProgram({ data: buildProgramSavePayload(value, id) });
+      const saved = await saveProgram({
+        data: buildProgramSavePayload(value, id),
+      });
       await queryClient.invalidateQueries({ queryKey: ["program", id] });
       await queryClient.invalidateQueries({ queryKey: ["programs"] });
-      if (saved) formApi.reset(programFormDefaults(saved));
+      if (saved) {formApi.reset(programFormDefaults(saved));}
     },
   });
 
   const name = useStore(form.store, (state) => state.values.name);
   const periodizationType = useStore(
     form.store,
-    (state) => state.values.periodizationType,
+    (state) => state.values.periodizationType
   );
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const isSubmitSuccessful = useStore(
     form.store,
-    (state) => state.isSubmitSuccessful,
+    (state) => state.isSubmitSuccessful
   );
 
   if (isDataLoadPending(programQuery) || isDataLoadPending(exercisesQuery)) {
@@ -126,7 +124,11 @@ function ProgramDetailPage() {
               description={`No training program exists for id ${programId}.`}
               headingLevel={1}
             />
-            <Button label="Back to Programs" href="/workout/programs" variant="secondary" />
+            <Button
+              label="Back to Programs"
+              href="/workout/programs"
+              variant="secondary"
+            />
           </VStack>
         </Card>
       </VStack>
@@ -134,8 +136,10 @@ function ProgramDetailPage() {
   }
 
   const handleStartDay = async (programDayId: number) => {
-    const result = await startWorkoutFromProgram({ data: { programId: id, programDayId } });
-    navigate({ to: "/workout", search: { session: result.sessionId } });
+    const result = await startWorkoutFromProgram({
+      data: { programDayId, programId: id },
+    });
+    navigate({ search: { session: result.sessionId }, to: "/workout" });
   };
 
   const handleConfirmDelete = async () => {
@@ -152,16 +156,21 @@ function ProgramDetailPage() {
 
   const saveLabel = isSubmitting
     ? "Saving..."
-    : isSubmitSuccessful
+    : (isSubmitSuccessful
       ? "Saved!"
-      : "Save Program";
+      : "Save Program");
 
   return (
     <VStack gap={4}>
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>{name || "Edit Program"}</Heading>
         <HStack gap={2} wrap="wrap">
-          <Button label="Back to Programs" href="/workout/programs" variant="secondary" size="sm" />
+          <Button
+            label="Back to Programs"
+            href="/workout/programs"
+            variant="secondary"
+            size="sm"
+          />
           <Button
             label={`Delete ${name || "program"}`}
             variant="destructive"
@@ -170,7 +179,11 @@ function ProgramDetailPage() {
           >
             Delete
           </Button>
-          <Button label={saveLabel} variant="primary" clickAction={form.handleSubmit} />
+          <Button
+            label={saveLabel}
+            variant="primary"
+            clickAction={form.handleSubmit}
+          />
         </HStack>
       </HStack>
 
@@ -205,7 +218,9 @@ function ProgramDetailPage() {
                 <Selector
                   label="Periodization"
                   value={field.state.value}
-                  onChange={(value) => field.handleChange(value as PeriodizationType)}
+                  onChange={(value) =>
+                    field.handleChange(value as PeriodizationType)
+                  }
                   options={PERIODIZATION_OPTIONS}
                 />
               )}
@@ -253,21 +268,26 @@ function ProgramDetailPage() {
       >
         {(daysField) => {
           const days = daysField.state.value;
-          const updateDay = (tempId: string, patch: Partial<EditableProgramDay>) => {
+          const updateDay = (
+            tempId: string,
+            patch: Partial<EditableProgramDay>
+          ) => {
             const index = days.findIndex((day) => day.tempId === tempId);
-            if (index === -1) return;
+            if (index === -1) {return;}
             daysField.replaceValue(index, { ...days[index], ...patch });
           };
           const updateExercise: UpdateProgramExercise = (
             dayTempId,
             exerciseTempId,
-            patch,
+            patch
           ) => {
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) return;
+            if (dayIndex === -1) {return;}
             const day = days[dayIndex];
             const exercises = day.exercises.map((exercise) =>
-              exercise.tempId === exerciseTempId ? { ...exercise, ...patch } : exercise,
+              exercise.tempId === exerciseTempId
+                ? { ...exercise, ...patch }
+                : exercise
             );
             daysField.replaceValue(dayIndex, { ...day, exercises });
           };
@@ -276,14 +296,14 @@ function ProgramDetailPage() {
           };
           const addExercise = (dayTempId: string) => {
             const firstExercise = exercises[0];
-            if (!firstExercise) return;
+            if (!firstExercise) {return;}
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) return;
+            if (dayIndex === -1) {return;}
             const day = days[dayIndex];
             const nextExercise = editableExerciseFromExercise(
               firstExercise,
               periodizationType,
-              day.exercises.length + 1,
+              day.exercises.length + 1
             );
             daysField.replaceValue(dayIndex, {
               ...day,
@@ -292,14 +312,17 @@ function ProgramDetailPage() {
           };
           const removeDay = (tempId: string) => {
             const index = days.findIndex((day) => day.tempId === tempId);
-            if (index !== -1) daysField.removeValue(index);
+            if (index !== -1) {daysField.removeValue(index);}
           };
-          const removeExercise: RemoveProgramExercise = (dayTempId, exerciseTempId) => {
+          const removeExercise: RemoveProgramExercise = (
+            dayTempId,
+            exerciseTempId
+          ) => {
             const dayIndex = days.findIndex((day) => day.tempId === dayTempId);
-            if (dayIndex === -1) return;
+            if (dayIndex === -1) {return;}
             const day = days[dayIndex];
             const exercises = day.exercises.filter(
-              (exercise) => exercise.tempId !== exerciseTempId,
+              (exercise) => exercise.tempId !== exerciseTempId
             );
             daysField.replaceValue(dayIndex, { ...day, exercises });
           };
@@ -319,20 +342,30 @@ function ProgramDetailPage() {
           return (
             <VStack gap={3}>
               {days.map((day, dayIndex) => {
-                const persistedId = day.persistedId;
+                const {persistedId} = day;
                 return (
                   <Card key={day.tempId}>
                     <VStack gap={3}>
-                      <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+                      <HStack
+                        hAlign="between"
+                        vAlign="center"
+                        gap={3}
+                        wrap="wrap"
+                      >
                         <HStack gap={2} vAlign="center" wrap="wrap">
                           <TextInput
                             label={`Training day ${dayIndex + 1} name`}
                             value={day.day_name}
-                            onChange={(value) => updateDay(day.tempId, { day_name: value })}
+                            onChange={(value) =>
+                              updateDay(day.tempId, { day_name: value })
+                            }
                           />
-                          {periodizationType === "dup" && day.exercises[0]?.target_reps ? (
+                          {periodizationType === "dup" &&
+                          day.exercises[0]?.target_reps ? (
                             <Badge
-                              label={getDupDayEmphasis(day.exercises[0].target_reps)}
+                              label={getDupDayEmphasis(
+                                day.exercises[0].target_reps
+                              )}
                               variant="info"
                             />
                           ) : null}
@@ -376,7 +409,11 @@ function ProgramDetailPage() {
                   </Card>
                 );
               })}
-              <Button label="Add Training Day" variant="secondary" clickAction={addDay} />
+              <Button
+                label="Add Training Day"
+                variant="secondary"
+                clickAction={addDay}
+              />
             </VStack>
           );
         }}

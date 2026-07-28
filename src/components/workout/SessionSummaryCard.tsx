@@ -8,18 +8,24 @@ import {
   MetadataListItem,
   Text,
   VStack,
-} from '@astryxdesign/core'
-import { formatDisplayInteger } from '~/lib/format-number'
-import type { WorkoutSessionSummary } from '~/lib/api'
+} from "@astryxdesign/core";
 
-type SessionSummaryCardProps = {
-  summary: WorkoutSessionSummary
-  onDone: () => void
+import type { WorkoutSessionSummary } from "~/lib/api";
+import { formatDisplayInteger } from "~/lib/format-number";
+
+interface SessionSummaryCardProps {
+  summary: WorkoutSessionSummary;
+  onDone: () => void;
 }
 
-export function SessionSummaryCard({ summary, onDone }: SessionSummaryCardProps) {
+export function SessionSummaryCard({
+  summary,
+  onDone,
+}: SessionSummaryCardProps) {
   const durationLabel =
-    summary.durationMinutes != null ? `${formatDisplayInteger(summary.durationMinutes)} min` : '—'
+    summary.durationMinutes == null
+      ? "—"
+      : `${formatDisplayInteger(summary.durationMinutes)} min`;
 
   return (
     <Card>
@@ -35,21 +41,31 @@ export function SessionSummaryCard({ summary, onDone }: SessionSummaryCardProps)
 
         <MetadataList>
           <MetadataListItem label="Total volume">
-            <Text hasTabularNumbers>{formatDisplayInteger(summary.totalVolume)} kg</Text>
+            <Text hasTabularNumbers>
+              {formatDisplayInteger(summary.totalVolume)} kg
+            </Text>
           </MetadataListItem>
           <MetadataListItem label="Sets logged">
-            <Text hasTabularNumbers>{formatDisplayInteger(summary.setCount)}</Text>
+            <Text hasTabularNumbers>
+              {formatDisplayInteger(summary.setCount)}
+            </Text>
           </MetadataListItem>
           <MetadataListItem label="Exercises">
-            <Text hasTabularNumbers>{formatDisplayInteger(summary.exerciseCount)}</Text>
+            <Text hasTabularNumbers>
+              {formatDisplayInteger(summary.exerciseCount)}
+            </Text>
           </MetadataListItem>
           <MetadataListItem label="Duration">
             <Text hasTabularNumbers>{durationLabel}</Text>
           </MetadataListItem>
           <MetadataListItem label="Personal records">
             <HStack gap={2} vAlign="center">
-              <Text hasTabularNumbers>{formatDisplayInteger(summary.personalRecordCount)}</Text>
-              {summary.personalRecordCount > 0 ? <Badge label="PR" variant="success" /> : null}
+              <Text hasTabularNumbers>
+                {formatDisplayInteger(summary.personalRecordCount)}
+              </Text>
+              {summary.personalRecordCount > 0 ? (
+                <Badge label="PR" variant="success" />
+              ) : null}
             </HStack>
           </MetadataListItem>
         </MetadataList>
@@ -57,5 +73,5 @@ export function SessionSummaryCard({ summary, onDone }: SessionSummaryCardProps)
         <Button label="Done" variant="primary" size="lg" clickAction={onDone} />
       </VStack>
     </Card>
-  )
+  );
 }

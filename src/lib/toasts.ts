@@ -8,89 +8,91 @@
 export const TOAST_DURATION_MS = {
   /** Default info auto-hide (Astryx default). */
   info: 5000,
-  /** Workout set save — short confirmation. */
-  setSaved: 3000,
   /** Rest timer completion (issue #60). */
   restComplete: 3000,
+  /** Workout set save — short confirmation. */
+  setSaved: 3000,
   /** Delete + Undo window. */
   undo: 8000,
-} as const
+} as const;
 
 export type MutationToastAction =
-  | 'Save profile'
-  | 'Log food'
-  | 'Delete entry'
-  | 'Log weight'
-  | 'Save set'
-  | 'Delete set'
-  | 'Export data'
-  | 'Import data'
+  | "Save profile"
+  | "Log food"
+  | "Delete entry"
+  | "Log weight"
+  | "Save set"
+  | "Delete set"
+  | "Export data"
+  | "Import data";
 
 /** Profile save confirmation. */
 export function profileSavedBody(): string {
-  return 'Profile saved'
+  return "Profile saved";
 }
 
 /** Food log confirmation. */
 export function foodLoggedBody(): string {
-  return 'Food logged'
+  return "Food logged";
 }
 
 /** Food entry delete confirmation (pair with Undo in endContent). */
 export function entryDeletedBody(): string {
-  return 'Entry deleted'
+  return "Entry deleted";
 }
 
 /** Copy-from-yesterday confirmation (pair with Undo in endContent). */
 export function copyCompletedBody(entryCount: number): string {
-  const label = entryCount === 1 ? 'entry' : 'entries'
-  return `Copied ${entryCount} ${label}`
+  const label = entryCount === 1 ? "entry" : "entries";
+  return `Copied ${entryCount} ${label}`;
 }
 
 /** Meal-template log confirmation with total kcal (pair with Undo in endContent). */
 export function templateLoggedBody(kcal: number): string {
-  return `Logged ${Math.round(kcal)} kcal`
+  return `Logged ${Math.round(kcal)} kcal`;
 }
 
 /** Weight log confirmation including the kg value the user just entered. */
 export function weightLoggedBody(kg: number): string {
-  return `Weight logged — ${kg}kg`
+  return `Weight logged — ${kg}kg`;
 }
 
 /** Workout set save confirmation. */
 export function setSavedBody(): string {
-  return 'Set saved'
+  return "Set saved";
 }
 
 /** Append PR fragments after a set-save confirmation (issue #61). */
 export function setSavedWithRecordsBody(prFragments: string): string {
-  return `${setSavedBody()} · ${prFragments}`
+  return `${setSavedBody()} · ${prFragments}`;
 }
 
 /** Rest timer completion (issue #60). */
 export function restCompleteBody(): string {
-  return 'Rest complete'
+  return "Rest complete";
 }
 
 /** Workout set delete confirmation (pair with Undo in endContent). */
 export function setDeletedBody(): string {
-  return 'Set deleted'
+  return "Set deleted";
 }
 
 /** JSON export confirmation. */
 export function dataExportedBody(): string {
-  return 'Data exported'
+  return "Data exported";
 }
 
 /** JSON import confirmation. */
 export function dataImportedBody(): string {
-  return 'Data imported'
+  return "Data imported";
 }
 
 /**
  * Error toast body for a failed mutation. Error toasts persist until dismissed.
  * @example mutationFailedBody('Save profile') // "Save profile failed"
  */
-export function mutationFailedBody(action: MutationToastAction | string): string {
-  return `${action} failed`
+export function mutationFailedBody(
+  action: MutationToastAction | string
+): string {
+  return `${action} failed`;
 }

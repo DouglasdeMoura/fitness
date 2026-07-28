@@ -1,9 +1,17 @@
-'use client'
+"use client";
 
-import { Button, HStack, ProgressBar, Section, Text, VStack } from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
-import { useRouterState, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useSyncExternalStore, useState } from 'react'
+import {
+  Button,
+  HStack,
+  ProgressBar,
+  Section,
+  Text,
+  VStack,
+} from "@astryxdesign/core";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useRouterState, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+
 import {
   clearRestTimer,
   restTimerSearchFromState,
@@ -19,57 +27,55 @@ import {
   stopRestTimer,
   restoreRestTimerFromSession,
   subscribeRestTimer,
-} from '~/lib/rest-timer'
-import { restCompleteBody, TOAST_DURATION_MS } from '~/lib/toasts'
+} from "~/lib/rest-timer";
+import { restCompleteBody, TOAST_DURATION_MS } from "~/lib/toasts";
 
-const TICK_MS = 250
-
+const TICK_MS = 250;
 
 function syncRestTimerUrl(
   navigate: ReturnType<typeof useNavigate>,
-  pathname: string,
+  pathname: string
 ): void {
-  if (!pathname.startsWith('/workout')) {
-    return
+  if (!pathname.startsWith("/workout")) {
+    return;
   }
-  const timerSearch = restTimerSearchFromState(Date.now())
+  const timerSearch = restTimerSearchFromState(Date.now());
   navigate({
-    to: '/workout',
     search: (prev) => ({ ...prev, ...timerSearch }),
-  })
+    to: "/workout",
+  });
 }
 
-
 function useNowTicker(active: boolean): number {
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (!active) {
-      return
+      return;
     }
-    setNowMs(Date.now())
-    const id = window.setInterval(() => setNowMs(Date.now()), TICK_MS)
-    return () => window.clearInterval(id)
-  }, [active])
+    setNowMs(Date.now());
+    const id = window.setInterval(() => setNowMs(Date.now()), TICK_MS);
+    return () => window.clearInterval(id);
+  }, [active]);
 
-  return nowMs
+  return nowMs;
 }
 
 function usePrefersReducedMotion(): boolean {
   const subscribe = useCallback((onStoreChange: () => void) => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    media.addEventListener('change', onStoreChange)
-    return () => media.removeEventListener('change', onStoreChange)
-  }, [])
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    media.addEventListener("change", onStoreChange);
+    return () => media.removeEventListener("change", onStoreChange);
+  }, []);
 
   const getSnapshot = useCallback(
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    [],
-  )
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []
+  );
 
-  const getServerSnapshot = useCallback(() => false, [])
+  const getServerSnapshot = useCallback(() => false, []);
 
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 /**
@@ -78,63 +84,74 @@ function usePrefersReducedMotion(): boolean {
  */
 export function RestTimer() {
   useEffect(() => {
-    restoreRestTimerFromSession()
-  }, [])
-  const snapshot = useSyncExternalStore(subscribeRestTimer, getRestTimerSnapshot, getRestTimerSnapshot)
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const navigate = useNavigate()
-  const toast = useToast()
-  const reducedMotion = usePrefersReducedMotion()
+    restoreRestTimerFromSession();
+  }, []);
+  const snapshot = useSyncExternalStore(
+    subscribeRestTimer,
+    getRestTimerSnapshot,
+    getRestTimerSnapshot
+  );
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const navigate = useNavigate();
+  const toast = useToast();
+  const reducedMotion = usePrefersReducedMotion();
 
-  const running = snapshot.endAtMs != null
-  const nowMs = useNowTicker(running)
+  const running = snapshot.endAtMs != null;
+  const nowMs = useNowTicker(running);
   const remaining =
-    snapshot.endAtMs != null ? remainingRestMs(snapshot.endAtMs, nowMs) : snapshot.durationMs ?? 0
-  const active = isRestTimerActive(nowMs)
-  const hasContext = snapshot.lastRpe != null || snapshot.durationMs != null
+    snapshot.endAtMs == null
+      ? (snapshot.durationMs ?? 0)
+      : remainingRestMs(snapshot.endAtMs, nowMs);
+  const active = isRestTimerActive(nowMs);
+  const hasContext = snapshot.lastRpe != null || snapshot.durationMs != null;
 
   const clearUrlParams = useCallback(() => {
-    if (!pathname.startsWith('/workout')) {
-      return
+    if (!pathname.startsWith("/workout")) {
+      return;
     }
     navigate({
-      to: '/workout',
       search: (prev) => {
-        const next = { ...prev }
-        delete next.restEnd
-        delete next.restDur
-        return next
+        const next = { ...prev };
+        delete next.restEnd;
+        delete next.restDur;
+        return next;
       },
-    })
-  }, [navigate, pathname])
+      to: "/workout",
+    });
+  }, [navigate, pathname]);
 
   useEffect(() => {
     if (!running || snapshot.endAtMs == null) {
-      return
+      return;
     }
     if (!isRestComplete(snapshot.endAtMs, nowMs)) {
-      return
+      return;
     }
 
-    const overdueMs = nowMs - snapshot.endAtMs
+    const overdueMs = nowMs - snapshot.endAtMs;
     if (overdueMs > 5000) {
-      return
+      return;
     }
 
-    toast({ body: restCompleteBody(), autoHideDuration: TOAST_DURATION_MS.restComplete })
-    playRestCompleteCue()
-    clearRestTimer()
-    clearUrlParams()
-  }, [clearUrlParams, nowMs, running, snapshot.endAtMs, toast])
+    toast({
+      autoHideDuration: TOAST_DURATION_MS.restComplete,
+      body: restCompleteBody(),
+    });
+    playRestCompleteCue();
+    clearRestTimer();
+    clearUrlParams();
+  }, [clearUrlParams, nowMs, running, snapshot.endAtMs, toast]);
 
-  const showControls = active || hasContext
+  const showControls = active || hasContext;
 
   return (
     <Section
       role="region"
       aria-label="Rest timer"
       data-fittrack-rest-timer-slot=""
-      data-rest-active={active ? '' : undefined}
+      data-rest-active={active ? "" : undefined}
       variant="section"
       padding={2}
       minHeight="var(--app-rest-timer-reserved-height)"
@@ -145,13 +162,20 @@ export function RestTimer() {
             <VStack gap={0}>
               <Text type="label">Rest</Text>
               <Text size="2xl" weight="bold" hasTabularNumbers>
-                {active ? formatRestCountdown(remaining) : 'Stopped'}
+                {active ? formatRestCountdown(remaining) : "Stopped"}
               </Text>
             </VStack>
-            {active && !reducedMotion && snapshot.endAtMs != null && snapshot.durationMs != null ? (
+            {active &&
+            !reducedMotion &&
+            snapshot.endAtMs != null &&
+            snapshot.durationMs != null ? (
               <ProgressBar
                 label="Rest progress"
-                value={restProgressPercent(snapshot.endAtMs, snapshot.durationMs, nowMs)}
+                value={restProgressPercent(
+                  snapshot.endAtMs,
+                  snapshot.durationMs,
+                  nowMs
+                )}
                 max={100}
                 hasValueLabel={false}
                 isLabelHidden
@@ -165,8 +189,8 @@ export function RestTimer() {
               variant="primary"
               size="lg"
               clickAction={() => {
-                manualStartRestTimer(Date.now())
-                syncRestTimerUrl(navigate, pathname)
+                manualStartRestTimer(Date.now());
+                syncRestTimerUrl(navigate, pathname);
               }}
             />
             <Button
@@ -180,13 +204,13 @@ export function RestTimer() {
               variant="secondary"
               size="lg"
               clickAction={() => {
-                resetRestTimer(Date.now())
-                syncRestTimerUrl(navigate, pathname)
+                resetRestTimer(Date.now());
+                syncRestTimerUrl(navigate, pathname);
               }}
             />
           </HStack>
         </VStack>
       ) : null}
     </Section>
-  )
+  );
 }

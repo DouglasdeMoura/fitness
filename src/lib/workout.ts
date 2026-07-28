@@ -4,50 +4,57 @@
 // - Schoenfeld BJ et al. "Dose-response relationship between weekly resistance training volume and muscle hypertrophy." J Strength Cond Res. 2017
 // - Radaelli R et al. "Dose-response of 1, 3, and 5 sets of resistance exercise on elbow flexors." Eur J Appl Physiol. 2023
 
-import { formatDisplayInteger } from './format-number'
+import { formatDisplayInteger } from "./format-number";
 
 export type MuscleGroup =
-  | 'chest'
-  | 'back'
-  | 'shoulders'
-  | 'arms'
-  | 'legs'
-  | 'core'
-  | 'full_body'
+  | "chest"
+  | "back"
+  | "shoulders"
+  | "arms"
+  | "legs"
+  | "core"
+  | "full_body";
 
-export const VOLUME_GUIDELINES: Record<MuscleGroup, { min: number; max: number; label: string }> = {
-  chest: { min: 8, max: 16, label: 'Chest' },
-  back: { min: 10, max: 20, label: 'Back' },
-  shoulders: { min: 8, max: 16, label: 'Shoulders' },
-  arms: { min: 8, max: 16, label: 'Arms' },
-  legs: { min: 10, max: 20, label: 'Legs' },
-  core: { min: 8, max: 16, label: 'Core' },
-  full_body: { min: 10, max: 20, label: 'Full Body' },
-}
+export const VOLUME_GUIDELINES: Record<
+  MuscleGroup,
+  { min: number; max: number; label: string }
+> = {
+  arms: { label: "Arms", max: 16, min: 8 },
+  back: { label: "Back", max: 20, min: 10 },
+  chest: { label: "Chest", max: 16, min: 8 },
+  core: { label: "Core", max: 16, min: 8 },
+  full_body: { label: "Full Body", max: 20, min: 10 },
+  legs: { label: "Legs", max: 20, min: 10 },
+  shoulders: { label: "Shoulders", max: 16, min: 8 },
+};
 
 /**
  * Estimated 1RM using Epley equation.
  * Epley B. "Weight training." In: Encyclopedia of Sports Medicine. 1985
  */
 export function estimate1RM(weight: number, reps: number): number {
-  if (reps <= 1) return weight
-  return weight * (1 + reps / 30)
+  if (reps <= 1) {return weight;}
+  return weight * (1 + reps / 30);
 }
 
 /**
  * Reverse Epley: given target reps and %1RM, calculate working weight
  */
 export function weightFrom1RM(oneRM: number, reps: number): number {
-  if (reps <= 1) return oneRM
-  return oneRM / (1 + reps / 30)
+  if (reps <= 1) {return oneRM;}
+  return oneRM / (1 + reps / 30);
 }
 
 /**
  * Training volume = sets x reps x weight
  * Volume is the primary driver of hypertrophy (Schoenfeld et al. 2017)
  */
-export function calculateVolume(sets: number, reps: number, weight: number): number {
-  return sets * reps * weight
+export function calculateVolume(
+  sets: number,
+  reps: number,
+  weight: number
+): number {
+  return sets * reps * weight;
 }
 
 /**
@@ -58,75 +65,82 @@ export function calculateVolume(sets: number, reps: number, weight: number): num
  * For hypertrophy, optimal RIR is 1-3 (Zourdos et al. 2016; Helms et al. 2016)
  */
 export function rpeToRir(rpe: number): number {
-  return Math.max(0, 10 - rpe)
+  return Math.max(0, 10 - rpe);
 }
 
 /**
  * Weekly volume distribution recommendation.
  * Schoenfeld et al. 2019: 2x/week frequency per muscle group is optimal for hypertrophy.
  */
-export function recommendWeeklyVolume(frequency: number, muscleGroup: MuscleGroup): number {
-  const guideline = VOLUME_GUIDELINES[muscleGroup]
-  if (frequency >= 2) return Math.round((guideline.min + guideline.max) / 2)
-  return guideline.max // if training once a week, need more volume per session
+export function recommendWeeklyVolume(
+  frequency: number,
+  muscleGroup: MuscleGroup
+): number {
+  const guideline = VOLUME_GUIDELINES[muscleGroup];
+  if (frequency >= 2) {return Math.round((guideline.min + guideline.max) / 2);}
+  return guideline.max; // if training once a week, need more volume per session
 }
 
-export type WorkoutStats = {
-  totalVolume: number
-  totalSets: number
-  estimatedDuration: number
-  muscleGroupsWorked: string[]
+export interface WorkoutStats {
+  totalVolume: number;
+  totalSets: number;
+  estimatedDuration: number;
+  muscleGroupsWorked: string[];
 }
 
 export function calculateWorkoutStats(
-  sets: Array<{ reps: number | null; weight_kg: number | null; exercise_id: number }>
+  sets: {
+    reps: number | null;
+    weight_kg: number | null;
+    exercise_id: number;
+  }[]
 ): WorkoutStats {
-  let totalVolume = 0
-  let totalSets = sets.length
-  let estimatedDuration = 0
+  let totalVolume = 0;
+  const totalSets = sets.length;
+  let estimatedDuration = 0;
 
   for (const set of sets) {
-    const reps = set.reps || 0
-    const weight = set.weight_kg || 0
-    totalVolume += reps * weight
+    const reps = set.reps || 0;
+    const weight = set.weight_kg || 0;
+    totalVolume += reps * weight;
     // Estimate: ~60 seconds per set + ~90 seconds rest
-    estimatedDuration += 150
+    estimatedDuration += 150;
   }
 
   return {
-    totalVolume: Math.round(totalVolume),
-    totalSets,
     estimatedDuration: Math.round(estimatedDuration / 60),
     muscleGroupsWorked: [],
-  }
+    totalSets,
+    totalVolume: Math.round(totalVolume),
+  };
 }
 
-export type PeriodizationType = 'linear' | 'dup'
+export type PeriodizationType = "linear" | "dup";
 
-export type ProgramPrescription = {
-  target_sets: number
-  target_reps: string
-  target_rpe: number
-  rest_seconds?: number | null
+export interface ProgramPrescription {
+  target_sets: number;
+  target_reps: string;
+  target_rpe: number;
+  rest_seconds?: number | null;
 }
 
 export type ResolvedProgramTarget = ProgramPrescription & {
-  suggested_weight_kg: number | null
-  progression_note: string
-  dup_emphasis?: DupDayEmphasis
-}
+  suggested_weight_kg: number | null;
+  progression_note: string;
+  dup_emphasis?: DupDayEmphasis;
+};
 
-export type DupDayEmphasis = 'strength' | 'hypertrophy' | 'endurance'
+export type DupDayEmphasis = "strength" | "hypertrophy" | "endurance";
 
 /**
  * Parse rep prescriptions like "8", "8-12", or "3-5".
  */
 export function parseTargetReps(targetReps: string): number {
-  const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/)
-  if (!match) return 8
-  const low = parseInt(match[1], 10)
-  const high = match[2] ? parseInt(match[2], 10) : low
-  return Math.round((low + high) / 2)
+  const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/);
+  if (!match) {return 8;}
+  const low = Number.parseInt(match[1], 10);
+  const high = match[2] ? Number.parseInt(match[2], 10) : low;
+  return Math.round((low + high) / 2);
 }
 
 /**
@@ -134,51 +148,57 @@ export function parseTargetReps(targetReps: string): number {
  * Rhea MR et al. J Strength Cond Res. 2002; Prestes J et al. 2009.
  */
 export function getDupDayEmphasis(targetReps: string): DupDayEmphasis {
-  const midpoint = parseTargetReps(targetReps)
-  if (midpoint <= 5) return 'strength'
-  if (midpoint <= 10) return 'hypertrophy'
-  return 'endurance'
+  const midpoint = parseTargetReps(targetReps);
+  if (midpoint <= 5) {return "strength";}
+  if (midpoint <= 10) {return "hypertrophy";}
+  return "endurance";
 }
 
 /** Shown when no prior set exists for an exercise (PRD 10 Batch 1). */
 export const NO_HISTORY_GUIDANCE =
-  'Select a weight that reaches the target RPE for all prescribed sets.'
+  "Select a weight that reaches the target RPE for all prescribed sets.";
 
-export type LastPerformance = {
-  weight_kg: number
-  reps: number
-  rpe: number
-  date: string
+export interface LastPerformance {
+  weight_kg: number;
+  reps: number;
+  rpe: number;
+  date: string;
 }
 
-export type FreeFormSuggestion = {
-  weight: number
-  reps: number
-  note: string
+export interface FreeFormSuggestion {
+  weight: number;
+  reps: number;
+  note: string;
 }
 
-const MS_PER_DAY = 86_400_000
+const MS_PER_DAY = 86_400_000;
 
 /**
  * Relative day label for last-performance context.
  * @example formatRelativeDaysAgo('2019-12-20', '2020-01-01') // '12 days ago'
  */
-export function formatRelativeDaysAgo(sessionDate: string, referenceDate: string): string {
-  const session = new Date(`${sessionDate}T12:00:00`)
-  const reference = new Date(`${referenceDate}T12:00:00`)
-  const days = Math.max(0, Math.floor((reference.getTime() - session.getTime()) / MS_PER_DAY))
-  if (days === 0) return 'today'
-  if (days === 1) return '1 day ago'
-  return `${days} days ago`
+export function formatRelativeDaysAgo(
+  sessionDate: string,
+  referenceDate: string
+): string {
+  const session = new Date(`${sessionDate}T12:00:00`);
+  const reference = new Date(`${referenceDate}T12:00:00`);
+  const days = Math.max(
+    0,
+    Math.floor((reference.getTime() - session.getTime()) / MS_PER_DAY)
+  );
+  if (days === 0) {return "today";}
+  if (days === 1) {return "1 day ago";}
+  return `${days} days ago`;
 }
 
 /** Inline last-session line for free-form sets (PRD 10 Batch 1). */
 export function formatLastPerformanceLine(
   performance: LastPerformance,
-  referenceDate: string,
+  referenceDate: string
 ): string {
-  const when = formatRelativeDaysAgo(performance.date, referenceDate)
-  return `Last time: ${performance.weight_kg} kg × ${performance.reps} @ RPE ${performance.rpe} (${when})`
+  const when = formatRelativeDaysAgo(performance.date, referenceDate);
+  return `Last time: ${performance.weight_kg} kg × ${performance.reps} @ RPE ${performance.rpe} (${when})`;
 }
 
 /**
@@ -188,16 +208,16 @@ export function formatLastPerformanceLine(
 export function buildFreeFormSuggestion(
   performance: LastPerformance | null,
   targetReps = 8,
-  incrementPct = 2.5,
+  incrementPct = 2.5
 ): FreeFormSuggestion | null {
-  if (!performance) return null
+  if (!performance) {return null;}
   return suggestWeightProgression(
     performance.weight_kg,
     performance.reps,
     targetReps,
     performance.rpe,
-    incrementPct,
-  )
+    incrementPct
+  );
 }
 
 /**
@@ -213,25 +233,25 @@ export function resolveLinearTargets(
   if (!lastPerformance) {
     return {
       ...prescription,
-      suggested_weight_kg: null,
       progression_note: NO_HISTORY_GUIDANCE,
-    }
+      suggested_weight_kg: null,
+    };
   }
 
-  const targetReps = parseTargetReps(prescription.target_reps)
+  const targetReps = parseTargetReps(prescription.target_reps);
   const progression = suggestWeightProgression(
     lastPerformance.weight_kg,
     lastPerformance.reps,
     targetReps,
     lastPerformance.rpe,
     incrementPct
-  )
+  );
 
   return {
     ...prescription,
-    suggested_weight_kg: progression.weight,
     progression_note: progression.note,
-  }
+    suggested_weight_kg: progression.weight,
+  };
 }
 
 /**
@@ -239,20 +259,22 @@ export function resolveLinearTargets(
  * Intensity and volume shift session-to-session instead of week-to-week.
  * Rhea MR et al. J Strength Cond Res. 2002.
  */
-export function resolveDupTargets(prescription: ProgramPrescription): ResolvedProgramTarget {
-  const emphasis = getDupDayEmphasis(prescription.target_reps)
+export function resolveDupTargets(
+  prescription: ProgramPrescription
+): ResolvedProgramTarget {
+  const emphasis = getDupDayEmphasis(prescription.target_reps);
   const emphasisNote = {
-    strength: 'Strength emphasis: lower reps, higher relative intensity.',
-    hypertrophy: 'Hypertrophy emphasis: moderate reps in the 6-12 range.',
-    endurance: 'Metabolic emphasis: higher reps with controlled RPE.',
-  }[emphasis]
+    endurance: "Metabolic emphasis: higher reps with controlled RPE.",
+    hypertrophy: "Hypertrophy emphasis: moderate reps in the 6-12 range.",
+    strength: "Strength emphasis: lower reps, higher relative intensity.",
+  }[emphasis];
 
   return {
     ...prescription,
-    suggested_weight_kg: null,
-    progression_note: emphasisNote,
     dup_emphasis: emphasis,
-  }
+    progression_note: emphasisNote,
+    suggested_weight_kg: null,
+  };
 }
 
 export function resolveProgramTargets(
@@ -261,10 +283,10 @@ export function resolveProgramTargets(
   lastPerformance: { weight_kg: number; reps: number; rpe: number } | null,
   incrementPct = 2.5
 ): ResolvedProgramTarget {
-  if (periodizationType === 'dup') {
-    return resolveDupTargets(prescription)
+  if (periodizationType === "dup") {
+    return resolveDupTargets(prescription);
   }
-  return resolveLinearTargets(prescription, lastPerformance, incrementPct)
+  return resolveLinearTargets(prescription, lastPerformance, incrementPct);
 }
 
 /**
@@ -278,27 +300,27 @@ export function suggestWeightProgression(
   rpe: number,
   incrementPct = 2.5
 ): { weight: number; reps: number; note: string } {
-  const multiplier = 1 + incrementPct / 100
+  const multiplier = 1 + incrementPct / 100;
 
   if (rpe <= 7 && lastReps >= targetReps + 2) {
     return {
-      weight: Math.round(lastWeight * multiplier * 10) / 10,
-      reps: targetReps,
       note: `+${incrementPct}% — last set felt easy at RPE ${rpe}`,
-    }
+      reps: targetReps,
+      weight: Math.round(lastWeight * multiplier * 10) / 10,
+    };
   }
   if (rpe >= 9 && lastReps < targetReps) {
     return {
-      weight: lastWeight,
-      reps: lastReps,
       note: `Hold weight — last set was too hard at RPE ${rpe}`,
-    }
+      reps: lastReps,
+      weight: lastWeight,
+    };
   }
   return {
-    weight: lastWeight,
-    reps: targetReps + (lastReps >= targetReps ? 1 : 0),
     note: `Add a rep — maintain load at RPE ${rpe}`,
-  }
+    reps: targetReps + (lastReps >= targetReps ? 1 : 0),
+    weight: lastWeight,
+  };
 }
 
 /**
@@ -310,12 +332,12 @@ export function suggestWeightProgression(
  * Example: activeSessionFromUrl({ id: 5, program_id: 2, program_day_id: 7 })
  *          // { id: 5, tempRef: 'session-5', programId: 2, programDayId: 7 }
  */
-export type ActiveSession = {
-  id: number | null
-  tempRef: string
-  programId: number | null
-  programDayId: number | null
-  startedAt: string
+export interface ActiveSession {
+  id: number | null;
+  tempRef: string;
+  programId: number | null;
+  programDayId: number | null;
+  startedAt: string;
 }
 
 /**
@@ -323,54 +345,59 @@ export type ActiveSession = {
  * workout page consumes. Pure so it can be unit-tested in isolation.
  */
 export function activeSessionFromUrl(session: {
-  id: number
-  program_id: number | null
-  program_day_id: number | null
-  created_at: string
+  id: number;
+  program_id: number | null;
+  program_day_id: number | null;
+  created_at: string;
 }): ActiveSession {
   return {
     id: session.id,
-    tempRef: `session-${session.id}`,
-    programId: session.program_id,
     programDayId: session.program_day_id,
+    programId: session.program_id,
     startedAt: session.created_at,
-  }
+    tempRef: `session-${session.id}`,
+  };
 }
 
-export type SessionVolumeSet = {
-  reps: number | null
-  weight_kg: number | null
-  exercise_id: number
+export interface SessionVolumeSet {
+  reps: number | null;
+  weight_kg: number | null;
+  exercise_id: number;
 }
 
-export type SessionVolumeStats = {
-  totalVolume: number
-  setCount: number
-  exerciseCount: number
+export interface SessionVolumeStats {
+  totalVolume: number;
+  setCount: number;
+  exerciseCount: number;
 }
 
 /**
  * Aggregate session volume metrics from logged sets.
  * Volume = sets × reps × weight (Schoenfeld et al. 2017).
  */
-export function computeSessionVolumeStats(sets: SessionVolumeSet[]): SessionVolumeStats {
-  const validSets = sets.filter((set) => set.reps != null && set.weight_kg != null)
-  const exerciseIds = new Set(validSets.map((set) => set.exercise_id))
+export function computeSessionVolumeStats(
+  sets: SessionVolumeSet[]
+): SessionVolumeStats {
+  const validSets = sets.filter(
+    (set) => set.reps != null && set.weight_kg != null
+  );
+  const exerciseIds = new Set(validSets.map((set) => set.exercise_id));
   const totalVolume = validSets.reduce(
-    (sum, set) => sum + calculateVolume(1, set.reps as number, set.weight_kg as number),
-    0,
-  )
+    (sum, set) =>
+      sum + calculateVolume(1, set.reps as number, set.weight_kg as number),
+    0
+  );
 
   return {
-    totalVolume: Math.round(totalVolume),
-    setCount: validSets.length,
     exerciseCount: exerciseIds.size,
-  }
+    setCount: validSets.length,
+    totalVolume: Math.round(totalVolume),
+  };
 }
 
-export type SessionVolumeComparison = {
-  percentChange: number | null
-  direction: 'more' | 'less' | 'same' | 'first'
+export interface SessionVolumeComparison {
+  percentChange: number | null;
+  direction: "more" | "less" | "same" | "first";
 }
 
 /**
@@ -378,30 +405,32 @@ export type SessionVolumeComparison = {
  * Returns null percentChange when there is no prior session to compare.
  */
 export function compareSessionVolumes(
-  current: Pick<SessionVolumeStats, 'totalVolume'>,
-  previous: Pick<SessionVolumeStats, 'totalVolume'> | null,
+  current: Pick<SessionVolumeStats, "totalVolume">,
+  previous: Pick<SessionVolumeStats, "totalVolume"> | null
 ): SessionVolumeComparison {
   if (!previous || previous.totalVolume <= 0) {
-    return { percentChange: null, direction: 'first' }
+    return { direction: "first", percentChange: null };
   }
 
-  const diff = current.totalVolume - previous.totalVolume
-  const percentChange = Math.round((diff / previous.totalVolume) * 100)
+  const diff = current.totalVolume - previous.totalVolume;
+  const percentChange = Math.round((diff / previous.totalVolume) * 100);
 
   if (percentChange === 0) {
-    return { percentChange: 0, direction: 'same' }
+    return { direction: "same", percentChange: 0 };
   }
 
   return {
+    direction: diff > 0 ? "more" : "less",
     percentChange: Math.abs(percentChange),
-    direction: diff > 0 ? 'more' : 'less',
-  }
+  };
 }
 
 /** Lowercase session label for comparison copy ("last chest day"). */
-export function sessionComparisonLabel(name: string | null | undefined): string {
-  const trimmed = (name ?? 'workout').trim()
-  return trimmed.length > 0 ? trimmed.toLowerCase() : 'workout'
+export function sessionComparisonLabel(
+  name: string | null | undefined
+): string {
+  const trimmed = (name ?? "workout").trim();
+  return trimmed.length > 0 ? trimmed.toLowerCase() : "workout";
 }
 
 /**
@@ -412,35 +441,38 @@ export function sessionComparisonLabel(name: string | null | undefined): string 
 export function formatSessionVolumeComparison(
   totalVolume: number,
   sessionName: string | null | undefined,
-  comparison: SessionVolumeComparison,
+  comparison: SessionVolumeComparison
 ): string {
-  const formattedVolume = formatDisplayInteger(totalVolume)
-  const label = sessionComparisonLabel(sessionName)
+  const formattedVolume = formatDisplayInteger(totalVolume);
+  const label = sessionComparisonLabel(sessionName);
 
-  if (comparison.direction === 'first') {
-    return `${formattedVolume} kg total — your first ${label}.`
+  if (comparison.direction === "first") {
+    return `${formattedVolume} kg total — your first ${label}.`;
   }
 
-  if (comparison.direction === 'same') {
-    return `${formattedVolume} kg total — same volume as last ${label}.`
+  if (comparison.direction === "same") {
+    return `${formattedVolume} kg total — same volume as last ${label}.`;
   }
 
-  return `${formattedVolume} kg total — ${comparison.percentChange}% ${comparison.direction} than last ${label}.`
+  return `${formattedVolume} kg total — ${comparison.percentChange}% ${comparison.direction} than last ${label}.`;
 }
 
-const MS_PER_MINUTE = 60_000
+const MS_PER_MINUTE = 60_000;
 
 /**
  * Elapsed whole minutes between session start and finish timestamps.
  * Minimum of 1 minute so zero-length sessions still display duration.
  */
-export function durationMinutesBetween(startedAtIso: string, finishedAtIso: string): number {
-  const startedMs = Date.parse(startedAtIso)
-  const finishedMs = Date.parse(finishedAtIso)
+export function durationMinutesBetween(
+  startedAtIso: string,
+  finishedAtIso: string
+): number {
+  const startedMs = Date.parse(startedAtIso);
+  const finishedMs = Date.parse(finishedAtIso);
   if (!Number.isFinite(startedMs) || !Number.isFinite(finishedMs)) {
-    return 1
+    return 1;
   }
 
-  const elapsed = Math.max(0, finishedMs - startedMs)
-  return Math.max(1, Math.round(elapsed / MS_PER_MINUTE))
+  const elapsed = Math.max(0, finishedMs - startedMs);
+  return Math.max(1, Math.round(elapsed / MS_PER_MINUTE));
 }

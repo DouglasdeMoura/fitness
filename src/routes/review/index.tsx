@@ -1,10 +1,3 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
-import {
-  isDataLoadPending,
-  pickFailedDataLoadQuery,
-  useDataLoadQuery,
-} from '~/lib/data-load-query'
 import {
   Badge,
   Button,
@@ -15,54 +8,64 @@ import {
   MetadataListItem,
   Text,
   VStack,
-} from '@astryxdesign/core'
-import { getWeeklyReview } from '~/lib/api'
-import { formatDisplayInteger } from '~/lib/format-number'
+} from "@astryxdesign/core";
+import { createFileRoute } from "@tanstack/react-router";
+
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { ReviewSkeleton } from "~/components/loading/PageSkeletons";
+import { getWeeklyReview } from "~/lib/api";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
 import {
   formatCalorieAverageVersusTarget,
   formatVolumeWeekDelta,
   formatWeightTrendDelta,
-} from '~/lib/weekly-review'
-import { ReviewSkeleton } from '~/components/loading/PageSkeletons'
-import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
+} from "~/lib/weekly-review";
 
-type ReviewSearch = {
-  date?: string
+interface ReviewSearch {
+  date?: string;
 }
 
-export const Route = createFileRoute('/review/')({
-  validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
-    date: parseSearchDate(typeof search.date === 'string' ? search.date : undefined),
-  }),
-  loaderDeps: ({ search: { date } }) => ({ date }),
-  head: () => ({ meta: [{ title: 'Weekly Review - FitTrack' }] }),
-  loader: async ({ deps }) => {
-    const asOf = resolveSelectedDate(deps.date)
-    const review = await getWeeklyReview({ data: { asOf } })
-    return { asOf, review }
-  },
-  pendingComponent: ReviewSkeleton,
+export const Route = createFileRoute("/review/")({
   component: ReviewPage,
-})
+  head: () => ({ meta: [{ title: "Weekly Review - FitTrack" }] }),
+  loader: async ({ deps }) => {
+    const asOf = resolveSelectedDate(deps.date);
+    const review = await getWeeklyReview({ data: { asOf } });
+    return { asOf, review };
+  },
+  loaderDeps: ({ search: { date } }) => ({ date }),
+  pendingComponent: ReviewSkeleton,
+  validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
+    date: parseSearchDate(
+      typeof search.date === "string" ? search.date : undefined
+    ),
+  }),
+});
 
 function ReviewPage() {
-  return <ReviewPageContent />
+  return <ReviewPageContent />;
 }
 
 function ReviewPageContent() {
-  const loaderData = Route.useLoaderData()
-  const { asOf } = loaderData
+  const loaderData = Route.useLoaderData();
+  const { asOf } = loaderData;
   const reviewQuery = useDataLoadQuery({
-    queryKey: ['weekly-review', asOf],
-    queryFn: () => getWeeklyReview({ data: { asOf } }),
     initialData: loaderData.review,
-  })
+    queryFn: () => getWeeklyReview({ data: { asOf } }),
+    queryKey: ["weekly-review", asOf],
+  });
 
   if (isDataLoadPending(reviewQuery)) {
-    return <ReviewSkeleton />
+    return <ReviewSkeleton />;
   }
 
-  const failedQuery = pickFailedDataLoadQuery([reviewQuery])
+  const failedQuery = pickFailedDataLoadQuery([reviewQuery]);
   if (failedQuery) {
     return (
       <DataLoadErrorView
@@ -70,10 +73,10 @@ function ReviewPageContent() {
         title="Failed to load weekly review"
         query={failedQuery}
       />
-    )
+    );
   }
 
-  const review = reviewQuery.data
+  const review = reviewQuery.data;
 
   if (!review) {
     return (
@@ -83,16 +86,17 @@ function ReviewPageContent() {
           <VStack gap={2}>
             <Text type="label">Not ready yet</Text>
             <Text type="supporting">
-              Log food, workouts, or weight during a full week to unlock your review.
+              Log food, workouts, or weight during a full week to unlock your
+              review.
             </Text>
             <Button label="Back to dashboard" href="/" variant="secondary" />
           </VStack>
         </Card>
       </VStack>
-    )
+    );
   }
 
-  const weekLabel = `${review.week.start} — ${review.week.end}`
+  const weekLabel = `${review.week.start} — ${review.week.end}`;
 
   return (
     <VStack as="main" gap={6} aria-label="Weekly review">
@@ -124,7 +128,7 @@ function ReviewPageContent() {
               <MetadataListItem label="Average calories">
                 {formatCalorieAverageVersusTarget(
                   review.nutrition.avgDailyCalories,
-                  review.nutrition.calorieTarget,
+                  review.nutrition.calorieTarget
                 )}
               </MetadataListItem>
             </MetadataList>
@@ -147,7 +151,7 @@ function ReviewPageContent() {
               <MetadataListItem label="Vs prior week">
                 {formatVolumeWeekDelta(
                   review.training.volumeDirection,
-                  review.training.volumeDeltaPct,
+                  review.training.volumeDeltaPct
                 )}
               </MetadataListItem>
             </MetadataList>
@@ -176,7 +180,7 @@ function ReviewPageContent() {
                 {review.personalRecordCount > 0 ? (
                   <Badge variant="success" label={review.personalRecordCount} />
                 ) : (
-                  'None'
+                  "None"
                 )}
               </MetadataListItem>
             </MetadataList>
@@ -186,5 +190,5 @@ function ReviewPageContent() {
 
       <Button label="Back to dashboard" href="/" variant="secondary" />
     </VStack>
-  )
+  );
 }

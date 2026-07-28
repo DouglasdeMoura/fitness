@@ -4,18 +4,18 @@
  */
 
 export function deleteFoodEntryTitle(): string {
-  return 'Delete this entry?'
+  return "Delete this entry?";
 }
 
 export function deleteWorkoutSetTitle(): string {
-  return 'Delete this set?'
+  return "Delete this set?";
 }
 
 /** @example deleteNamedEntityTitle('Push Day') => "Delete 'Push Day'?" */
 export function deleteNamedEntityTitle(name: string): string {
-  return `Delete '${name}'?`
+  return `Delete '${name}'?`;
 }
 
 export function deleteCannotBeUndoneSubtitle(): string {
-  return 'This cannot be undone.'
+  return "This cannot be undone.";
 }

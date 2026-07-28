@@ -1,12 +1,3 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useForm } from '@tanstack/react-form'
-import { useRef, useState } from 'react'
-import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
-import {
-  isDataLoadPending,
-  pickFailedDataLoadQuery,
-  useDataLoadQuery,
-} from '~/lib/data-load-query'
 import {
   Button,
   Card,
@@ -27,8 +18,17 @@ import {
   Text,
   TextInput,
   VStack,
-} from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
+} from "@astryxdesign/core";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { InstallPrompt } from "~/components/InstallPrompt";
+import { SettingsSkeleton } from "~/components/loading/PageSkeletons";
+import { PushNotifications } from "~/components/PushNotifications";
+import { ReminderPreferences } from "~/components/ReminderPreferences";
 import {
   getUser,
   updateUser,
@@ -38,117 +38,104 @@ import {
   getBodyLogs,
   getPushStatus,
   getReminderPreferences,
-} from '~/lib/api'
-import { runOrQueue } from '~/lib/offline'
+} from "~/lib/api";
+import { getStoredTheme, persistTheme } from "~/lib/app-chrome";
 import {
-  GOAL_CARD_OPTIONS,
-  SCIENCE_REFERENCES,
-  SEX_OPTIONS,
-  activityOptions,
-  buildProfileUpdate,
-  buildWeightChartPoints,
-  exportDownloadFilename,
-  parseImportFile,
-  parseWeightKg,
-  profileFormDefaults,
-  profileSaveButtonLabel,
-  todayISODate,
-  toISODate,
-  weightChartPolyline,
-  type GoalCardOption,
-  type WeightChartPoint,
-} from '~/lib/settings'
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
+import type { GoalType, ActivityLevel } from "~/lib/nutrition";
+import { runOrQueue } from "~/lib/offline";
+import { GOAL_CARD_OPTIONS, SCIENCE_REFERENCES, SEX_OPTIONS, activityOptions, buildProfileUpdate, buildWeightChartPoints, exportDownloadFilename, parseImportFile, parseWeightKg, profileFormDefaults, profileSaveButtonLabel, todayISODate, toISODate, weightChartPolyline } from '~/lib/settings';
+import type { GoalCardOption, WeightChartPoint } from '~/lib/settings';
 import {
   dataExportedBody,
   dataImportedBody,
   mutationFailedBody,
   profileSavedBody,
   weightLoggedBody,
-} from '~/lib/toasts'
-import { SettingsSkeleton } from '~/components/loading/PageSkeletons'
-import { InstallPrompt } from '~/components/InstallPrompt'
-import { PushNotifications } from '~/components/PushNotifications'
-import { ReminderPreferences } from '~/components/ReminderPreferences'
-import { getStoredTheme, persistTheme } from '~/lib/app-chrome'
-import type { GoalType, ActivityLevel } from '~/lib/nutrition'
+} from "~/lib/toasts";
 
-const WEIGHT_CHART_WIDTH = 320
-const WEIGHT_CHART_HEIGHT = 80
-const WEIGHT_CHART_PADDING = 8
+const WEIGHT_CHART_WIDTH = 320;
+const WEIGHT_CHART_HEIGHT = 80;
+const WEIGHT_CHART_PADDING = 8;
 
-export const Route = createFileRoute('/settings/')({
-  head: () => ({ meta: [{ title: 'Settings - FitTrack' }] }),
+export const Route = createFileRoute("/settings/")({
+  component: SettingsPage,
+  head: () => ({ meta: [{ title: "Settings - FitTrack" }] }),
   loader: async () => {
-    const [user, bodyLogs, pushStatus, reminderPreferences] = await Promise.all([
-      getUser(),
-      getBodyLogs({ data: { limit: 30 } }),
-      getPushStatus(),
-      getReminderPreferences(),
-    ])
-    return { user, bodyLogs, pushStatus, reminderPreferences }
+    const [user, bodyLogs, pushStatus, reminderPreferences] = await Promise.all(
+      [
+        getUser(),
+        getBodyLogs({ data: { limit: 30 } }),
+        getPushStatus(),
+        getReminderPreferences(),
+      ]
+    );
+    return { user, bodyLogs, pushStatus, reminderPreferences };
   },
   pendingComponent: SettingsSkeleton,
-  component: SettingsPage,
-})
+});
 
 async function exportFitTrackData(): Promise<void> {
-  const exportPayload = await exportData()
+  const exportPayload = await exportData();
   const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
-    type: 'application/json',
-  })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = exportDownloadFilename()
-  anchor.click()
-  URL.revokeObjectURL(url)
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = exportDownloadFilename();
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function SettingsPage() {
-  return <SettingsPageContent />
+  return <SettingsPageContent />;
 }
 
 function SettingsPageContent() {
-  const toast = useToast()
-  const loaderData = Route.useLoaderData()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const toast = useToast();
+  const loaderData = Route.useLoaderData();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const userQuery = useDataLoadQuery({
-    queryKey: ['user'],
-    queryFn: () => getUser(),
     initialData: loaderData.user,
-  })
+    queryFn: () => getUser(),
+    queryKey: ["user"],
+  });
 
   const bodyLogsQuery = useDataLoadQuery({
-    queryKey: ['bodyLogs', 30],
-    queryFn: () => getBodyLogs({ data: { limit: 30 } }),
     initialData: loaderData.bodyLogs,
-  })
+    queryFn: () => getBodyLogs({ data: { limit: 30 } }),
+    queryKey: ["bodyLogs", 30],
+  });
 
-  const [weight, setWeight] = useState<number | null>(null)
+  const [weight, setWeight] = useState<number | null>(null);
   const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return getStoredTheme() === 'dark'
-  })
+    if (typeof window === "undefined") {return false;}
+    return getStoredTheme() === "dark";
+  });
 
   const form = useForm({
     defaultValues: profileFormDefaults(userQuery.data ?? loaderData.user),
     onSubmit: async ({ value }) => {
       try {
-        await updateUser({ data: buildProfileUpdate(value) })
-        toast({ body: profileSavedBody() })
+        await updateUser({ data: buildProfileUpdate(value) });
+        toast({ body: profileSavedBody() });
       } catch {
-        toast({ body: mutationFailedBody('Save profile'), type: 'error' })
-        throw new Error('Save profile failed')
+        toast({ body: mutationFailedBody("Save profile"), type: "error" });
+        throw new Error("Save profile failed");
       }
     },
-  })
+  });
 
   if (isDataLoadPending(userQuery)) {
-    return <SettingsSkeleton />
+    return <SettingsSkeleton />;
   }
 
-  const failedQuery = pickFailedDataLoadQuery([userQuery, bodyLogsQuery])
+  const failedQuery = pickFailedDataLoadQuery([userQuery, bodyLogsQuery]);
   if (failedQuery) {
     return (
       <DataLoadErrorView
@@ -156,86 +143,91 @@ function SettingsPageContent() {
         title="Failed to load settings"
         query={failedQuery}
       />
-    )
+    );
   }
 
-  const user = userQuery.data!
-  const bodyLogs = bodyLogsQuery.data ?? []
+  const user = userQuery.data!;
+  const bodyLogs = bodyLogsQuery.data ?? [];
   const chartPoints: WeightChartPoint[] = buildWeightChartPoints(
     bodyLogs,
     WEIGHT_CHART_WIDTH,
     WEIGHT_CHART_HEIGHT,
-    WEIGHT_CHART_PADDING,
-  )
+    WEIGHT_CHART_PADDING
+  );
 
-  const handleSaveProfile = () => form.handleSubmit()
+  const handleSaveProfile = () => form.handleSubmit();
 
   const handleLogWeight = async () => {
-    const w = parseWeightKg(weight)
-    if (w == null) return
+    const w = parseWeightKg(weight);
+    if (w == null) {return;}
     try {
-      await runOrQueue('logBodyweight', { weight_kg: w }, () =>
-        logBodyweight({ data: { weight_kg: w } }),
-      )
-      toast({ body: weightLoggedBody(w) })
-      setWeight(null)
-      bodyLogsQuery.refetch()
+      await runOrQueue("logBodyweight", { weight_kg: w }, () =>
+        logBodyweight({ data: { weight_kg: w } })
+      );
+      toast({ body: weightLoggedBody(w) });
+      setWeight(null);
+      bodyLogsQuery.refetch();
     } catch {
-      toast({ body: mutationFailedBody('Log weight'), type: 'error' })
+      toast({ body: mutationFailedBody("Log weight"), type: "error" });
     }
-  }
+  };
 
   const handleExportData = async () => {
     try {
-      await exportFitTrackData()
-      toast({ body: dataExportedBody() })
+      await exportFitTrackData();
+      toast({ body: dataExportedBody() });
     } catch {
-      toast({ body: mutationFailedBody('Export data'), type: 'error' })
+      toast({ body: mutationFailedBody("Export data"), type: "error" });
     }
-  }
+  };
 
   const handleImportClick = () => {
-    fileInputRef.current?.click()
-  }
+    fileInputRef.current?.click();
+  };
 
-  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const handleImportFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {return;}
 
     try {
-      const text = await file.text()
-      const result = parseImportFile(text)
-      if ('error' in result) {
-        toast({ body: mutationFailedBody(result.error), type: 'error' })
-        return
+      const text = await file.text();
+      const result = parseImportFile(text);
+      if ("error" in result) {
+        toast({ body: mutationFailedBody(result.error), type: "error" });
+        return;
       }
 
-      await importData({ data: result.data as Parameters<typeof importData>[0]['data'] })
-      toast({ body: dataImportedBody() })
+      await importData({
+        data: result.data as Parameters<typeof importData>[0]["data"],
+      });
+      toast({ body: dataImportedBody() });
       // Reload to reflect imported data across all queries
-      window.location.reload()
+      window.location.reload();
     } catch {
-      toast({ body: mutationFailedBody('Import data'), type: 'error' })
+      toast({ body: mutationFailedBody("Import data"), type: "error" });
     } finally {
       // Reset the input so the same file can be re-imported
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (fileInputRef.current) {fileInputRef.current.value = "";}
     }
-  }
+  };
 
-  const handleGoalChange = (goalOpt: GoalCardOption) => (isSelected: boolean) => {
-    if (isSelected) {
-      form.setFieldValue('goal', goalOpt.value)
-    }
-  }
+  const handleGoalChange =
+    (goalOpt: GoalCardOption) => (isSelected: boolean) => {
+      if (isSelected) {
+        form.setFieldValue("goal", goalOpt.value);
+      }
+    };
 
   const handleActivityChange = (value: string) => {
-    form.setFieldValue('activity', value as ActivityLevel)
-  }
+    form.setFieldValue("activity", value as ActivityLevel);
+  };
 
   const handleDarkModeToggle = (checked: boolean) => {
-    setIsDark(checked)
-    persistTheme(checked ? 'dark' : 'light')
-  }
+    setIsDark(checked);
+    persistTheme(checked ? "dark" : "light");
+  };
 
   return (
     <VStack as="main" gap={6}>
@@ -274,7 +266,9 @@ function SettingsPageContent() {
                 <Selector
                   label="Sex (for BMR calculation)"
                   value={field.state.value}
-                  onChange={(value) => field.handleChange(value as typeof field.state.value)}
+                  onChange={(value) =>
+                    field.handleChange(value as typeof field.state.value)
+                  }
                   options={SEX_OPTIONS}
                 />
               )}
@@ -284,7 +278,7 @@ function SettingsPageContent() {
                 <DateInput
                   label="Birth Date"
                   value={toISODate(field.state.value) ?? undefined}
-                  onChange={(value) => field.handleChange(value ?? '')}
+                  onChange={(value) => field.handleChange(value ?? "")}
                   hasClear
                   max={todayISODate()}
                 />
@@ -293,13 +287,16 @@ function SettingsPageContent() {
           </FormLayout>
           <form.Subscribe
             selector={(state) => ({
-              isSubmitting: state.isSubmitting,
               isSubmitSuccessful: state.isSubmitSuccessful,
+              isSubmitting: state.isSubmitting,
             })}
           >
             {({ isSubmitting, isSubmitSuccessful }) => (
               <Button
-                label={profileSaveButtonLabel({ isSubmitting, isSubmitSuccessful })}
+                label={profileSaveButtonLabel({
+                  isSubmitSuccessful,
+                  isSubmitting,
+                })}
                 variant="primary"
                 clickAction={handleSaveProfile}
               />
@@ -316,7 +313,9 @@ function SettingsPageContent() {
           <form.Field name="goal">
             {(field) => (
               <VStack gap={3}>
-                <Text type="label" as="span">Primary Goal</Text>
+                <Text type="label" as="span">
+                  Primary Goal
+                </Text>
                 <Grid columns={2} gap={3}>
                   {GOAL_CARD_OPTIONS.map((opt) => (
                     <SelectableCard
@@ -327,7 +326,9 @@ function SettingsPageContent() {
                     >
                       <VStack gap={1}>
                         <Text weight="semibold">{opt.label}</Text>
-                        <Text type="supporting" size="sm">{opt.description}</Text>
+                        <Text type="supporting" size="sm">
+                          {opt.description}
+                        </Text>
                       </VStack>
                     </SelectableCard>
                   ))}
@@ -341,7 +342,9 @@ function SettingsPageContent() {
           <form.Field name="activity">
             {(field) => (
               <VStack gap={2}>
-                <Text type="label" as="span">Activity Level</Text>
+                <Text type="label" as="span">
+                  Activity Level
+                </Text>
                 <SegmentedControl
                   label="Activity Level"
                   value={field.state.value}
@@ -388,7 +391,11 @@ function SettingsPageContent() {
               hasClear
               onEnter={handleLogWeight}
             />
-            <Button label="Log" variant="primary" clickAction={handleLogWeight} />
+            <Button
+              label="Log"
+              variant="primary"
+              clickAction={handleLogWeight}
+            />
           </HStack>
           <Text type="supporting">
             Daily weigh-ins help track trends. Weight fluctuates daily; focus on
@@ -397,7 +404,9 @@ function SettingsPageContent() {
 
           {chartPoints.length >= 2 ? (
             <VStack gap={2}>
-              <Text type="label" as="span">Recent Weight History</Text>
+              <Text type="label" as="span">
+                Recent Weight History
+              </Text>
               <svg
                 viewBox={`0 0 ${WEIGHT_CHART_WIDTH} ${WEIGHT_CHART_HEIGHT}`}
                 width="100%"
@@ -416,17 +425,19 @@ function SettingsPageContent() {
                 {/* Last data point dot */}
                 {chartPoints.length > 0 && (
                   <circle
-                    cx={chartPoints[chartPoints.length - 1].x}
-                    cy={chartPoints[chartPoints.length - 1].y}
+                    cx={chartPoints.at(-1).x}
+                    cy={chartPoints.at(-1).y}
                     r="3"
                     fill="var(--color-accent)"
                   />
                 )}
               </svg>
             </VStack>
-          ) : bodyLogs.length > 0 ? (
-            <Text type="supporting">Log at least two weigh-ins to see your trend chart.</Text>
-          ) : null}
+          ) : (bodyLogs.length > 0 ? (
+            <Text type="supporting">
+              Log at least two weigh-ins to see your trend chart.
+            </Text>
+          ) : null)}
         </VStack>
       </Card>
 
@@ -468,7 +479,9 @@ function SettingsPageContent() {
         initialSubscribed={loaderData.pushStatus.subscribed}
       />
 
-      <ReminderPreferences initialPreferences={loaderData.reminderPreferences} />
+      <ReminderPreferences
+        initialPreferences={loaderData.reminderPreferences}
+      />
 
       <Card>
         <VStack gap={3}>
@@ -492,5 +505,5 @@ function SettingsPageContent() {
         </VStack>
       </Card>
     </VStack>
-  )
+  );
 }

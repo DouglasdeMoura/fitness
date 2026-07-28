@@ -1,10 +1,10 @@
-import { Section } from '@astryxdesign/core/Section'
-import type { ReactNode } from 'react'
+import { Section } from "@astryxdesign/core/Section";
+import type { ReactNode } from "react";
 
-type ScrollableTableProps = {
+interface ScrollableTableProps {
   /** Stable id for e2e scroll assertions (issue #53). */
-  scrollLabel: string
-  children: ReactNode
+  scrollLabel: string;
+  children: ReactNode;
 }
 
 /**
@@ -12,7 +12,10 @@ type ScrollableTableProps = {
  * Uses nested Section regions with data attributes for mobile overflow (issue #53).
  * @example <ScrollableTable scrollLabel="food-log"><Table ... /></ScrollableTable>
  */
-export function ScrollableTable({ scrollLabel, children }: ScrollableTableProps) {
+export function ScrollableTable({
+  scrollLabel,
+  children,
+}: ScrollableTableProps) {
   return (
     <Section
       variant="transparent"
@@ -20,9 +23,13 @@ export function ScrollableTable({ scrollLabel, children }: ScrollableTableProps)
       data-fittrack-table-scroll={scrollLabel}
       aria-label={`${scrollLabel} scroll region`}
     >
-      <Section variant="transparent" padding={0} data-fittrack-table-scroll-inner="">
+      <Section
+        variant="transparent"
+        padding={0}
+        data-fittrack-table-scroll-inner=""
+      >
         {children}
       </Section>
     </Section>
-  )
+  );
 }

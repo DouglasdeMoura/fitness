@@ -1,71 +1,57 @@
-import {
-  Button,
-  Card,
-  EmptyState,
-  Heading,
-  HStack,
-  MetadataList,
-  MetadataListItem,
-  ProgressBar,
-  Selector,
-  Table,
-  Text,
-  VStack,
-  proportional,
-  type TableColumn,
-} from "@astryxdesign/core";
-import { formatDisplayInteger } from "~/lib/format-number";
+import { Button, Card, EmptyState, Heading, HStack, MetadataList, MetadataListItem, ProgressBar, Selector, Table, Text, VStack, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { TemplateIcon } from "~/components/icons/FitTrackIcons";
+
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import { clearMealPlan, getMealTemplates, getWeekMealPlan, logMealFromPlan, setMealPlan } from '~/lib/api';
+import type { MealTemplateSummary, WeekMealPlan } from '~/lib/api';
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import {
-  clearMealPlan,
-  getMealTemplates,
-  getWeekMealPlan,
-  logMealFromPlan,
-  setMealPlan,
-  type MealTemplateSummary,
-  type WeekMealPlan,
-} from "~/lib/api";
-import { addDays, MEAL_TYPE_LABELS, MEAL_TYPES, type MealType } from "~/lib/nutrition";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { addDays, MEAL_TYPE_LABELS, MEAL_TYPES } from '~/lib/nutrition';
+import type { MealType } from '~/lib/nutrition';
 
 export const Route = createFileRoute("/nutrition/planning/")({
-  head: () => ({ meta: [{ title: "Meal Planning - FitTrack" }] }),
   component: MealPlanningPage,
+  head: () => ({ meta: [{ title: "Meal Planning - FitTrack" }] }),
 });
 
 type WeekPlanDay = WeekMealPlan["days"][number];
-type AssignMealTemplate = (date: string, mealType: MealType, templateId: string) => Promise<void>;
+type AssignMealTemplate = (
+  date: string,
+  mealType: MealType,
+  templateId: string
+) => Promise<void>;
 type LogPlannedMeal = (date: string, mealType: MealType) => Promise<void>;
 
 function mealPlanColumns(
   templates: MealTemplateSummary[],
   dailyTargetCalories: number,
   assignTemplate: AssignMealTemplate,
-  logMeal: LogPlannedMeal,
+  logMeal: LogPlannedMeal
 ): TableColumn<WeekPlanDay>[] {
   const templateOptions = [
-    { value: "", label: "— None —" },
+    { label: "— None —", value: "" },
     ...templates.map((template) => ({
-      value: String(template.id),
       label: template.name,
+      value: String(template.id),
     })),
   ];
   const mealColumns = MEAL_TYPES.map(
     (mealType): TableColumn<WeekPlanDay> => ({
-      key: mealType,
       header: MEAL_TYPE_LABELS[mealType],
-      width: proportional(2),
+      key: mealType,
       renderCell: (day) => {
-        const slot = day.slots.find((candidate) => candidate.meal_type === mealType);
+        const slot = day.slots.find(
+          (candidate) => candidate.meal_type === mealType
+        );
         if (!slot) return <Text type="supporting">Unavailable</Text>;
         return (
           <VStack gap={2}>
@@ -73,14 +59,19 @@ function mealPlanColumns(
               label={`${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
               isLabelHidden
               value={slot.template_id?.toString() ?? ""}
-              onChange={(value) => assignTemplate(slot.date, mealType, String(value))}
+              onChange={(value) =>
+                assignTemplate(slot.date, mealType, String(value))
+              }
               options={templateOptions}
             />
             {slot.template_id ? (
               <VStack gap={1}>
-                <Text hasTabularNumbers>{formatDisplayInteger(slot.macros.calories)} kcal</Text>
+                <Text hasTabularNumbers>
+                  {formatDisplayInteger(slot.macros.calories)} kcal
+                </Text>
                 <Text type="supporting" hasTabularNumbers>
-                  P {formatDisplayInteger(slot.macros.protein_g)} · C {formatDisplayInteger(slot.macros.carbs_g)} · F{" "}
+                  P {formatDisplayInteger(slot.macros.protein_g)} · C{" "}
+                  {formatDisplayInteger(slot.macros.carbs_g)} · F{" "}
                   {formatDisplayInteger(slot.macros.fat_g)}
                 </Text>
                 <Button
@@ -96,30 +87,33 @@ function mealPlanColumns(
           </VStack>
         );
       },
-    }),
+      width: proportional(2),
+    })
   );
   return [
     {
-      key: "day_label",
       header: "Day",
-      width: proportional(1),
+      key: "day_label",
       renderCell: (day) => <Text weight="bold">{day.day_label}</Text>,
+      width: proportional(1),
     },
     ...mealColumns,
     {
-      key: "daily_total",
       header: "Daily Total",
-      width: proportional(2),
+      key: "daily_total",
       renderCell: (day) => {
         const caloriePercent =
-          dailyTargetCalories > 0 ? (day.day_totals.calories / dailyTargetCalories) * 100 : 0;
+          dailyTargetCalories > 0
+            ? (day.day_totals.calories / dailyTargetCalories) * 100
+            : 0;
         return (
           <VStack gap={2}>
             <Text weight="bold" hasTabularNumbers>
               {formatDisplayInteger(day.day_totals.calories)} kcal
             </Text>
             <Text type="supporting" hasTabularNumbers>
-              P {formatDisplayInteger(day.day_totals.protein_g)} · C {formatDisplayInteger(day.day_totals.carbs_g)} · F{" "}
+              P {formatDisplayInteger(day.day_totals.protein_g)} · C{" "}
+              {formatDisplayInteger(day.day_totals.carbs_g)} · F{" "}
               {formatDisplayInteger(day.day_totals.fat_g)}
             </Text>
             <ProgressBar
@@ -128,25 +122,28 @@ function mealPlanColumns(
               max={dailyTargetCalories || 1}
               variant={caloriePercent > 100 ? "error" : "accent"}
               hasValueLabel
-              formatValueLabel={() => `${formatDisplayInteger(caloriePercent)}% of target`}
+              formatValueLabel={() =>
+                `${formatDisplayInteger(caloriePercent)}% of target`
+              }
             />
           </VStack>
         );
       },
+      width: proportional(2),
     },
   ];
 }
 
 function MealPlanningPage() {
   const queryClient = useQueryClient();
-  const [weekStart, setWeekStart] = useState<string | undefined>(undefined);
+  const [weekStart, setWeekStart] = useState<string | undefined>();
   const weekPlanQuery = useDataLoadQuery({
-    queryKey: ["week-meal-plan", weekStart],
     queryFn: () => getWeekMealPlan({ data: { start_date: weekStart } }),
+    queryKey: ["week-meal-plan", weekStart],
   });
   const templatesQuery = useDataLoadQuery({
-    queryKey: ["meal-templates"],
     queryFn: () => getMealTemplates(),
+    queryKey: ["meal-templates"],
   });
 
   if (isDataLoadPending(weekPlanQuery) || isDataLoadPending(templatesQuery)) {
@@ -171,10 +168,12 @@ function MealPlanningPage() {
     setWeekStart(addDays(weekPlan.start_date, direction * 7));
   };
 
-  const handleAssign: AssignMealTemplate = async (date, mealType, templateId) => {
-    if (!templateId) {
-      await clearMealPlan({ data: { date, meal_type: mealType } });
-    } else {
+  const handleAssign: AssignMealTemplate = async (
+    date,
+    mealType,
+    templateId
+  ) => {
+    if (templateId) {
       await setMealPlan({
         data: {
           date,
@@ -182,6 +181,8 @@ function MealPlanningPage() {
           template_id: Number.parseInt(templateId, 10),
         },
       });
+    } else {
+      await clearMealPlan({ data: { date, meal_type: mealType } });
     }
     await queryClient.invalidateQueries({ queryKey: ["week-meal-plan"] });
   };
@@ -189,7 +190,9 @@ function MealPlanningPage() {
   const handleLogMeal: LogPlannedMeal = async (date, mealType) => {
     await logMealFromPlan({ data: { date, meal_type: mealType } });
     await queryClient.invalidateQueries({ queryKey: ["food-log"] });
-    window.alert(`Logged ${MEAL_TYPE_LABELS[mealType].toLowerCase()} to your food diary.`);
+    window.alert(
+      `Logged ${MEAL_TYPE_LABELS[mealType].toLowerCase()} to your food diary.`
+    );
   };
 
   return (
@@ -197,8 +200,18 @@ function MealPlanningPage() {
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>Weekly Meal Plan</Heading>
         <HStack gap={2} wrap="wrap">
-          <Button label="Back" href="/nutrition" variant="secondary" size="sm" />
-          <Button label="Templates" href="/nutrition/templates" variant="secondary" size="sm" />
+          <Button
+            label="Back"
+            href="/nutrition"
+            variant="secondary"
+            size="sm"
+          />
+          <Button
+            label="Templates"
+            href="/nutrition/templates"
+            variant="secondary"
+            size="sm"
+          />
         </HStack>
       </HStack>
 
@@ -259,7 +272,11 @@ function MealPlanningPage() {
               description="Templates provide the foods and macros used by each planned meal."
               headingLevel={2}
             />
-            <Button label="Create Template" href="/nutrition/templates" variant="primary" />
+            <Button
+              label="Create Template"
+              href="/nutrition/templates"
+              variant="primary"
+            />
           </VStack>
         </Card>
       ) : (
@@ -269,7 +286,7 @@ function MealPlanningPage() {
             templates,
             weekPlan.targets.calories,
             handleAssign,
-            handleLogMeal,
+            handleLogMeal
           )}
           data={weekPlan.days}
           idKey="date"

@@ -1,192 +1,401 @@
-import Database from 'better-sqlite3'
-import { readFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { readFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 
-const dbPath = join(process.cwd(), 'data', 'fittrack.db')
-mkdirSync(dirname(dbPath), { recursive: true })
+import Database from "better-sqlite3";
 
-const db = new Database(dbPath)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+const dbPath = join(process.cwd(), "data", "fittrack.db");
+mkdirSync(dirname(dbPath), { recursive: true });
 
-const schema = readFileSync(join(process.cwd(), 'src', 'lib', 'schema.sql'), 'utf-8')
-db.exec(schema)
+const db = new Database(dbPath);
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
+
+const schema = readFileSync(
+  join(process.cwd(), "src", "lib", "schema.sql"),
+  "utf-8"
+);
+db.exec(schema);
 
 // Seed foods
 const foods = [
   // Proteins
-  ['Chicken Breast (raw)', null, 100, 'g', 165, 31, 0, 3.6, 0, 0, 74],
-  ['Chicken Thigh (raw)', null, 100, 'g', 209, 26, 0, 11, 0, 0, 87],
-  ['Lean Ground Beef 93/7 (raw)', null, 100, 'g', 176, 25, 0, 8, 0, 0, 70],
-  ['Ground Beef 80/20 (raw)', null, 100, 'g', 254, 17, 0, 20, 0, 0, 74],
-  ['Steak (Sirloin, raw)', null, 100, 'g', 217, 26, 0, 12, 0, 0, 57],
-  ['Salmon (Atlantic, raw)', null, 100, 'g', 208, 20, 0, 13, 0, 0, 59],
-  ['Tuna (canned in water)', null, 100, 'g', 116, 26, 0, 1, 0, 0, 247],
-  ['Egg (whole, large)', null, 50, 'g', 78, 6.3, 0.4, 5.3, 0, 0, 62],
-  ['Egg White', null, 100, 'g', 52, 11, 0.7, 0.2, 0, 0, 166],
-  ['Greek Yogurt (non-fat)', null, 170, 'g', 100, 17, 6, 0.7, 0, 6, 87],
-  ['Cottage Cheese (low-fat)', null, 100, 'g', 72, 11, 3.4, 1.2, 0, 3.4, 308],
-  ['Whey Protein Isolate', null, 30, 'g', 120, 25, 2, 1, 0, 2, 50],
-  ['Tofu (firm)', null, 100, 'g', 144, 17, 3, 9, 2.3, 1, 14],
-  ['Tempeh', null, 100, 'g', 192, 20, 8, 11, 9, 0, 9],
-  ['Shrimp (cooked)', null, 100, 'g', 99, 24, 0.2, 0.3, 0, 0, 111],
-  ['Pork Tenderloin (raw)', null, 100, 'g', 143, 26, 0, 3.5, 0, 0, 63],
-  ['Turkey Breast (raw)', null, 100, 'g', 135, 30, 0, 1, 0, 0, 76],
+  ["Chicken Breast (raw)", null, 100, "g", 165, 31, 0, 3.6, 0, 0, 74],
+  ["Chicken Thigh (raw)", null, 100, "g", 209, 26, 0, 11, 0, 0, 87],
+  ["Lean Ground Beef 93/7 (raw)", null, 100, "g", 176, 25, 0, 8, 0, 0, 70],
+  ["Ground Beef 80/20 (raw)", null, 100, "g", 254, 17, 0, 20, 0, 0, 74],
+  ["Steak (Sirloin, raw)", null, 100, "g", 217, 26, 0, 12, 0, 0, 57],
+  ["Salmon (Atlantic, raw)", null, 100, "g", 208, 20, 0, 13, 0, 0, 59],
+  ["Tuna (canned in water)", null, 100, "g", 116, 26, 0, 1, 0, 0, 247],
+  ["Egg (whole, large)", null, 50, "g", 78, 6.3, 0.4, 5.3, 0, 0, 62],
+  ["Egg White", null, 100, "g", 52, 11, 0.7, 0.2, 0, 0, 166],
+  ["Greek Yogurt (non-fat)", null, 170, "g", 100, 17, 6, 0.7, 0, 6, 87],
+  ["Cottage Cheese (low-fat)", null, 100, "g", 72, 11, 3.4, 1.2, 0, 3.4, 308],
+  ["Whey Protein Isolate", null, 30, "g", 120, 25, 2, 1, 0, 2, 50],
+  ["Tofu (firm)", null, 100, "g", 144, 17, 3, 9, 2.3, 1, 14],
+  ["Tempeh", null, 100, "g", 192, 20, 8, 11, 9, 0, 9],
+  ["Shrimp (cooked)", null, 100, "g", 99, 24, 0.2, 0.3, 0, 0, 111],
+  ["Pork Tenderloin (raw)", null, 100, "g", 143, 26, 0, 3.5, 0, 0, 63],
+  ["Turkey Breast (raw)", null, 100, "g", 135, 30, 0, 1, 0, 0, 76],
 
   // Carbs
-  ['White Rice (cooked)', null, 100, 'g', 130, 2.7, 28, 0.3, 0.4, 0, 1],
-  ['Brown Rice (cooked)', null, 100, 'g', 112, 2.6, 24, 0.9, 1.8, 0.4, 5],
-  ['Basmati Rice (cooked)', null, 100, 'g', 121, 3, 25, 0.4, 1, 0, 4],
-  ['Oats (dry)', null, 40, 'g', 156, 6.8, 27, 2.8, 4, 0.5, 2],
-  ['Sweet Potato (baked)', null, 100, 'g', 90, 2, 21, 0.1, 3.3, 6, 36],
-  ['Potato (baked)', null, 100, 'g', 93, 2.5, 21, 0.1, 2.2, 1, 10],
-  ['Whole Wheat Bread', null, 28, 'g', 81, 4, 14, 1.1, 1.9, 2, 132],
-  ['White Bread', null, 28, 'g', 75, 2.6, 14, 1, 0.8, 1.5, 133],
-  ['Pasta (cooked)', null, 100, 'g', 131, 5, 25, 1.1, 1.8, 0.7, 6],
-  ['Quinoa (cooked)', null, 100, 'g', 120, 4.4, 21, 1.9, 2.8, 0.9, 7],
-  ['Banana', null, 118, 'g', 105, 1.3, 27, 0.4, 3.1, 14, 1],
-  ['Apple', null, 182, 'g', 95, 0.5, 25, 0.3, 4.4, 19, 2],
-  ['Blueberries', null, 100, 'g', 57, 0.7, 14, 0.3, 2.4, 10, 1],
-  ['Tortilla (flour, large)', null, 49, 'g', 145, 4, 24, 3.5, 1.4, 1, 393],
+  ["White Rice (cooked)", null, 100, "g", 130, 2.7, 28, 0.3, 0.4, 0, 1],
+  ["Brown Rice (cooked)", null, 100, "g", 112, 2.6, 24, 0.9, 1.8, 0.4, 5],
+  ["Basmati Rice (cooked)", null, 100, "g", 121, 3, 25, 0.4, 1, 0, 4],
+  ["Oats (dry)", null, 40, "g", 156, 6.8, 27, 2.8, 4, 0.5, 2],
+  ["Sweet Potato (baked)", null, 100, "g", 90, 2, 21, 0.1, 3.3, 6, 36],
+  ["Potato (baked)", null, 100, "g", 93, 2.5, 21, 0.1, 2.2, 1, 10],
+  ["Whole Wheat Bread", null, 28, "g", 81, 4, 14, 1.1, 1.9, 2, 132],
+  ["White Bread", null, 28, "g", 75, 2.6, 14, 1, 0.8, 1.5, 133],
+  ["Pasta (cooked)", null, 100, "g", 131, 5, 25, 1.1, 1.8, 0.7, 6],
+  ["Quinoa (cooked)", null, 100, "g", 120, 4.4, 21, 1.9, 2.8, 0.9, 7],
+  ["Banana", null, 118, "g", 105, 1.3, 27, 0.4, 3.1, 14, 1],
+  ["Apple", null, 182, "g", 95, 0.5, 25, 0.3, 4.4, 19, 2],
+  ["Blueberries", null, 100, "g", 57, 0.7, 14, 0.3, 2.4, 10, 1],
+  ["Tortilla (flour, large)", null, 49, "g", 145, 4, 24, 3.5, 1.4, 1, 393],
 
   // Fats
-  ['Olive Oil', null, 14, 'g', 120, 0, 0, 14, 0, 0, 0],
-  ['Avocado', null, 100, 'g', 160, 2, 9, 15, 7, 1, 7],
-  ['Almonds', null, 28, 'g', 164, 6, 6, 14, 3.5, 1, 0],
-  ['Walnuts', null, 28, 'g', 185, 4.3, 3.9, 18, 1.9, 0.7, 1],
-  ['Peanut Butter', null, 32, 'g', 188, 8, 6, 16, 1.8, 3, 152],
-  ['Almond Butter', null, 32, 'g', 196, 7, 6, 18, 3, 1, 125],
-  ['Coconut Oil', null, 14, 'g', 121, 0, 0, 13, 0, 0, 0],
-  ['Butter', null, 14, 'g', 102, 0.1, 0, 12, 0, 0, 91],
-  ['Cheddar Cheese', null, 28, 'g', 113, 7, 0.4, 9, 0, 0, 174],
-  ['Chia Seeds', null, 28, 'g', 138, 5, 12, 9, 10, 0, 5],
+  ["Olive Oil", null, 14, "g", 120, 0, 0, 14, 0, 0, 0],
+  ["Avocado", null, 100, "g", 160, 2, 9, 15, 7, 1, 7],
+  ["Almonds", null, 28, "g", 164, 6, 6, 14, 3.5, 1, 0],
+  ["Walnuts", null, 28, "g", 185, 4.3, 3.9, 18, 1.9, 0.7, 1],
+  ["Peanut Butter", null, 32, "g", 188, 8, 6, 16, 1.8, 3, 152],
+  ["Almond Butter", null, 32, "g", 196, 7, 6, 18, 3, 1, 125],
+  ["Coconut Oil", null, 14, "g", 121, 0, 0, 13, 0, 0, 0],
+  ["Butter", null, 14, "g", 102, 0.1, 0, 12, 0, 0, 91],
+  ["Cheddar Cheese", null, 28, "g", 113, 7, 0.4, 9, 0, 0, 174],
+  ["Chia Seeds", null, 28, "g", 138, 5, 12, 9, 10, 0, 5],
 
   // Vegetables
-  ['Broccoli (steamed)', null, 100, 'g', 35, 2.4, 7, 0.4, 3.3, 2, 41],
-  ['Spinach (raw)', null, 100, 'g', 23, 2.9, 3.6, 0.4, 2.2, 0.4, 79],
-  ['Carrots (raw)', null, 100, 'g', 41, 0.9, 10, 0.2, 2.8, 4.7, 69],
-  ['Bell Pepper (raw)', null, 100, 'g', 31, 1, 6, 0.3, 2.1, 4.2, 4],
-  ['Onion (raw)', null, 100, 'g', 40, 1.1, 9, 0.1, 1.7, 4.2, 4],
-  ['Asparagus (cooked)', null, 100, 'g', 20, 2.2, 4, 0.2, 1.8, 1.3, 2],
-  ['Mushrooms (raw)', null, 100, 'g', 22, 3.1, 3.3, 0.3, 1, 2, 5],
+  ["Broccoli (steamed)", null, 100, "g", 35, 2.4, 7, 0.4, 3.3, 2, 41],
+  ["Spinach (raw)", null, 100, "g", 23, 2.9, 3.6, 0.4, 2.2, 0.4, 79],
+  ["Carrots (raw)", null, 100, "g", 41, 0.9, 10, 0.2, 2.8, 4.7, 69],
+  ["Bell Pepper (raw)", null, 100, "g", 31, 1, 6, 0.3, 2.1, 4.2, 4],
+  ["Onion (raw)", null, 100, "g", 40, 1.1, 9, 0.1, 1.7, 4.2, 4],
+  ["Asparagus (cooked)", null, 100, "g", 20, 2.2, 4, 0.2, 1.8, 1.3, 2],
+  ["Mushrooms (raw)", null, 100, "g", 22, 3.1, 3.3, 0.3, 1, 2, 5],
 
   // Dairy & Other
-  ['Milk (whole)', null, 244, 'g', 149, 8, 12, 8, 0, 12, 105],
-  ['Milk (2%)', null, 244, 'g', 122, 8, 12, 5, 0, 12, 115],
-  ['Milk (skim)', null, 244, 'g', 83, 8, 12, 0.2, 0, 12, 103],
-  ['Black Coffee', null, 240, 'ml', 2, 0.3, 0, 0, 0, 0, 5],
-  ['Honey', null, 21, 'g', 64, 0.1, 17, 0, 0, 17, 3],
-  ['Maple Syrup', null, 20, 'g', 52, 0, 13, 0, 0, 12, 2],
-  ['Dark Chocolate 70%', null, 28, 'g', 155, 2, 13, 12, 3, 7, 4],
-]
+  ["Milk (whole)", null, 244, "g", 149, 8, 12, 8, 0, 12, 105],
+  ["Milk (2%)", null, 244, "g", 122, 8, 12, 5, 0, 12, 115],
+  ["Milk (skim)", null, 244, "g", 83, 8, 12, 0.2, 0, 12, 103],
+  ["Black Coffee", null, 240, "ml", 2, 0.3, 0, 0, 0, 0, 5],
+  ["Honey", null, 21, "g", 64, 0.1, 17, 0, 0, 17, 3],
+  ["Maple Syrup", null, 20, "g", 52, 0, 13, 0, 0, 12, 2],
+  ["Dark Chocolate 70%", null, 28, "g", 155, 2, 13, 12, 3, 7, 4],
+];
 
 const insertFood = db.prepare(
   `INSERT OR IGNORE INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, source)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed')`
-)
+);
 
 for (const f of foods) {
-  insertFood.run(...f)
+  insertFood.run(...f);
 }
 
 // Seed exercises
 const exercises = [
   // Compound - Chest
-  ['Barbell Bench Press', 'compound', 'chest', 'Barbell', 'Lie on a flat bench, lower the bar to mid-chest, press up to full lockout. Keep shoulder blades retracted.'],
-  ['Incline Dumbbell Press', 'compound', 'chest', 'Dumbbells', 'On an incline bench (30-45 degrees), press dumbbells from chest to overhead.'],
-  ['Push-up', 'bodyweight', 'chest', null, 'Hands slightly wider than shoulders, lower chest to floor, push back up.'],
-  ['Dumbbell Fly', 'isolation', 'chest', 'Dumbbells', 'Lie flat, arms slightly bent, lower dumbbells in wide arc, squeeze chest to return.'],
+  [
+    "Barbell Bench Press",
+    "compound",
+    "chest",
+    "Barbell",
+    "Lie on a flat bench, lower the bar to mid-chest, press up to full lockout. Keep shoulder blades retracted.",
+  ],
+  [
+    "Incline Dumbbell Press",
+    "compound",
+    "chest",
+    "Dumbbells",
+    "On an incline bench (30-45 degrees), press dumbbells from chest to overhead.",
+  ],
+  [
+    "Push-up",
+    "bodyweight",
+    "chest",
+    null,
+    "Hands slightly wider than shoulders, lower chest to floor, push back up.",
+  ],
+  [
+    "Dumbbell Fly",
+    "isolation",
+    "chest",
+    "Dumbbells",
+    "Lie flat, arms slightly bent, lower dumbbells in wide arc, squeeze chest to return.",
+  ],
 
   // Compound - Back
-  ['Deadlift', 'compound', 'back', 'Barbell', 'Stand with feet hip-width, grip bar, drive through heels, extend hips and knees simultaneously.'],
-  ['Pull-up', 'bodyweight', 'back', 'Pull-up Bar', 'Hang from bar, pull chest to bar, lower with control.'],
-  ['Bent-Over Barbell Row', 'compound', 'back', 'Barbell', 'Hinge at hips, pull bar to lower chest, squeeze shoulder blades.'],
-  ['Lat Pulldown', 'compound', 'back', 'Cable Machine', 'Pull bar to upper chest, control the negative.'],
-  ['Seated Cable Row', 'compound', 'back', 'Cable Machine', 'Pull handle to abdomen, squeeze lats, return with control.'],
+  [
+    "Deadlift",
+    "compound",
+    "back",
+    "Barbell",
+    "Stand with feet hip-width, grip bar, drive through heels, extend hips and knees simultaneously.",
+  ],
+  [
+    "Pull-up",
+    "bodyweight",
+    "back",
+    "Pull-up Bar",
+    "Hang from bar, pull chest to bar, lower with control.",
+  ],
+  [
+    "Bent-Over Barbell Row",
+    "compound",
+    "back",
+    "Barbell",
+    "Hinge at hips, pull bar to lower chest, squeeze shoulder blades.",
+  ],
+  [
+    "Lat Pulldown",
+    "compound",
+    "back",
+    "Cable Machine",
+    "Pull bar to upper chest, control the negative.",
+  ],
+  [
+    "Seated Cable Row",
+    "compound",
+    "back",
+    "Cable Machine",
+    "Pull handle to abdomen, squeeze lats, return with control.",
+  ],
 
   // Compound - Legs
-  ['Barbell Back Squat', 'compound', 'legs', 'Barbell', 'Bar on upper traps, descend to parallel or below, drive up through midfoot.'],
-  ['Front Squat', 'compound', 'legs', 'Barbell', 'Bar on front delts, maintain upright torso, squat deep.'],
-  ['Romanian Deadlift', 'compound', 'legs', 'Barbell', 'Hinge at hips with slight knee bend, lower bar along legs, feel hamstring stretch.'],
-  ['Bulgarian Split Squat', 'compound', 'legs', 'Dumbbells', 'Rear foot elevated, descend until front thigh parallel, drive up.'],
-  ['Walking Lunge', 'compound', 'legs', 'Dumbbells', 'Step forward, lower back knee toward floor, push through front heel.'],
-  ['Leg Press', 'compound', 'legs', 'Machine', 'Feet shoulder-width on platform, lower to 90 degrees, press through heels.'],
-  ['Calf Raise', 'isolation', 'legs', null, 'Rise onto balls of feet, pause at top, lower slowly.'],
+  [
+    "Barbell Back Squat",
+    "compound",
+    "legs",
+    "Barbell",
+    "Bar on upper traps, descend to parallel or below, drive up through midfoot.",
+  ],
+  [
+    "Front Squat",
+    "compound",
+    "legs",
+    "Barbell",
+    "Bar on front delts, maintain upright torso, squat deep.",
+  ],
+  [
+    "Romanian Deadlift",
+    "compound",
+    "legs",
+    "Barbell",
+    "Hinge at hips with slight knee bend, lower bar along legs, feel hamstring stretch.",
+  ],
+  [
+    "Bulgarian Split Squat",
+    "compound",
+    "legs",
+    "Dumbbells",
+    "Rear foot elevated, descend until front thigh parallel, drive up.",
+  ],
+  [
+    "Walking Lunge",
+    "compound",
+    "legs",
+    "Dumbbells",
+    "Step forward, lower back knee toward floor, push through front heel.",
+  ],
+  [
+    "Leg Press",
+    "compound",
+    "legs",
+    "Machine",
+    "Feet shoulder-width on platform, lower to 90 degrees, press through heels.",
+  ],
+  [
+    "Calf Raise",
+    "isolation",
+    "legs",
+    null,
+    "Rise onto balls of feet, pause at top, lower slowly.",
+  ],
 
   // Compound - Shoulders
-  ['Standing Overhead Press', 'compound', 'shoulders', 'Barbell', 'Press bar from shoulders to overhead, brace core, no leg drive.'],
-  ['Seated Dumbbell Shoulder Press', 'compound', 'shoulders', 'Dumbbells', 'Sit with back support, press dumbbells from shoulders to overhead.'],
-  ['Lateral Raise', 'isolation', 'shoulders', 'Dumbbells', 'Raise dumbbells to shoulder height with slight forward lean, lower slowly.'],
-  ['Face Pull', 'isolation', 'shoulders', 'Cable Machine', 'Pull rope to forehead, external rotation, squeeze rear delts.'],
+  [
+    "Standing Overhead Press",
+    "compound",
+    "shoulders",
+    "Barbell",
+    "Press bar from shoulders to overhead, brace core, no leg drive.",
+  ],
+  [
+    "Seated Dumbbell Shoulder Press",
+    "compound",
+    "shoulders",
+    "Dumbbells",
+    "Sit with back support, press dumbbells from shoulders to overhead.",
+  ],
+  [
+    "Lateral Raise",
+    "isolation",
+    "shoulders",
+    "Dumbbells",
+    "Raise dumbbells to shoulder height with slight forward lean, lower slowly.",
+  ],
+  [
+    "Face Pull",
+    "isolation",
+    "shoulders",
+    "Cable Machine",
+    "Pull rope to forehead, external rotation, squeeze rear delts.",
+  ],
 
   // Arms
-  ['Barbell Curl', 'isolation', 'arms', 'Barbell', 'Curl bar from full extension to shoulders, no swinging.'],
-  ['Dumbbell Hammer Curl', 'isolation', 'arms', 'Dumbbells', 'Neutral grip curl, keep elbows fixed.'],
-  ['Triceps Pushdown', 'isolation', 'arms', 'Cable Machine', 'Push bar down with elbows pinned to sides, full extension.'],
-  ['Close-Grip Bench Press', 'compound', 'arms', 'Barbell', 'Narrow grip, elbows tucked, targets triceps.'],
-  ['Overhead Triceps Extension', 'isolation', 'arms', 'Dumbbell', 'Lower weight behind head, extend to lockout.'],
+  [
+    "Barbell Curl",
+    "isolation",
+    "arms",
+    "Barbell",
+    "Curl bar from full extension to shoulders, no swinging.",
+  ],
+  [
+    "Dumbbell Hammer Curl",
+    "isolation",
+    "arms",
+    "Dumbbells",
+    "Neutral grip curl, keep elbows fixed.",
+  ],
+  [
+    "Triceps Pushdown",
+    "isolation",
+    "arms",
+    "Cable Machine",
+    "Push bar down with elbows pinned to sides, full extension.",
+  ],
+  [
+    "Close-Grip Bench Press",
+    "compound",
+    "arms",
+    "Barbell",
+    "Narrow grip, elbows tucked, targets triceps.",
+  ],
+  [
+    "Overhead Triceps Extension",
+    "isolation",
+    "arms",
+    "Dumbbell",
+    "Lower weight behind head, extend to lockout.",
+  ],
 
   // Core
-  ['Plank', 'bodyweight', 'core', null, 'Forearms on ground, body straight, hold position. Brace abs.'],
-  ['Hanging Leg Raise', 'bodyweight', 'core', 'Pull-up Bar', 'Hang from bar, raise legs to parallel or higher, lower with control.'],
-  ['Cable Crunch', 'isolation', 'core', 'Cable Machine', 'Kneel, crunch rope down, flex spine.'],
-  ['Ab Wheel Rollout', 'bodyweight', 'core', 'Ab Wheel', 'Kneel, roll wheel forward, maintain neutral spine, return.'],
+  [
+    "Plank",
+    "bodyweight",
+    "core",
+    null,
+    "Forearms on ground, body straight, hold position. Brace abs.",
+  ],
+  [
+    "Hanging Leg Raise",
+    "bodyweight",
+    "core",
+    "Pull-up Bar",
+    "Hang from bar, raise legs to parallel or higher, lower with control.",
+  ],
+  [
+    "Cable Crunch",
+    "isolation",
+    "core",
+    "Cable Machine",
+    "Kneel, crunch rope down, flex spine.",
+  ],
+  [
+    "Ab Wheel Rollout",
+    "bodyweight",
+    "core",
+    "Ab Wheel",
+    "Kneel, roll wheel forward, maintain neutral spine, return.",
+  ],
 
   // Cardio / Full Body
-  ['Kettlebell Swing', 'compound', 'full_body', 'Kettlebell', 'Hinge at hips, swing bell to chest height using hip drive, not arms.'],
-  ['Burpee', 'bodyweight', 'full_body', null, 'Squat, kick to plank, push-up, jump feet in, stand and jump.'],
-  ['Box Jump', 'compound', 'legs', 'Plyo Box', 'Jump onto box, land soft, step down.'],
-  ['Farmer Carry', 'compound', 'full_body', 'Dumbbells', 'Hold heavy weights, walk with upright posture, core braced.'],
-]
+  [
+    "Kettlebell Swing",
+    "compound",
+    "full_body",
+    "Kettlebell",
+    "Hinge at hips, swing bell to chest height using hip drive, not arms.",
+  ],
+  [
+    "Burpee",
+    "bodyweight",
+    "full_body",
+    null,
+    "Squat, kick to plank, push-up, jump feet in, stand and jump.",
+  ],
+  [
+    "Box Jump",
+    "compound",
+    "legs",
+    "Plyo Box",
+    "Jump onto box, land soft, step down.",
+  ],
+  [
+    "Farmer Carry",
+    "compound",
+    "full_body",
+    "Dumbbells",
+    "Hold heavy weights, walk with upright posture, core braced.",
+  ],
+];
 
 const insertExercise = db.prepare(
   `INSERT OR IGNORE INTO exercises (name, category, muscle_group, equipment, instructions)
    VALUES (?, ?, ?, ?, ?)`
-)
+);
 
 for (const e of exercises) {
-  insertExercise.run(...e)
+  insertExercise.run(...e);
 }
 
-
-
 // Seed training programs
-const userId = db.prepare('SELECT id FROM users LIMIT 1').get()?.id
+const userId = db.prepare("SELECT id FROM users LIMIT 1").get()?.id;
 if (!userId) {
   db.prepare(
     `INSERT INTO users (name, sex, height_cm, activity_level, goal_type)
      VALUES ('Athlete', 'male', 178, 'moderate', 'build_muscle')`
-  ).run()
+  ).run();
 }
 
-const athleteId = db.prepare('SELECT id FROM users LIMIT 1').get().id
+const athleteId = db.prepare("SELECT id FROM users LIMIT 1").get().id;
 const exerciseIds = Object.fromEntries(
-  db.prepare('SELECT id, name FROM exercises').all().map((row) => [row.name, row.id])
-)
+  db
+    .prepare("SELECT id, name FROM exercises")
+    .all()
+    .map((row) => [row.name, row.id])
+);
 
 function seedProgram(program, days) {
-  const existing = db.prepare('SELECT id FROM programs WHERE user_id = ? AND name = ?').get(athleteId, program.name)
-  if (existing) return existing.id
+  const existing = db
+    .prepare("SELECT id FROM programs WHERE user_id = ? AND name = ?")
+    .get(athleteId, program.name);
+  if (existing) {return existing.id;}
 
-  const result = db.prepare(
-    `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
+  const result = db
+    .prepare(
+      `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    athleteId,
-    program.name,
-    program.description,
-    program.frequency_per_week,
-    program.periodization_type,
-    program.progression_increment_pct,
-    program.is_active,
-  )
+    )
+    .run(
+      athleteId,
+      program.name,
+      program.description,
+      program.frequency_per_week,
+      program.periodization_type,
+      program.progression_increment_pct,
+      program.is_active
+    );
 
-  const programId = result.lastInsertRowid
+  const programId = result.lastInsertRowid;
   for (const day of days) {
-    const dayResult = db.prepare(
-      'INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)'
-    ).run(programId, day.day_name, day.sort_order)
-    const dayId = dayResult.lastInsertRowid
+    const dayResult = db
+      .prepare(
+        "INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)"
+      )
+      .run(programId, day.day_name, day.sort_order);
+    const dayId = dayResult.lastInsertRowid;
     for (const exercise of day.exercises) {
       db.prepare(
         `INSERT INTO program_exercises
@@ -199,107 +408,286 @@ function seedProgram(program, days) {
         exercise.target_reps,
         exercise.target_rpe,
         exercise.rest_seconds,
-        exercise.sort_order,
-      )
+        exercise.sort_order
+      );
     }
   }
-  return programId
+  return programId;
 }
 
 const linearProgramId = seedProgram(
   {
-    name: 'Upper/Lower Linear',
-    description: '4-day upper/lower split with steady load progression when RPE allows.',
+    description:
+      "4-day upper/lower split with steady load progression when RPE allows.",
     frequency_per_week: 4,
-    periodization_type: 'linear',
-    progression_increment_pct: 2.5,
     is_active: 1,
+    name: "Upper/Lower Linear",
+    periodization_type: "linear",
+    progression_increment_pct: 2.5,
   },
   [
     {
-      day_name: 'Upper A',
+      day_name: "Upper A",
+      exercises: [
+        {
+          name: "Barbell Bench Press",
+          target_sets: 4,
+          target_reps: "6-8",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 1,
+        },
+        {
+          name: "Bent-Over Barbell Row",
+          target_sets: 4,
+          target_reps: "6-8",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 2,
+        },
+        {
+          name: "Standing Overhead Press",
+          target_sets: 3,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 3,
+        },
+        {
+          name: "Lat Pulldown",
+          target_sets: 3,
+          target_reps: "10-12",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 4,
+        },
+      ],
       sort_order: 1,
-      exercises: [
-        { name: 'Barbell Bench Press', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 120, sort_order: 1 },
-        { name: 'Bent-Over Barbell Row', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
-        { name: 'Standing Overhead Press', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
-        { name: 'Lat Pulldown', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 4 },
-      ],
     },
     {
-      day_name: 'Lower A',
+      day_name: "Lower A",
+      exercises: [
+        {
+          name: "Barbell Back Squat",
+          target_sets: 4,
+          target_reps: "6-8",
+          target_rpe: 8,
+          rest_seconds: 150,
+          sort_order: 1,
+        },
+        {
+          name: "Romanian Deadlift",
+          target_sets: 3,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 2,
+        },
+        {
+          name: "Walking Lunge",
+          target_sets: 3,
+          target_reps: "10-12",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 3,
+        },
+      ],
       sort_order: 2,
-      exercises: [
-        { name: 'Barbell Back Squat', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 150, sort_order: 1 },
-        { name: 'Romanian Deadlift', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
-        { name: 'Walking Lunge', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
-      ],
     },
     {
-      day_name: 'Upper B',
+      day_name: "Upper B",
+      exercises: [
+        {
+          name: "Incline Dumbbell Press",
+          target_sets: 4,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 1,
+        },
+        {
+          name: "Seated Cable Row",
+          target_sets: 4,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 2,
+        },
+        {
+          name: "Lateral Raise",
+          target_sets: 3,
+          target_reps: "12-15",
+          target_rpe: 8,
+          rest_seconds: 60,
+          sort_order: 3,
+        },
+        {
+          name: "Barbell Curl",
+          target_sets: 3,
+          target_reps: "10-12",
+          target_rpe: 8,
+          rest_seconds: 60,
+          sort_order: 4,
+        },
+      ],
       sort_order: 3,
-      exercises: [
-        { name: 'Incline Dumbbell Press', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 1 },
-        { name: 'Seated Cable Row', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 90, sort_order: 2 },
-        { name: 'Lateral Raise', target_sets: 3, target_reps: '12-15', target_rpe: 8, rest_seconds: 60, sort_order: 3 },
-        { name: 'Barbell Curl', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 60, sort_order: 4 },
-      ],
     },
     {
-      day_name: 'Lower B',
-      sort_order: 4,
+      day_name: "Lower B",
       exercises: [
-        { name: 'Front Squat', target_sets: 4, target_reps: '6-8', target_rpe: 8, rest_seconds: 150, sort_order: 1 },
-        { name: 'Leg Press', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 120, sort_order: 2 },
-        { name: 'Calf Raise', target_sets: 4, target_reps: '12-15', target_rpe: 8, rest_seconds: 60, sort_order: 3 },
+        {
+          name: "Front Squat",
+          target_sets: 4,
+          target_reps: "6-8",
+          target_rpe: 8,
+          rest_seconds: 150,
+          sort_order: 1,
+        },
+        {
+          name: "Leg Press",
+          target_sets: 3,
+          target_reps: "10-12",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 2,
+        },
+        {
+          name: "Calf Raise",
+          target_sets: 4,
+          target_reps: "12-15",
+          target_rpe: 8,
+          rest_seconds: 60,
+          sort_order: 3,
+        },
       ],
+      sort_order: 4,
     },
-  ],
-)
+  ]
+);
 
 const dupProgramId = seedProgram(
   {
-    name: 'Full Body DUP',
-    description: '3-day full body with daily rep zone rotation (strength, hypertrophy, endurance).',
+    description:
+      "3-day full body with daily rep zone rotation (strength, hypertrophy, endurance).",
     frequency_per_week: 3,
-    periodization_type: 'dup',
-    progression_increment_pct: 2.5,
     is_active: 0,
+    name: "Full Body DUP",
+    periodization_type: "dup",
+    progression_increment_pct: 2.5,
   },
   [
     {
-      day_name: 'Strength',
+      day_name: "Strength",
+      exercises: [
+        {
+          name: "Barbell Back Squat",
+          target_sets: 4,
+          target_reps: "3-5",
+          target_rpe: 8,
+          rest_seconds: 180,
+          sort_order: 1,
+        },
+        {
+          name: "Barbell Bench Press",
+          target_sets: 4,
+          target_reps: "3-5",
+          target_rpe: 8,
+          rest_seconds: 180,
+          sort_order: 2,
+        },
+        {
+          name: "Bent-Over Barbell Row",
+          target_sets: 3,
+          target_reps: "4-6",
+          target_rpe: 8,
+          rest_seconds: 150,
+          sort_order: 3,
+        },
+      ],
       sort_order: 1,
-      exercises: [
-        { name: 'Barbell Back Squat', target_sets: 4, target_reps: '3-5', target_rpe: 8, rest_seconds: 180, sort_order: 1 },
-        { name: 'Barbell Bench Press', target_sets: 4, target_reps: '3-5', target_rpe: 8, rest_seconds: 180, sort_order: 2 },
-        { name: 'Bent-Over Barbell Row', target_sets: 3, target_reps: '4-6', target_rpe: 8, rest_seconds: 150, sort_order: 3 },
-      ],
     },
     {
-      day_name: 'Hypertrophy',
+      day_name: "Hypertrophy",
+      exercises: [
+        {
+          name: "Front Squat",
+          target_sets: 4,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 1,
+        },
+        {
+          name: "Incline Dumbbell Press",
+          target_sets: 4,
+          target_reps: "8-12",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 2,
+        },
+        {
+          name: "Lat Pulldown",
+          target_sets: 3,
+          target_reps: "10-12",
+          target_rpe: 8,
+          rest_seconds: 90,
+          sort_order: 3,
+        },
+        {
+          name: "Romanian Deadlift",
+          target_sets: 3,
+          target_reps: "8-10",
+          target_rpe: 8,
+          rest_seconds: 120,
+          sort_order: 4,
+        },
+      ],
       sort_order: 2,
-      exercises: [
-        { name: 'Front Squat', target_sets: 4, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 1 },
-        { name: 'Incline Dumbbell Press', target_sets: 4, target_reps: '8-12', target_rpe: 8, rest_seconds: 90, sort_order: 2 },
-        { name: 'Lat Pulldown', target_sets: 3, target_reps: '10-12', target_rpe: 8, rest_seconds: 90, sort_order: 3 },
-        { name: 'Romanian Deadlift', target_sets: 3, target_reps: '8-10', target_rpe: 8, rest_seconds: 120, sort_order: 4 },
-      ],
     },
     {
-      day_name: 'Endurance',
-      sort_order: 3,
+      day_name: "Endurance",
       exercises: [
-        { name: 'Leg Press', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 75, sort_order: 1 },
-        { name: 'Push-up', target_sets: 3, target_reps: '12-20', target_rpe: 7, rest_seconds: 60, sort_order: 2 },
-        { name: 'Seated Cable Row', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 75, sort_order: 3 },
-        { name: 'Dumbbell Hammer Curl', target_sets: 3, target_reps: '12-15', target_rpe: 7, rest_seconds: 60, sort_order: 4 },
+        {
+          name: "Leg Press",
+          target_sets: 3,
+          target_reps: "12-15",
+          target_rpe: 7,
+          rest_seconds: 75,
+          sort_order: 1,
+        },
+        {
+          name: "Push-up",
+          target_sets: 3,
+          target_reps: "12-20",
+          target_rpe: 7,
+          rest_seconds: 60,
+          sort_order: 2,
+        },
+        {
+          name: "Seated Cable Row",
+          target_sets: 3,
+          target_reps: "12-15",
+          target_rpe: 7,
+          rest_seconds: 75,
+          sort_order: 3,
+        },
+        {
+          name: "Dumbbell Hammer Curl",
+          target_sets: 3,
+          target_reps: "12-15",
+          target_rpe: 7,
+          rest_seconds: 60,
+          sort_order: 4,
+        },
       ],
+      sort_order: 3,
     },
-  ],
-)
+  ]
+);
 
-console.log(`Seeded training programs: linear #${linearProgramId}, dup #${dupProgramId}`)
+console.log(
+  `Seeded training programs: linear #${linearProgramId}, dup #${dupProgramId}`
+);
 
-console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`)
-db.close()
+console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`);
+db.close();

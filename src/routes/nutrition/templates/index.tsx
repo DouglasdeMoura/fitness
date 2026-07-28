@@ -1,62 +1,47 @@
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  FormLayout,
-  Heading,
-  HStack,
-  Selector,
-  Table,
-  Text,
-  TextArea,
-  TextInput,
-  VStack,
-  proportional,
-  type TableColumn,
-} from "@astryxdesign/core";
-import { TemplateIcon } from '~/components/icons/FitTrackIcons'
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { ScrollableTable } from "~/components/ScrollableTable";
-import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import { Badge, Button, Card, EmptyState, FormLayout, Heading, HStack, Selector, Table, Text, TextArea, TextInput, VStack, proportional } from '@astryxdesign/core';
+import type { TableColumn } from '@astryxdesign/core';
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import { ScrollableTable } from "~/components/ScrollableTable";
+import { deleteMealTemplate, getMealTemplates, saveMealTemplate } from '~/lib/api';
+import type { MealTemplateSummary } from '~/lib/api';
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import {
-  deleteMealTemplate,
-  getMealTemplates,
-  saveMealTemplate,
-  type MealTemplateSummary,
-} from "~/lib/api";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,
 } from "~/lib/delete-confirmation";
-import { MEAL_TYPE_LABELS, todayString, type MealType } from "~/lib/nutrition";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { MEAL_TYPE_LABELS, todayString } from '~/lib/nutrition';
+import type { MealType } from '~/lib/nutrition';
 import {
   buildCreateTemplatePayload,
   CREATE_TEMPLATE_FORM_DEFAULTS,
   validateCreateTemplateName,
 } from "~/lib/template-form";
-import { formatDisplayInteger } from "~/lib/format-number";
 
 export const Route = createFileRoute("/nutrition/templates/")({
-  head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
   component: MealTemplatesPage,
+  head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
 });
 
-const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(
+  ([value, label]) => ({
+    label,
+    value,
+  })
+);
 
 type DeleteMealTemplate = (id: number) => Promise<void>;
 
@@ -64,53 +49,60 @@ type LogMealTemplate = (template: MealTemplateSummary) => Promise<void>;
 
 function mealTemplateColumns(
   removeTemplate: DeleteMealTemplate,
-  logTemplate: LogMealTemplate,
+  logTemplate: LogMealTemplate
 ): TableColumn<MealTemplateSummary>[] {
   return [
     {
-      key: "name",
       header: "Template",
-      width: proportional(2),
+      key: "name",
       renderCell: (template) => (
         <VStack gap={1}>
           <Text weight="bold">{template.name}</Text>
-          {template.description ? <Text type="supporting">{template.description}</Text> : null}
+          {template.description ? (
+            <Text type="supporting">{template.description}</Text>
+          ) : null}
         </VStack>
       ),
+      width: proportional(2),
     },
     {
-      key: "default_meal_type",
       header: "Default meal",
-      width: proportional(1),
+      key: "default_meal_type",
       renderCell: (template) => (
-        <Badge label={MEAL_TYPE_LABELS[template.default_meal_type]} variant="neutral" />
+        <Badge
+          label={MEAL_TYPE_LABELS[template.default_meal_type]}
+          variant="neutral"
+        />
       ),
+      width: proportional(1),
     },
     {
-      key: "item_count",
       header: "Foods",
-      width: proportional(1),
+      key: "item_count",
       renderCell: (template) => (
         <Badge
           label={`${template.item_count} food${template.item_count === 1 ? "" : "s"}`}
           variant="info"
         />
       ),
+      width: proportional(1),
     },
     {
-      key: "totals",
       header: "Macros per serving",
-      width: proportional(2),
+      key: "totals",
       renderCell: (template) => (
         <Text type="supporting" hasTabularNumbers>
-          {formatDisplayInteger(template.totals.calories)} kcal · P {formatDisplayInteger(template.totals.protein_g)}g ·
-          C {formatDisplayInteger(template.totals.carbs_g)}g · F {formatDisplayInteger(template.totals.fat_g)}g
+          {formatDisplayInteger(template.totals.calories)} kcal · P{" "}
+          {formatDisplayInteger(template.totals.protein_g)}g · C{" "}
+          {formatDisplayInteger(template.totals.carbs_g)}g · F{" "}
+          {formatDisplayInteger(template.totals.fat_g)}g
         </Text>
       ),
+      width: proportional(2),
     },
     {
-      key: "actions",
       header: "Actions",
+      key: "actions",
       renderCell: (template) => (
         <HStack gap={2} wrap="wrap">
           <Button
@@ -150,8 +142,8 @@ function MealTemplatesPage() {
   const logDate = todayString();
   const logTemplate = useLogMealTemplate(logDate);
   const templatesQuery = useDataLoadQuery({
-    queryKey: ["meal-templates"],
     queryFn: () => getMealTemplates(),
+    queryKey: ["meal-templates"],
   });
 
   const [showCreate, setShowCreate] = useState(false);
@@ -169,8 +161,8 @@ function MealTemplatesPage() {
       formApi.reset();
       if (template?.id) {
         await navigate({
-          to: "/nutrition/templates/$templateId",
           params: { templateId: String(template.id) },
+          to: "/nutrition/templates/$templateId",
         });
       }
     },
@@ -210,7 +202,7 @@ function MealTemplatesPage() {
   };
 
   const confirmDelete = async () => {
-    if (pendingDeleteId == null) return;
+    if (pendingDeleteId == null) {return;}
     setIsDeleting(true);
     try {
       await deleteMealTemplate({ data: { id: pendingDeleteId } });
@@ -221,15 +213,27 @@ function MealTemplatesPage() {
     }
   };
 
-  const pendingTemplate = templates.find((template) => template.id === pendingDeleteId);
+  const pendingTemplate = templates.find(
+    (template) => template.id === pendingDeleteId
+  );
 
   return (
     <VStack gap={4}>
       <HStack hAlign="between" vAlign="center" gap={2} wrap="wrap">
         <Heading level={1}>Meal Templates</Heading>
         <HStack gap={2} wrap="wrap">
-          <Button label="Back" href="/nutrition" variant="secondary" size="sm" />
-          <Button label="Weekly Planner" href="/nutrition/planning" variant="secondary" size="sm" />
+          <Button
+            label="Back"
+            href="/nutrition"
+            variant="secondary"
+            size="sm"
+          />
+          <Button
+            label="Weekly Planner"
+            href="/nutrition/planning"
+            variant="secondary"
+            size="sm"
+          />
           <Button
             label={showCreate ? "Cancel" : "New Template"}
             variant="primary"
@@ -239,7 +243,8 @@ function MealTemplatesPage() {
       </HStack>
 
       <Text type="supporting">
-        Build reusable meal combos and preview their macros before adding them to your weekly plan.
+        Build reusable meal combos and preview their macros before adding them
+        to your weekly plan.
       </Text>
 
       {showCreate ? (
@@ -249,7 +254,9 @@ function MealTemplatesPage() {
             <FormLayout>
               <form.Field
                 name="name"
-                validators={{ onChange: ({ value }) => validateCreateTemplateName(value) }}
+                validators={{
+                  onChange: ({ value }) => validateCreateTemplateName(value),
+                }}
               >
                 {(field) => (
                   <TextInput
@@ -280,7 +287,9 @@ function MealTemplatesPage() {
                 )}
               </form.Field>
             </FormLayout>
-            <form.Subscribe selector={(state) => ({ isSubmitting: state.isSubmitting })}>
+            <form.Subscribe
+              selector={(state) => ({ isSubmitting: state.isSubmitting })}
+            >
               {({ isSubmitting }) => (
                 <Button
                   label={isSubmitting ? "Creating..." : "Create & Edit Foods"}
@@ -313,18 +322,24 @@ function MealTemplatesPage() {
         <ScrollableTable scrollLabel="templates-list">
           <Table
             aria-label="Meal templates"
-          columns={mealTemplateColumns(requestDelete, (template) => logTemplate({ templateId: template.id, mealType: template.default_meal_type, expectedKcal: template.totals.calories }))}
-          data={templates}
-          idKey="id"
-          density="compact"
-          hasHover
+            columns={mealTemplateColumns(requestDelete, (template) =>
+              logTemplate({
+                expectedKcal: template.totals.calories,
+                mealType: template.default_meal_type,
+                templateId: template.id,
+              })
+            )}
+            data={templates}
+            idKey="id"
+            density="compact"
+            hasHover
           />
         </ScrollableTable>
       )}
       <DeleteConfirmationDialog
         isOpen={pendingDeleteId != null}
         onOpenChange={(open) => {
-          if (!open) setPendingDeleteId(null);
+          if (!open) {setPendingDeleteId(null);}
         }}
         title={deleteNamedEntityTitle(pendingTemplate?.name ?? "template")}
         subtitle={deleteCannotBeUndoneSubtitle()}

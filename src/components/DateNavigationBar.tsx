@@ -1,20 +1,24 @@
-import { Button, DateInput, HStack } from '@astryxdesign/core'
-import { IconButton } from '@astryxdesign/core/IconButton'
-import { asDateValue } from '~/lib/input-values'
-import { addDays, todayString } from '~/lib/nutrition'
+import { Button, DateInput, HStack } from "@astryxdesign/core";
+import { IconButton } from "@astryxdesign/core/IconButton";
 
-type DateNavigationBarProps = {
-  selectedDate: string
-  onDateChange: (date: string) => void
+import { asDateValue } from "~/lib/input-values";
+import { addDays, todayString } from "~/lib/nutrition";
+
+interface DateNavigationBarProps {
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
 /**
  * Prev/next day controls with a DateInput popover and quick jump to today.
  * @example <DateNavigationBar selectedDate="2026-07-25" onDateChange={setDate} />
  */
-export function DateNavigationBar({ selectedDate, onDateChange }: DateNavigationBarProps) {
-  const today = todayString()
-  const isToday = selectedDate === today
+export function DateNavigationBar({
+  selectedDate,
+  onDateChange,
+}: DateNavigationBarProps) {
+  const today = todayString();
+  const isToday = selectedDate === today;
 
   return (
     <HStack gap={2} vAlign="center" wrap="wrap">
@@ -33,7 +37,7 @@ export function DateNavigationBar({ selectedDate, onDateChange }: DateNavigation
         max={asDateValue(today)}
         size="sm"
         onChange={(value) => {
-          if (value) onDateChange(value)
+          if (value) {onDateChange(value);}
         }}
       />
       <IconButton
@@ -52,5 +56,5 @@ export function DateNavigationBar({ selectedDate, onDateChange }: DateNavigation
         onClick={() => onDateChange(today)}
       />
     </HStack>
-  )
+  );
 }

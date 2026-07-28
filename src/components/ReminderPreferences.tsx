@@ -1,6 +1,5 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
 import {
   Button,
   Card,
@@ -12,48 +11,51 @@ import {
   Text,
   TimeInput,
   VStack,
-} from '@astryxdesign/core'
-import { useToast } from '@astryxdesign/core/Toast'
-import { asTimeValue } from '~/lib/input-values'
-import { updateNotificationPreferences } from '~/lib/api'
-import {
-  REMINDERS_CARD_TITLE,
-  WEEKDAY_OPTIONS,
-  type NotificationPreferences,
-  type NotificationPreferencesUpdate,
-} from '~/lib/push'
-import { mutationFailedBody } from '~/lib/toasts'
+} from "@astryxdesign/core";
+import { useToast } from "@astryxdesign/core/Toast";
+import { useState } from "react";
 
-type ReminderPreferencesProps = {
-  initialPreferences: NotificationPreferences
+import { updateNotificationPreferences } from "~/lib/api";
+import { asTimeValue } from "~/lib/input-values";
+import { REMINDERS_CARD_TITLE, WEEKDAY_OPTIONS } from '~/lib/push';
+import type { NotificationPreferences, NotificationPreferencesUpdate } from '~/lib/push';
+import { mutationFailedBody } from "~/lib/toasts";
+
+interface ReminderPreferencesProps {
+  initialPreferences: NotificationPreferences;
 }
 
-export function ReminderPreferences({ initialPreferences }: ReminderPreferencesProps) {
-  const toast = useToast()
-  const [prefs, setPrefs] = useState(initialPreferences)
-  const [saving, setSaving] = useState(false)
+export function ReminderPreferences({
+  initialPreferences,
+}: ReminderPreferencesProps) {
+  const toast = useToast();
+  const [prefs, setPrefs] = useState(initialPreferences);
+  const [saving, setSaving] = useState(false);
 
   const persist = async (update: NotificationPreferencesUpdate) => {
-    setSaving(true)
+    setSaving(true);
     try {
-      const next = await updateNotificationPreferences({ data: update })
-      setPrefs(next)
+      const next = await updateNotificationPreferences({ data: update });
+      setPrefs(next);
     } catch {
-      toast({ body: mutationFailedBody('Save reminder preferences'), type: 'error' })
+      toast({
+        body: mutationFailedBody("Save reminder preferences"),
+        type: "error",
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  const workoutDayValues = prefs.workout_days.map(String)
+  const workoutDayValues = prefs.workout_days.map(String);
 
   return (
     <Card>
       <VStack gap={4}>
         <Heading level={2}>{REMINDERS_CARD_TITLE}</Heading>
         <Text type="supporting">
-          Choose which reminders you want and when they may arrive. All types start
-          off until you opt in.
+          Choose which reminders you want and when they may arrive. All types
+          start off until you opt in.
         </Text>
 
         <Switch
@@ -81,11 +83,11 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
                   isDisabled={saving}
                   onChange={(value) => {
                     if (!value) {
-                      return
+                      return;
                     }
-                    const meal_times = [...prefs.meal_times]
-                    meal_times[index] = value
-                    void persist({ meal_times })
+                    const meal_times = [...prefs.meal_times];
+                    meal_times[index] = value;
+                    void persist({ meal_times });
                   }}
                 />
                 {prefs.meal_times.length > 1 ? (
@@ -94,8 +96,10 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
                     variant="secondary"
                     isLoading={saving}
                     clickAction={() => {
-                      const meal_times = prefs.meal_times.filter((_, i) => i !== index)
-                      void persist({ meal_times })
+                      const meal_times = prefs.meal_times.filter(
+                        (_, i) => i !== index
+                      );
+                      void persist({ meal_times });
                     }}
                   />
                 ) : null}
@@ -106,7 +110,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               variant="secondary"
               isLoading={saving}
               clickAction={() => {
-                void persist({ meal_times: [...prefs.meal_times, '18:00'] })
+                void persist({ meal_times: [...prefs.meal_times, "18:00"] });
               }}
             />
           </VStack>
@@ -126,11 +130,17 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               value={workoutDayValues}
               isDisabled={saving}
               onChange={(values) => {
-                void persist({ workout_days: values.map((value) => Number(value)) })
+                void persist({
+                  workout_days: values.map((value) => Number(value)),
+                });
               }}
             >
               {WEEKDAY_OPTIONS.map((day) => (
-                <CheckboxListItem key={day.value} value={day.value} label={day.label} />
+                <CheckboxListItem
+                  key={day.value}
+                  value={day.value}
+                  label={day.label}
+                />
               ))}
             </CheckboxList>
             <TimeInput
@@ -139,9 +149,9 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               isDisabled={saving}
               onChange={(value) => {
                 if (!value) {
-                  return
+                  return;
                 }
-                void persist({ workout_time: value })
+                void persist({ workout_time: value });
               }}
             />
           </VStack>
@@ -162,7 +172,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               isDisabled={saving}
               options={[...WEEKDAY_OPTIONS]}
               onChange={(value) => {
-                void persist({ weekly_review_day: Number(value) })
+                void persist({ weekly_review_day: Number(value) });
               }}
             />
             <TimeInput
@@ -171,9 +181,9 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
               isDisabled={saving}
               onChange={(value) => {
                 if (!value) {
-                  return
+                  return;
                 }
-                void persist({ weekly_review_time: value })
+                void persist({ weekly_review_time: value });
               }}
             />
           </VStack>
@@ -190,7 +200,7 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
           isDisabled={saving}
           hasClear
           onChange={(value) => {
-            void persist({ quiet_start: value ?? null })
+            void persist({ quiet_start: value ?? null });
           }}
         />
         <TimeInput
@@ -199,10 +209,10 @@ export function ReminderPreferences({ initialPreferences }: ReminderPreferencesP
           isDisabled={saving}
           hasClear
           onChange={(value) => {
-            void persist({ quiet_end: value ?? null })
+            void persist({ quiet_end: value ?? null });
           }}
         />
       </VStack>
     </Card>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { defineTheme } from '@astryxdesign/core/theme'
-import { neutralTheme } from '@astryxdesign/theme-neutral'
+import { defineTheme } from "@astryxdesign/core/theme";
+import { neutralTheme } from "@astryxdesign/theme-neutral";
 
 /**
  * Neutral theme tuned for autonomous a11y gates (issue #49):
@@ -7,18 +7,18 @@ import { neutralTheme } from '@astryxdesign/theme-neutral'
  * - Error badges meet 4.5:1 with white label text at 12px (axe color-contrast).
  */
 export const fittrackTheme = defineTheme({
-  name: 'fittrack-neutral',
-  extends: neutralTheme,
-  tokens: {
-    '--color-text-secondary': ['#525252', '#a3a3a3'],
-    '--color-icon-secondary': ['#525252', '#a3a3a3'],
-  },
   components: {
     badge: {
-      'variant:error': {
-        backgroundColor: 'light-dark(#c92a37, #ff705d)',
-        color: 'light-dark(#ffffff, #171717)',
+      "variant:error": {
+        backgroundColor: "light-dark(#c92a37, #ff705d)",
+        color: "light-dark(#ffffff, #171717)",
       },
     },
   },
-})
+  extends: neutralTheme,
+  name: "fittrack-neutral",
+  tokens: {
+    "--color-icon-secondary": ["#525252", "#a3a3a3"],
+    "--color-text-secondary": ["#525252", "#a3a3a3"],
+  },
+});

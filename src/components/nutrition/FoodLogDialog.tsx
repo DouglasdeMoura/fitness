@@ -1,5 +1,6 @@
-import { Dialog, DialogHeader } from '@astryxdesign/core'
-import { AddFoodCard } from '~/components/nutrition/AddFoodCard'
+import { Dialog, DialogHeader } from "@astryxdesign/core";
+
+import { AddFoodCard } from "~/components/nutrition/AddFoodCard";
 
 /**
  * Wraps the full food-search + entry flow in a Dialog so search results
@@ -13,12 +14,17 @@ export function FoodLogDialog({
   onOpenChange,
   selectedDate,
 }: {
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-  selectedDate: string
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedDate: string;
 }) {
   return (
-    <Dialog isOpen={isOpen} onOpenChange={onOpenChange} purpose="form" width={480}>
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      purpose="form"
+      width={480}
+    >
       <DialogHeader
         title="Log food"
         subtitle="Search the catalog or quick-add by calories."
@@ -26,5 +32,5 @@ export function FoodLogDialog({
       />
       <AddFoodCard selectedDate={selectedDate} />
     </Dialog>
-  )
+  );
 }
