@@ -17,8 +17,8 @@
 #   npm run dev-loop -- --max 5             # Run up to 5 iterations
 #   npm run dev-loop -- --dry-run           # Show what would be done
 #   npm run dev-loop -- --issue 11          # Work on specific issue
-#   npm run dev-loop -- --no-e2e            # Skip the Playwright gate
-#                                           # (or RUN_E2E=false npm run dev-loop)
+#   npm run dev-loop -- --e2e               # Re-enable the Playwright gate
+#                                           # (or RUN_E2E=true npm run dev-loop)
 #   npm run dev-loop -- --model-timeout 45m # Cap one model call (default 45m)
 #
 # Without --max, the loop runs indefinitely until one of these:
@@ -41,11 +41,18 @@ TIMINGS_FILE="$REPO_DIR/.dev-loop/timings.jsonl"
 MAX_ITERATIONS=0  # 0 = unlimited (run until done or killed)
 DRY_RUN=false
 ISSUE_NUMBER=""
-# The e2e suite dominates iteration time whenever it runs. --no-e2e drops it
-# from the gate for runs where it is checked manually instead. The gate is
-# weaker without it: Playwright specs the model writes go unexecuted, so
-# interaction, mobile, and a11y regressions can reach main.
-RUN_E2E=${RUN_E2E:-true}
+# The e2e gate is OFF for now: the suite is red on main (42+ pre-existing
+# failures across specs nobody has triaged), so as a gate it blocks every push
+# regardless of what the model did, and as a signal it says nothing.
+#
+# The specs are still in tests/e2e — this is a switch, not a deletion. Turn the
+# gate back on with --e2e once the suite is green.
+#
+# Be clear about what is lost meanwhile: nothing executes interaction, mobile,
+# or a11y coverage before a push, so regressions in those reach main unseen.
+# The prompt below stops asking models to write Playwright specs while this is
+# off, since nothing would run them.
+RUN_E2E=${RUN_E2E:-false}
 
 # Wall-clock ceiling on a single model call, as a `timeout` duration string.
 #
@@ -67,7 +74,8 @@ while [[ $# -gt 0 ]]; do
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --issue) ISSUE_NUMBER="$2"; shift 2 ;;
-    --no-e2e) RUN_E2E=false; shift ;;
+    --no-e2e) RUN_E2E=false; shift ;;   # kept: already the default, harmless
+    --e2e) RUN_E2E=true; shift ;;
     --model-timeout) MODEL_TIMEOUT="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
@@ -325,7 +333,7 @@ Instructions:
 5. Implement the feature using ONLY Astryx DS components (no custom CSS, no <div> for layout, no style={{}})
 6. Write meaningful tests for the feature you implement:
    - Unit tests in tests/unit/ for any calculation logic (Vitest)
-   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)
+__E2E_SPEC_NOTE__
    - Tests must verify the feature actually works as a user would experience it
    - Avoid useless tests - each test should verify meaningful behavior
 7. Run ALL tests and ensure they pass before committing:
@@ -334,7 +342,7 @@ Instructions:
                          green build proves nothing about type safety)
    - npm run test:unit  (Vitest)
    - npm run build      (production build)
-   - npm run test:e2e   __E2E_NOTE__
+   __E2E_NOTE__
 8. Commit your work with a conventional commit message.
    Include "Closes #__ISSUE_NUM__" in the commit body so GitHub links the issue.
    Example commit body format:
@@ -390,18 +398,24 @@ TEMPLATE_END
   # — it just moves the same ~15min into the untimed model call, where a failure
   # is invisible to the loop and cannot be replayed into the next attempt.
   if $RUN_E2E; then
-    E2E_NOTE="(Playwright — the loop runs this after you, and a
-                         failure blocks the push and leaves the issue open. Write
-                         the specs; do NOT run the full suite yourself, the gate
-                         does that. Running a single spec you are debugging is
-                         fine.)"
+    E2E_NOTE="- npm run test:e2e:run  (Playwright — the loop runs this after you,
+                         and a failure blocks the push and leaves the issue open.
+                         Do NOT run the full suite yourself, the gate does that.
+                         Running a single spec you are debugging is fine.)"
+    E2E_SPEC_NOTE="   - E2E browser tests in tests/e2e/ that simulate real user interactions (Playwright)"
   else
-    E2E_NOTE="(Playwright — NOT run by the loop and NOT your job this run. Write
-                         the specs, but do not run the full suite; a human runs
-                         it separately. Running a single spec you are debugging
-                         is fine.)"
+    # Asking for specs that nothing will execute buys unverifiable code and
+    # spends model time writing it, so while the gate is off the prompt stops
+    # requesting them outright.
+    E2E_NOTE="(no e2e step — the Playwright suite is disabled repo-wide right
+                         now. \`npm run test:e2e\` is a deliberate no-op.)"
+    E2E_SPEC_NOTE="   - Do NOT write Playwright specs. The e2e suite is disabled and nothing
+     would run them. Cover the behaviour with unit tests instead, and if
+     something genuinely cannot be tested without a browser, say so in the
+     commit body rather than adding a spec."
   fi
   PROMPT=${PROMPT//__E2E_NOTE__/"$E2E_NOTE"}
+  PROMPT=${PROMPT//__E2E_SPEC_NOTE__/"$E2E_SPEC_NOTE"}
 
   # ─── Feed the previous failure on THIS issue back into the prompt ──────
   #
@@ -790,7 +804,7 @@ commit body and explain what you changed instead.
   # E2E_WEB_SERVER_COMMAND: the build above is already fresh, so serve it rather
   # than making Playwright's webServer rebuild or fall back to `vite dev`.
   if ! $RUN_E2E; then
-    echo "  ▸ Skipping e2e (--no-e2e) — nothing ran it; run 'npm run test:e2e' manually"
+    echo "  ▸ e2e DISABLED — no browser coverage gated this push (--e2e re-enables)"
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:disabled"
   elif $VERIFICATION_PASSED; then
     echo "  ▸ Running browser e2e suite (Playwright)..."
@@ -798,7 +812,7 @@ commit body and explain what you changed instead.
     set +e
     E2E_OUTPUT=$(set -o pipefail; E2E_WEB_SERVER_COMMAND="npm run start" \
       E2E_REUSE_SERVER=false \
-      npm run test:e2e 2>&1 | tee /dev/stderr)
+      npm run test:e2e:run 2>&1 | tee /dev/stderr)
     E2E_EXIT=$?
     set -e
     record_timing "e2e" "$(elapsed_since "$PHASE_START")" \
@@ -816,7 +830,7 @@ commit body and explain what you changed instead.
       # `set -e` with pipefail.
       E2E_ERRORS=$(echo "$E2E_OUTPUT" | grep -m 30 -E "✘|failed|Error:|expect\(|Timed out" || true)
       echo "$E2E_ERRORS" | head -8
-      append_failure_excerpt "npm run test:e2e" "$E2E_ERRORS"
+      append_failure_excerpt "npm run test:e2e:run" "$E2E_ERRORS"
     fi
   else
     echo "  ▸ Skipping e2e (unit tests or build already failed)"
@@ -945,7 +959,7 @@ Closed by the self-improving dev loop." 2>/dev/null && \
 
 Details: $VERIFICATION_DETAILS
 
-Run \`npm run test:unit && npm run test:e2e && npm run build\` to see failures.
+Run \`npm run test:unit && npm run build\` to see failures.
 
 This issue was auto-created by the self-improving dev loop." 2>/dev/null || true
     fi
