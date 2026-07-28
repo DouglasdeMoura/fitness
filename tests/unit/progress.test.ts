@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import type { BodyLog } from '~/lib/db'
 import type { MuscleVolume } from '~/lib/api'
 import {
+  areaChartPath,
   capitalizeMuscleGroup,
+  movingAverage,
   volumeProgress,
   volumeStatusBadge,
   volumeVariant,
@@ -196,5 +198,94 @@ describe('capitalizeMuscleGroup', () => {
   it('title-cases snake_case muscle groups', () => {
     expect(capitalizeMuscleGroup('full_body')).toBe('Full Body')
     expect(capitalizeMuscleGroup('chest')).toBe('Chest')
+  })
+})
+
+describe('movingAverage', () => {
+  it('returns null for first (window-1) entries where SMA is incomplete', () => {
+    const result = movingAverage([80, 81, 82, 83, 84, 85, 86], 7)
+    // First 6 entries lack a full 7-day window
+    expect(result.slice(0, 6)).toEqual([null, null, null, null, null, null])
+    // 7th entry has full window: avg of all 7 = 83
+    expect(result[6]).toBe(83)
+  })
+
+  it('computes a rolling SMA as the window advances', () => {
+    // Weight: 80, 81, 79, 82, 80, 81, 83
+    const result = movingAverage([80, 81, 79, 82, 80, 81, 83], 3)
+    // Window 3: index 2 = (80+81+79)/3 = 80.0
+    expect(result[2]).toBe(80)
+    // Window rolls: index 3 = (81+79+82)/3 ≈ 80.7
+    expect(result[3]).toBe(80.7)
+    // Index 4 = (79+82+80)/3 ≈ 80.3
+    expect(result[4]).toBe(80.3)
+    // Index 5 = (82+80+81)/3 = 81.0
+    expect(result[5]).toBe(81)
+    // Index 6 = (80+81+83)/3 ≈ 81.3
+    expect(result[6]).toBe(81.3)
+  })
+
+  it('rounds SMA values to one decimal place for display', () => {
+    const result = movingAverage([1, 2, 3], 3)
+    expect(result[2]).toBe(2) // (1+2+3)/3 = 2.0 → "2"
+  })
+
+  it('returns all nulls when window exceeds data length', () => {
+    const result = movingAverage([80, 81], 7)
+    expect(result).toEqual([null, null])
+  })
+
+  it('handles a window of zero gracefully', () => {
+    const result = movingAverage([80, 81, 82], 0)
+    expect(result).toEqual([null, null, null])
+  })
+
+  it('SMA smooths daily fluctuations so trend is visible', () => {
+    // Noisy weight data with an overall downward trend
+    const weights = [85, 87, 84, 88, 83, 86, 82, 85, 81, 84, 80]
+    const result = movingAverage(weights, 7)
+    // The raw data jumps up/down; SMA should show a smoother descent
+    // First 6 are null; remaining should be monotonically decreasing-ish
+    const smaValues = result.filter((v): v is number => v !== null)
+    expect(smaValues.length).toBe(5)
+    // Overall trend should be downward (smoothing the noise)
+    expect(smaValues[0]).toBeGreaterThan(smaValues[smaValues.length - 1])
+  })
+})
+
+describe('areaChartPath', () => {
+  const geom = { width: 100, height: 200, topPadding: 10, viewBoxHeight: 240 }
+
+  it('returns an SVG polygon path closing back to the chart bottom', () => {
+    const points = [
+      { x: 0, y: 150 },
+      { x: 50, y: 100 },
+      { x: 100, y: 120 },
+    ]
+    const path = areaChartPath(points, geom)
+
+    // Must start with "M" for moveto
+    expect(path.startsWith('M ')).toBe(true)
+    // Must contain the line segments
+    expect(path).toContain('0,150')
+    expect(path).toContain('50,100')
+    expect(path).toContain('100,120')
+    // Must close to bottom-right and bottom-left
+    expect(path).toContain('100,240') // bottom-right corner
+    expect(path).toContain('0,240') // bottom-left corner
+    // Must end with Z to close the path
+    expect(path.endsWith(' Z')).toBe(true)
+  })
+
+  it('returns empty string for zero points', () => {
+    expect(areaChartPath([], geom)).toBe('')
+  })
+
+  it('handles a single point correctly', () => {
+    const points = [{ x: 50, y: 100 }]
+    const path = areaChartPath(points, geom)
+    expect(path.startsWith('M ')).toBe(true)
+    expect(path.endsWith(' Z')).toBe(true)
+    expect(path).toContain('50,240') // bottom-right == bottom-left for single point
   })
 })

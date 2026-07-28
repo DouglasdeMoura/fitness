@@ -372,37 +372,42 @@ test.describe('Progress - Analytics View', () => {
     await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible()
   })
 
-  test('renders the three summary stat cards from migrated Card components', async ({ page }) => {
+  test('renders the highlights card with best lift, monthly volume, and streak', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.getByText('Weight Trend', { exact: true })).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Workouts (90d)', { exact: true })).toBeVisible()
-    await expect(page.getByText('Avg per Week', { exact: true })).toBeVisible()
+    await expect(page.getByText('Best Lift This Month', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Monthly Volume', { exact: true })).toBeVisible()
+    await expect(page.getByText('Workout Streak', { exact: true })).toBeVisible()
   })
 
-  test('shows weight history section with either the chart or empty guidance', async ({ page }) => {
+  test('shows TabList for Weight, Volume, Nutrition views', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.getByRole('heading', { name: 'Weight History' })).toBeVisible({ timeout: 10000 })
-    // No body logs on a fresh database -> EmptyState guidance; otherwise the SVG renders.
-    const empty = page.getByText('No weight logs yet')
-    const chart = page.getByRole('img', { name: 'Weight trend line chart' })
-    await expect(empty.or(chart).first()).toBeVisible()
+    await expect(page.locator('button', { hasText: 'Weight' })).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('button', { hasText: 'Volume' })).toBeVisible()
+    await expect(page.locator('button', { hasText: 'Nutrition' })).toBeVisible()
   })
 
-  test('shows weekly volume analysis section with the Schoenfeld reference', async ({ page }) => {
+  test('Weight tab defaults to area chart or empty guidance', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.getByRole('heading', { name: /Weekly Volume/ })).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText(/Schoenfeld/)).toBeVisible()
+    // Weight tab is the default view — either chart or empty state
+    const chart = page.getByRole('img', { name: /Weight trend area chart/ })
+    const empty = page.getByRole('status').filter({ hasText: 'No weight logs yet' })
+    await expect(chart.or(empty).first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('shows weekly nutrition summary section', async ({ page }) => {
+  test('Volume tab shows Schoenfeld reference after switching', async ({ page }) => {
     await openAppPage(page, '/progress')
-    await expect(page.getByRole('heading', { name: /Weekly Nutrition/ })).toBeVisible({ timeout: 10000 })
+    await page.locator('button', { hasText: 'Volume' }).click()
+    await expect(page.getByText(/Schoenfeld/)).toBeVisible({ timeout: 5000 })
   })
 
-  test('logged workout volume renders as a ProgressBar on the progress page', async ({ page }) => {
-    // Drive the (still custom-CSS) workout UI to log one set, mirroring the
-    // Workout suite's resilient flow. The saved set lands inside the 7-day
-    // window getWeeklyVolume reads, so it must surface as a ProgressBar here.
+  test('Nutrition tab shows weekly averages after switching', async ({ page }) => {
+    await openAppPage(page, '/progress')
+    await page.locator('button', { hasText: 'Nutrition' }).click()
+    await expect(page.getByText(/Weekly Nutrition Summary/)).toBeVisible({ timeout: 5000 })
+  })
+
+  test('logged workout volume renders as a ProgressBar on the Volume tab', async ({ page }) => {
+    // Drive the workout UI to log one set so a ProgressBar appears in the weekly volume.
     await openAppPage(page, '/workout')
     const finishBtn = page.getByRole('button', { name: 'Finish workout' })
     if (await finishBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -422,13 +427,12 @@ test.describe('Progress - Analytics View', () => {
 
     await exerciseSelect.click(); await page.getByRole('option').nth(1).click()
     await page.getByRole('button', { name: 'Add Set' }).click()
-    // Default weight/reps are pre-filled; persist the set so it counts toward volume.
-    // The save button's accessible name comes from its Astryx `label` prop, which
-    // is indexed per set ("Save set 1"), not the "Save" text content.
     await page.getByRole('button', { name: /^Save set \d+$/ }).first().click()
     await page.waitForTimeout(500)
 
     await openAppPage(page, '/progress')
+    // Switch to Volume tab
+    await page.locator('button', { hasText: 'Volume' }).click()
     await expect(
       page.getByRole('progressbar', { name: /weekly volume/i }),
     ).toBeVisible({ timeout: 10000 })

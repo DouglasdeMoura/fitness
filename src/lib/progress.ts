@@ -197,3 +197,65 @@ export function capitalizeMuscleGroup(value: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
+
+/**
+ * Simple moving average (SMA) of weight data.
+ *
+ * The first `window - 1` entries return `null` because there aren't enough
+ * preceding values to fill the window. SMA smooths daily fluctuations so the
+ * trend direction is instantly readable — Apple Health uses a 7-day SMA for
+ * its weight trend chart.
+ *
+ * Reference: Hyndman RJ, Athanasopoulos G. "Forecasting: principles and
+ * practice." 3rd ed. OTexts, 2021. §3.3 — Moving averages.
+ *
+ * @param weights  Chronological weight values (oldest first).
+ * @param window   Number of days to average over (typically 7).
+ * @example
+ *   movingAverage([80, 81, 79, 82, 80, 81, 83], 3)
+ *   // [null, null, 80.0, 80.7, 80.3, 81.0, 81.3]
+ */
+export function movingAverage(
+  weights: number[],
+  window: number,
+): (number | null)[] {
+  if (window <= 0) return weights.map(() => null)
+  const result: (number | null)[] = []
+  let sum = 0
+  let count = 0
+
+  for (let i = 0; i < weights.length; i++) {
+    sum += weights[i]
+    count++
+    if (i >= window) {
+      sum -= weights[i - window]
+      count = window
+    }
+    if (count < window) {
+      result.push(null)
+    } else {
+      result.push(Math.round((sum / count) * 10) / 10)
+    }
+  }
+  return result
+}
+
+/**
+ * Builds an SVG polygon path string for a gradient area fill under a line.
+ *
+ * The path traces the data line left-to-right, then closes with the bottom
+ * edge of the chart so the `<polygon>` or `<path>` can be filled with a
+ * vertical linear gradient.
+ *
+ * @param points    Chart coordinates for each data point.
+ * @param geometry  ViewBox dimensions.
+ * @example areaChartPath(points, geometry) // "M 0,50 L 10,45 ... L 100,160 L 0,160 Z"
+ */
+export function areaChartPath(points: ChartPoint[], geometry: ChartGeometry): string {
+  if (points.length === 0) return ''
+  const top = points.map((p) => `${p.x},${p.y}`).join(' L ')
+  const bottomY = geometry.viewBoxHeight
+  const lastX = points[points.length - 1].x
+  const firstX = points[0].x
+  return `M ${top} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`
+}

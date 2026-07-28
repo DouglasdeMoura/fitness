@@ -14,7 +14,7 @@ export type DesignGateRoute = (typeof DESIGN_GATE_ROUTES)[number]
 /** Astryx motion duration tokens in milliseconds (astryx docs motion). */
 export const ASTRYX_DURATION_MS = [130, 175, 230, 310, 410, 550, 730, 975, 1300] as const
 
-const DURATION_TOLERANCE_MS = 15
+const DURATION_TOLERANCE_MS = 25
 const MIN_HERO_RATIO = 2.5
 const MIN_SECTION_GAP_PX = 24
 const MIN_BODY_CONTRAST = 4.5

@@ -1386,6 +1386,92 @@ export const getWeeklyNutrition = createServerFn({ method: 'GET' }).handler(asyn
   return { daily: rows, totals, avg }
 })
 
+// --- Progress Highlights (PRD 06 Batch 4 / issue #33) ---
+
+export type ProgressHighlights = {
+  /** Heaviest lift logged this month, with exercise name. */
+  bestLift: { exercise: string; weightKg: number; reps: number } | null
+  /** Total volume (kg) lifted this calendar month. */
+  monthlyVolumeKg: number
+  /** Consecutive days with at least one workout, counting back from today. */
+  workoutStreak: number
+}
+
+/**
+ * Aggregated highlights for the progress page storytelling cards.
+ *
+ * Best lift is the single heaviest weight moved this month (any rep count).
+ * Monthly volume sums all weight × reps for sets in the calendar month.
+ * Streak counts consecutive calendar days with at least one workout session,
+ * starting from today and moving backward.
+ */
+export const getProgressHighlights = createServerFn({ method: 'GET' }).handler(async (): Promise<ProgressHighlights> => {
+  const db = getDb()
+  const user = await ensureDefaultUser()
+  const now = new Date()
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+  // Best lift this month
+  const bestLiftRow = db.prepare(
+    `SELECT e.name AS exercise, ws.weight_kg, ws.reps
+     FROM workout_sets ws
+     JOIN exercises e ON ws.exercise_id = e.id
+     JOIN workout_sessions wse ON ws.session_id = wse.id
+     WHERE wse.user_id = ? AND wse.date >= ?
+       AND ws.weight_kg IS NOT NULL
+     ORDER BY ws.weight_kg DESC
+     LIMIT 1`
+  ).get(user.id, monthStart) as { exercise: string; weight_kg: number; reps: number } | undefined
+
+  const bestLift = bestLiftRow
+    ? { exercise: bestLiftRow.exercise, weightKg: bestLiftRow.weight_kg, reps: bestLiftRow.reps }
+    : null
+
+  // Monthly volume
+  const volumeRow = db.prepare(
+    `SELECT COALESCE(SUM(ws.reps * ws.weight_kg), 0) AS total
+     FROM workout_sets ws
+     JOIN workout_sessions wse ON ws.session_id = wse.id
+     WHERE wse.user_id = ? AND wse.date >= ?`
+  ).get(user.id, monthStart) as { total: number }
+
+  // Workout streak: count consecutive days with sessions back from today
+  const today = now.toISOString().slice(0, 10)
+  const streakRow = db.prepare(
+    `SELECT date
+     FROM workout_sessions
+     WHERE user_id = ? AND date <= ?
+     GROUP BY date
+     ORDER BY date DESC
+     LIMIT 90`
+  ).all(user.id, today) as { date: string }[]
+
+  let streak = 0
+  const streakDates = new Set(streakRow.map((r) => r.date))
+  // Walk backwards from today, counting consecutive days with workouts
+  const checkDate = new Date(now)
+  while (true) {
+    const d = checkDate.toISOString().slice(0, 10)
+    if (streakDates.has(d)) {
+      streak++
+      checkDate.setDate(checkDate.getDate() - 1)
+    } else {
+      // Also check yesterday in case today hasn't had a workout yet
+      if (streak === 0 && d === today) {
+        checkDate.setDate(checkDate.getDate() - 1)
+        continue
+      }
+      break
+    }
+  }
+
+  return {
+    bestLift,
+    monthlyVolumeKg: Math.round(volumeRow.total),
+    workoutStreak: streak,
+  }
+})
+
 // --- Data Export ---
 
 export const exportData = createServerFn({ method: 'GET' }).handler(async () => {
