@@ -12,17 +12,7 @@ import {
   listWeeklyWorkoutSetRows,
 } from "~/db/progress-queries";
 import { listAppliedClientIds, processSyncMutations } from "~/db/sync-queries";
-import type {
-  Food,
-  FoodLogEntry,
-  MealType,
-  PeriodizationType,
-  Program,
-  ProgramDay,
-  ProgramExercise,
-  WorkoutSession,
-  WorkoutSet,
-} from "~/db/types";
+import type { Food, FoodLogEntry, MealType, WorkoutSession } from "~/db/types";
 
 import {
   exportNutritionRecords,
@@ -53,7 +43,6 @@ import {
   templateMacroTotals,
   upsertMealPlanRecord,
 } from "../db/meal-plan-queries";
-import type { MealTemplateItemInput } from "../db/meal-plan-queries";
 import {
   deleteProgramRecord,
   findLastProgramExerciseSet,
@@ -64,11 +53,7 @@ import {
   saveProgramRecord,
   setActiveProgramRecord,
 } from "../db/program-queries";
-import type {
-  ProgramDayInput,
-  ProgramDayTarget,
-  SaveProgramInput,
-} from "../db/program-queries";
+import type { ProgramDayTarget } from "../db/program-queries";
 import {
   bodyLogs,
   foodLog,
@@ -76,7 +61,6 @@ import {
   workoutSessions,
   workoutSets,
 } from "../db/schema";
-import type { BodyLogRecord, UserProfileUpdate } from "../db/user-body-queries";
 import {
   findLatestBodyweightRecord,
   listBodyLogRecords,
@@ -129,11 +113,7 @@ import {
   sumNutritionTotals,
   todayString,
 } from "./nutrition";
-import type {
-  NotificationPreferences,
-  NotificationPreferencesUpdate,
-  PushSubscriptionInput,
-} from "./push";
+import type { NotificationPreferences } from "./push";
 import {
   deletePushSubscriptionByEndpoint,
   getNotificationPreferences,
@@ -147,7 +127,61 @@ import {
 } from "./push";
 import { recordKindsBySetId } from "./records";
 import { requireAuth } from "./require-auth";
-import type { QueuedMutation, SyncResult } from "./sync";
+import { serverInputValidator } from "./schemas/common";
+import {
+  addFoodInputSchema,
+  addFoodLogEntryInputSchema,
+  copyDayFromDateInputSchema,
+  copyMealFromDateInputSchema,
+  deleteFoodLogEntryInputSchema,
+  deleteFoodLogEntriesInputSchema,
+  deleteMealTemplateInputSchema,
+  getAllFoodsQuerySchema,
+  getFoodByBarcodeQuerySchema,
+  getFoodLogQuerySchema,
+  getMealTemplateQuerySchema,
+  getNutritionSummaryQuerySchema,
+  logMealTemplateInputSchema,
+  mealPlanSlotInputSchema,
+  optionalWeekStartQuerySchema,
+  saveMealTemplateInputSchema,
+  searchFoodsQuerySchema,
+  setMealPlanInputSchema,
+} from "./schemas/nutrition";
+import {
+  getBodyLogsQuerySchema,
+  getConsistencyQuerySchema,
+  getSyncedClientIdsInputSchema,
+  getWeeklyReviewAvailabilityQuerySchema,
+  getWeeklyReviewQuerySchema,
+  importDataInputSchema,
+  logBodyweightInputSchema,
+  pushSubscriptionInputSchema,
+  syncQueuedMutationsInputSchema,
+  unsubscribePushInputSchema,
+  updateNotificationPreferencesSchema,
+  userProfileUpdateSchema,
+} from "./schemas/user";
+import {
+  addWorkoutSetInputSchema,
+  createWorkoutSessionInputSchema,
+  deleteProgramInputSchema,
+  deleteWorkoutSetInputSchema,
+  finishWorkoutSessionInputSchema,
+  getExerciseSetHistoryQuerySchema,
+  getProgramQuerySchema,
+  getWorkoutSessionQuerySchema,
+  getWorkoutSessionSummaryQuerySchema,
+  lastPerformanceQuerySchema,
+  optionalMuscleGroupQuerySchema,
+  programDayTargetsQuerySchema,
+  saveProgramInputSchema,
+  setActiveProgramInputSchema,
+  startWorkoutFromProgramInputSchema,
+  workoutSessionsQuerySchema,
+} from "./schemas/workout";
+import type { SaveProgramInput } from "./schemas/workout";
+import type { SyncResult } from "./sync";
 import type { WeeklyReviewPayload } from "./weekly-review";
 import {
   assembleWeeklyReview,
@@ -171,7 +205,7 @@ export const getUser = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const updateUser = createServerFn({ method: "POST" })
-  .validator((profileUpdate: UserProfileUpdate) => profileUpdate)
+  .validator(serverInputValidator(userProfileUpdateSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const hasChanges = Object.values(ctx.data).some(
@@ -186,21 +220,14 @@ export const updateUser = createServerFn({ method: "POST" })
 // --- Body Logs ---
 
 export const getBodyLogs = createServerFn({ method: "GET" })
-  .validator((query: { limit?: number }) => query)
+  .validator(serverInputValidator(getBodyLogsQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return listBodyLogRecords(drizzleDb, user.id, ctx.data?.limit || 90);
   });
 
 export const logBodyweight = createServerFn({ method: "POST" })
-  .validator(
-    (input: {
-      weight_kg: number;
-      body_fat_pct?: number;
-      notes?: string;
-      date?: string;
-    }) => input
-  )
+  .validator(serverInputValidator(logBodyweightInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return upsertBodyweightRecord(drizzleDb, user.id, {
@@ -291,7 +318,7 @@ function toLegacyFoodLogEntry(entry: FoodLogRecord): FoodLogEntry {
 // --- Foods ---
 
 export const searchFoods = createServerFn({ method: "GET" })
-  .validator((data: { query: string; limit?: number }) => data)
+  .validator(serverInputValidator(searchFoodsQuerySchema))
   .handler(async (ctx) => {
     await requireAuth();
     const records = await searchFoodRecords(
@@ -303,7 +330,7 @@ export const searchFoods = createServerFn({ method: "GET" })
   });
 
 export const getAllFoods = createServerFn({ method: "GET" })
-  .validator((data: { limit?: number } | undefined) => data ?? {})
+  .validator(serverInputValidator(getAllFoodsQuerySchema))
   .handler(async (ctx) => {
     await requireAuth();
     const records = await listFoodRecords(drizzleDb, ctx.data?.limit || 100);
@@ -312,7 +339,7 @@ export const getAllFoods = createServerFn({ method: "GET" })
 
 /** Resolve a scanned GTIN against foods the user has logged before (issue #58). */
 export const getFoodByBarcode = createServerFn({ method: "GET" })
-  .validator((data: { barcode: string }) => data)
+  .validator(serverInputValidator(getFoodByBarcodeQuerySchema))
   .handler(async (ctx) => {
     await requireAuth();
     const normalized = normalizeBarcode(ctx.data.barcode);
@@ -326,10 +353,7 @@ export const getFoodByBarcode = createServerFn({ method: "GET" })
   });
 
 export const addFood = createServerFn({ method: "POST" })
-  .validator(
-    (data: Omit<Food, "id" | "created_at" | "source"> & { source?: string }) =>
-      data
-  )
+  .validator(serverInputValidator(addFoodInputSchema))
   .handler(async (ctx) => {
     await requireAuth();
     const food = ctx.data;
@@ -443,7 +467,7 @@ export const getLoggedFoodStats = createServerFn({ method: "GET" }).handler(
 // --- Food Log ---
 
 export const getFoodLog = createServerFn({ method: "GET" })
-  .validator((data: { date?: string }) => data)
+  .validator(serverInputValidator(getFoodLogQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const date = ctx.data?.date || todayString();
@@ -452,20 +476,7 @@ export const getFoodLog = createServerFn({ method: "GET" })
   });
 
 export const addFoodLogEntry = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      food_id?: number;
-      custom_name?: string;
-      date?: string;
-      meal_type: "breakfast" | "lunch" | "dinner" | "snack";
-      servings: number;
-      calories: number;
-      protein_g: number;
-      carbs_g: number;
-      fat_g: number;
-      notes?: string;
-    }) => data
-  )
+  .validator(serverInputValidator(addFoodLogEntryInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const entry = ctx.data;
@@ -486,7 +497,7 @@ export const addFoodLogEntry = createServerFn({ method: "POST" })
   });
 
 export const deleteFoodLogEntry = createServerFn({ method: "POST" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(deleteFoodLogEntryInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await deleteFoodLogRecord(drizzleDb, user.id, ctx.data.id);
@@ -494,16 +505,14 @@ export const deleteFoodLogEntry = createServerFn({ method: "POST" })
   });
 
 export const deleteFoodLogEntries = createServerFn({ method: "POST" })
-  .validator((data: { ids: number[] }) => data)
+  .validator(serverInputValidator(deleteFoodLogEntriesInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return deleteFoodLogEntriesInDb(drizzleDb, user.id, ctx.data.ids);
   });
 
 export const copyMealFromDate = createServerFn({ method: "POST" })
-  .validator(
-    (data: { fromDate: string; toDate: string; mealType: MealType }) => data
-  )
+  .validator(serverInputValidator(copyMealFromDateInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { fromDate, toDate, mealType } = ctx.data;
@@ -519,7 +528,7 @@ export const copyMealFromDate = createServerFn({ method: "POST" })
   });
 
 export const copyDayFromDate = createServerFn({ method: "POST" })
-  .validator((data: { fromDate: string; toDate: string }) => data)
+  .validator(serverInputValidator(copyDayFromDateInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { fromDate, toDate } = ctx.data;
@@ -533,9 +542,7 @@ export const copyDayFromDate = createServerFn({ method: "POST" })
   });
 
 export const logMealTemplate = createServerFn({ method: "POST" })
-  .validator(
-    (data: { templateId: number; date: string; mealType: MealType }) => data
-  )
+  .validator(serverInputValidator(logMealTemplateInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { templateId, date, mealType } = ctx.data;
@@ -543,7 +550,7 @@ export const logMealTemplate = createServerFn({ method: "POST" })
   });
 
 export const getNutritionSummary = createServerFn({ method: "GET" })
-  .validator((data: { date?: string }) => data)
+  .validator(serverInputValidator(getNutritionSummaryQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const date = ctx.data?.date || todayString();
@@ -558,7 +565,7 @@ export const getNutritionSummary = createServerFn({ method: "GET" })
 // --- Exercises ---
 
 export const getExercises = createServerFn({ method: "GET" })
-  .validator((data: { muscle_group?: string } | undefined) => data ?? {})
+  .validator(serverInputValidator(optionalMuscleGroupQuerySchema))
   .handler(async (ctx) => {
     await requireAuth();
     const records = await listExerciseRecords(
@@ -571,9 +578,7 @@ export const getExercises = createServerFn({ method: "GET" })
 // --- Workouts ---
 
 export const getWorkoutSessions = createServerFn({ method: "GET" })
-  .validator(
-    (data: { limit?: number; date?: string } | undefined) => data ?? {}
-  )
+  .validator(serverInputValidator(workoutSessionsQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const records = await listWorkoutSessionRecords(drizzleDb, user.id, {
@@ -584,7 +589,7 @@ export const getWorkoutSessions = createServerFn({ method: "GET" })
   });
 
 export const getWorkoutSession = createServerFn({ method: "GET" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(getWorkoutSessionQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const owned = await findWorkoutSessionForUser(
@@ -599,14 +604,7 @@ export const getWorkoutSession = createServerFn({ method: "GET" })
   });
 
 export const createWorkoutSession = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      name?: string;
-      date?: string;
-      program_id?: number;
-      program_day_id?: number;
-    }) => data
-  )
+  .validator(serverInputValidator(createWorkoutSessionInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const date = ctx.data.date || todayString();
@@ -621,18 +619,7 @@ export const createWorkoutSession = createServerFn({ method: "POST" })
   });
 
 export const addWorkoutSet = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      session_id: number;
-      exercise_id: number;
-      set_number: number;
-      reps: number;
-      weight_kg: number;
-      rpe?: number;
-      rest_seconds?: number;
-      notes?: string;
-    }) => data
-  )
+  .validator(serverInputValidator(addWorkoutSetInputSchema))
   .handler(async (ctx) => {
     const d = ctx.data;
     const record = await insertWorkoutSetRecord(drizzleDb, {
@@ -649,7 +636,7 @@ export const addWorkoutSet = createServerFn({ method: "POST" })
   });
 
 export const deleteWorkoutSet = createServerFn({ method: "POST" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(deleteWorkoutSetInputSchema))
   .handler(async (ctx) => {
     await deleteWorkoutSetRecord(drizzleDb, ctx.data.id);
     return { success: true };
@@ -730,7 +717,7 @@ async function buildWorkoutSessionSummary(
 }
 
 export const finishWorkoutSession = createServerFn({ method: "POST" })
-  .validator((data: { id: number; finishedAt?: string }) => data)
+  .validator(serverInputValidator(finishWorkoutSessionInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const session = await findWorkoutSessionForUser(
@@ -760,7 +747,7 @@ export const finishWorkoutSession = createServerFn({ method: "POST" })
   });
 
 export const getWorkoutSessionSummary = createServerFn({ method: "GET" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(getWorkoutSessionSummaryQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const session = await findWorkoutSessionForUser(
@@ -785,9 +772,7 @@ export interface LastPerformanceResult {
 
 /** Most recent logged set for an exercise before the active session (PRD 10 Batch 1). */
 export const getLastPerformance = createServerFn({ method: "GET" })
-  .validator(
-    (data: { exerciseId: number; excludeSessionId?: number | null }) => data
-  )
+  .validator(serverInputValidator(lastPerformanceQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return findLastPerformanceRow(
@@ -807,7 +792,7 @@ export interface ExerciseSetHistoryRow {
 
 /** Chronological set history for an exercise — feeds pure PR detection (issue #61). */
 export const getExerciseSetHistory = createServerFn({ method: "GET" })
-  .validator((data: { exerciseId: number }) => data)
+  .validator(serverInputValidator(getExerciseSetHistoryQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const sets = await listExerciseSetHistoryRows(
@@ -836,25 +821,14 @@ export const getPrograms = createServerFn({ method: "GET" }).handler(
 );
 
 export const getProgram = createServerFn({ method: "GET" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(getProgramQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return findProgramDetail(drizzleDb, ctx.data.id, user.id);
   });
 
 export const saveProgram = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      id?: number;
-      name: string;
-      description?: string;
-      frequency_per_week: number;
-      periodization_type: PeriodizationType;
-      progression_increment_pct?: number;
-      is_active?: boolean;
-      days: ProgramDayInput[];
-    }) => data
-  )
+  .validator(serverInputValidator(saveProgramInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const programId = await saveProgramRecord(
@@ -866,7 +840,7 @@ export const saveProgram = createServerFn({ method: "POST" })
   });
 
 export const deleteProgram = createServerFn({ method: "POST" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(deleteProgramInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await deleteProgramRecord(drizzleDb, ctx.data.id, user.id);
@@ -874,7 +848,7 @@ export const deleteProgram = createServerFn({ method: "POST" })
   });
 
 export const setActiveProgram = createServerFn({ method: "POST" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(setActiveProgramInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await setActiveProgramRecord(drizzleDb, ctx.data.id, user.id);
@@ -882,7 +856,7 @@ export const setActiveProgram = createServerFn({ method: "POST" })
   });
 
 export const getProgramDayTargets = createServerFn({ method: "GET" })
-  .validator((data: { programId: number; programDayId: number }) => data)
+  .validator(serverInputValidator(programDayTargetsQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const context = await findProgramDayContext(
@@ -949,7 +923,7 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
   });
 
 export const startWorkoutFromProgram = createServerFn({ method: "POST" })
-  .validator((data: { programId: number; programDayId: number }) => data)
+  .validator(serverInputValidator(startWorkoutFromProgramInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const day = await findProgramDayRecord(
@@ -1022,22 +996,14 @@ export const getMealTemplates = createServerFn({ method: "GET" }).handler(
 );
 
 export const getMealTemplate = createServerFn({ method: "GET" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(getMealTemplateQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return findMealTemplateDetail(drizzleDb, ctx.data.id, user.id);
   });
 
 export const saveMealTemplate = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      id?: number;
-      name: string;
-      description?: string;
-      default_meal_type: MealType;
-      items: MealTemplateItemInput[];
-    }) => data
-  )
+  .validator(serverInputValidator(saveMealTemplateInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const templateId = await saveMealTemplateRecord(
@@ -1049,7 +1015,7 @@ export const saveMealTemplate = createServerFn({ method: "POST" })
   });
 
 export const deleteMealTemplate = createServerFn({ method: "POST" })
-  .validator((data: { id: number }) => data)
+  .validator(serverInputValidator(deleteMealTemplateInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await deleteMealTemplateRecord(drizzleDb, ctx.data.id, user.id);
@@ -1057,7 +1023,7 @@ export const deleteMealTemplate = createServerFn({ method: "POST" })
   });
 
 export const getWeekMealPlan = createServerFn({ method: "GET" })
-  .validator((data: { start_date?: string } | undefined) => data ?? {})
+  .validator(serverInputValidator(optionalWeekStartQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const startDate = getWeekStart(ctx.data?.start_date || todayString());
@@ -1121,9 +1087,7 @@ export const getWeekMealPlan = createServerFn({ method: "GET" })
   });
 
 export const setMealPlan = createServerFn({ method: "POST" })
-  .validator(
-    (data: { date: string; meal_type: MealType; template_id: number }) => data
-  )
+  .validator(serverInputValidator(setMealPlanInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await upsertMealPlanRecord(drizzleDb, user.id, ctx.data);
@@ -1131,7 +1095,7 @@ export const setMealPlan = createServerFn({ method: "POST" })
   });
 
 export const clearMealPlan = createServerFn({ method: "POST" })
-  .validator((data: { date: string; meal_type: MealType }) => data)
+  .validator(serverInputValidator(mealPlanSlotInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     await deleteMealPlanRecord(
@@ -1144,7 +1108,7 @@ export const clearMealPlan = createServerFn({ method: "POST" })
   });
 
 export const logMealFromPlan = createServerFn({ method: "POST" })
-  .validator((data: { date: string; meal_type: MealType }) => data)
+  .validator(serverInputValidator(mealPlanSlotInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const plan = await findMealPlanRecord(
@@ -1349,17 +1313,7 @@ export const exportData = createServerFn({ method: "GET" }).handler(
  * dates and IDs to avoid conflicts. Uses a transaction for atomicity.
  */
 export const importData = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      body_logs?: BodyLogRecord[];
-      food_log?: FoodLogEntry[];
-      workouts?: WorkoutSession[];
-      workout_sets?: WorkoutSet[];
-      programs?: Program[];
-      program_days?: ProgramDay[];
-      program_exercises?: ProgramExercise[];
-    }) => data
-  )
+  .validator(serverInputValidator(importDataInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const result = importUserData(drizzleDb, user.id, ctx.data);
@@ -1420,7 +1374,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
 
 /** Burke et al. 2011: rolling adherence and streak metrics for retention. */
 export const getConsistency = createServerFn({ method: "GET" })
-  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .validator(serverInputValidator(getConsistencyQuerySchema))
   .handler(async (ctx): Promise<ConsistencyMetrics> => {
     const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
@@ -1572,7 +1526,7 @@ async function loadWeeklyReviewFromDb(
 
 /** Whether the dashboard should link to the weekly review (issue #64). */
 export const getWeeklyReviewAvailability = createServerFn({ method: "GET" })
-  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .validator(serverInputValidator(getWeeklyReviewAvailabilityQuerySchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
@@ -1582,7 +1536,7 @@ export const getWeeklyReviewAvailability = createServerFn({ method: "GET" })
 
 /** Last complete week's review metrics and headline (issue #64). */
 export const getWeeklyReview = createServerFn({ method: "GET" })
-  .validator((data: { asOf?: string } | undefined) => data ?? {})
+  .validator(serverInputValidator(getWeeklyReviewQuerySchema))
   .handler(async (ctx): Promise<WeeklyReview | null> => {
     const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
@@ -1677,7 +1631,7 @@ export const getOfflineBundle = createServerFn({ method: "GET" }).handler(
  * fails on its own instead of discarding the rest of the batch.
  */
 export const syncQueuedMutations = createServerFn({ method: "POST" })
-  .validator((data: { mutations: QueuedMutation[] }) => data)
+  .validator(serverInputValidator(syncQueuedMutationsInputSchema))
   .handler(async (ctx): Promise<SyncResult> => {
     const { user } = await requireAuth();
     return processSyncMutations(drizzleDb, user.id, ctx.data?.mutations ?? []);
@@ -1688,7 +1642,7 @@ export const syncQueuedMutations = createServerFn({ method: "POST" })
  * its outbox that landed on a previous attempt whose response it never saw.
  */
 export const getSyncedClientIds = createServerFn({ method: "POST" })
-  .validator((data: { client_ids: string[] }) => data)
+  .validator(serverInputValidator(getSyncedClientIdsInputSchema))
   .handler(async (ctx) => {
     const ids = ctx.data?.client_ids ?? [];
     if (ids.length === 0) {
@@ -1718,7 +1672,7 @@ export const getPushStatus = createServerFn({ method: "GET" }).handler(
 );
 
 export const subscribePush = createServerFn({ method: "POST" })
-  .validator((data: PushSubscriptionInput) => data)
+  .validator(serverInputValidator(pushSubscriptionInputSchema))
   .handler(async (ctx) => {
     const publicKey = readVapidPublicKey();
     if (!publicKey) {
@@ -1730,7 +1684,7 @@ export const subscribePush = createServerFn({ method: "POST" })
   });
 
 export const unsubscribePush = createServerFn({ method: "POST" })
-  .validator((data: { endpoint: string }) => data)
+  .validator(serverInputValidator(unsubscribePushInputSchema))
   .handler(async (ctx) => {
     deletePushSubscriptionByEndpoint(drizzleDb, ctx.data.endpoint);
     return { ok: true as const };
@@ -1774,7 +1728,7 @@ export const getReminderPreferences = createServerFn({ method: "GET" }).handler(
 );
 
 export const updateNotificationPreferences = createServerFn({ method: "POST" })
-  .validator((data: NotificationPreferencesUpdate) => data)
+  .validator(serverInputValidator(updateNotificationPreferencesSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     return upsertNotificationPreferences(drizzleDb, user.id, ctx.data);

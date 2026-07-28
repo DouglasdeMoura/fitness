@@ -18,6 +18,7 @@ import {
 
 import type { NotificationType } from "./notification-preferences";
 import { isIosDevice } from "./pwa-install";
+import type { PushSubscriptionInput } from "./schemas/user";
 
 // --- Types ---
 
@@ -28,14 +29,6 @@ export interface PushSubscriptionRow {
   id: number;
   p256dh: string;
   user_id: number;
-}
-
-export interface PushSubscriptionInput {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
 }
 
 export interface VapidConfig {
@@ -441,6 +434,8 @@ export function listUserIds(db: FitTrackDatabase): number[] {
 }
 
 // --- Reminder preferences (issue #66) ---
+
+export type { PushSubscriptionInput } from "./schemas/user";
 
 export {
   defaultNotificationPreferences,

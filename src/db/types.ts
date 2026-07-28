@@ -1,5 +1,7 @@
 /** Snake-case API shapes returned to routes and offline clients. */
 
+import type { MealType } from "../lib/schemas/common";
+
 export interface User {
   activity_level: "sedentary" | "light" | "moderate" | "active" | "very_active";
   birth_date: string | null;
@@ -128,7 +130,7 @@ export interface ProgramExercise {
   target_sets: number | null;
 }
 
-export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+export type { MealType } from "../lib/schemas/common";
 
 export interface MealTemplate {
   created_at: string;

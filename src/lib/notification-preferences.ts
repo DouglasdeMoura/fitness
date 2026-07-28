@@ -10,27 +10,21 @@ import {
 } from "~/db/notification-queries";
 import type { NotificationPreferencesRow } from "~/db/types";
 
+import type {
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+} from "./schemas/user";
+
+export type {
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+} from "./schemas/user";
+
 export type NotificationType =
   | "rest_timer"
   | "meal_reminder"
   | "workout_reminder"
   | "weekly_review";
-
-export interface NotificationPreferences {
-  meal_reminders: boolean;
-  meal_times: string[];
-  quiet_end: string | null;
-  quiet_start: string | null;
-  rest_timer: boolean;
-  weekly_review: boolean;
-  weekly_review_day: number | null;
-  weekly_review_time: string | null;
-  workout_days: number[];
-  workout_reminders: boolean;
-  workout_time: string | null;
-}
-
-export type NotificationPreferencesUpdate = Partial<NotificationPreferences>;
 
 export const REMINDERS_CARD_TITLE = "Reminders";
 

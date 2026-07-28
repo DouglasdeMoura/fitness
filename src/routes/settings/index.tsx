@@ -48,6 +48,7 @@ import {
 import type { ActivityLevel } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
 import { requireAuthenticatedRoute } from "~/lib/route-auth";
+import type { ImportDataInput } from "~/lib/schemas/user";
 import type { GoalCardOption, WeightChartPoint } from "~/lib/settings";
 import {
   activityOptions,
@@ -223,7 +224,7 @@ function SettingsPageContent() {
       }
 
       await importData({
-        data: result.data as Parameters<typeof importData>[0]["data"],
+        data: result.data as ImportDataInput,
       });
       toast({ body: dataImportedBody() });
       // Reload to reflect imported data across all queries

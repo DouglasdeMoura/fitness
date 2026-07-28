@@ -4,7 +4,10 @@
 // the browser outbox agree on payload shapes without importing one another
 // (api.ts pulls in Drizzle database layer, offline.ts pulls in IndexedDB globals).
 
-export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+import type { MealType } from "./schemas/common";
+
+export type { MealType } from "./schemas/common";
+export type { QueuedMutation } from "./schemas/user";
 
 /**
  * Payload for each mutation the app can replay after a period offline.
@@ -85,22 +88,6 @@ export interface QueuedMutationPayloads {
 }
 
 export type QueuedMutationKind = keyof QueuedMutationPayloads;
-
-export type QueuedMutation<K extends QueuedMutationKind = QueuedMutationKind> =
-  {
-    [Kind in K]: {
-      /** UUID minted on the device; the server's idempotency key. */
-      client_id: string;
-      kind: Kind;
-      payload: QueuedMutationPayloads[Kind];
-      /** ISO timestamp of when the user performed the action, not when it synced. */
-      queued_at: string;
-      /** Failed sync attempts so far, used to stop retrying a poisoned entry. */
-      attempts: number;
-      /** Message from the most recent failed attempt. */
-      last_error?: string;
-    };
-  }[K];
 
 export interface SyncOutcome {
   client_id: string;

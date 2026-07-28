@@ -1,22 +1,12 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import type { FitTrackDatabase } from ".";
+import type { UserProfileUpdate } from "../lib/schemas/user";
 import { bodyLogs, users } from "./schema";
 
 export type UserRecord = typeof users.$inferSelect;
 export type BodyLogRecord = typeof bodyLogs.$inferSelect;
-export type UserProfileUpdate = Partial<
-  Pick<
-    UserRecord,
-    | "activityLevel"
-    | "birthDate"
-    | "email"
-    | "goalType"
-    | "heightCm"
-    | "name"
-    | "sex"
-  >
->;
+export type { UserProfileUpdate } from "../lib/schemas/user";
 
 export interface AuthSessionUser {
   activityLevel?: string | null;
