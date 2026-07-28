@@ -8,17 +8,17 @@ const originalDatabasePath = process.env.DATABASE_PATH;
 let scratchRoot = "";
 
 /**
- * getDb() memoises its connection in module scope, so every case has to reset
- * the module registry to exercise the first-call path that creates the file.
+ * The database module memoises its connection in module scope, so every case
+ * has to reset the module registry to exercise the first-call path.
  */
 async function openDatabaseAt(dbPath: string) {
   process.env.DATABASE_PATH = dbPath;
   vi.resetModules();
-  const { getDb } = await import("~/lib/db");
-  return getDb();
+  const { getSqlite } = await import("~/db");
+  return getSqlite();
 }
 
-describe("getDb database path", () => {
+describe("database path", () => {
   beforeEach(() => {
     scratchRoot = mkdtempSync(join(tmpdir(), "fittrack-db-path-"));
   });
@@ -32,10 +32,6 @@ describe("getDb database path", () => {
     rmSync(scratchRoot, { force: true, recursive: true });
   });
 
-  // Regression: the mkdir used to run in a `.then()` callback, so it landed a
-  // microtask AFTER `new Database()` had already tried to open the file. The
-  // first run in any tree without data/ failed, and the late mkdir made the
-  // retry pass — which read as an intermittent fault rather than a bug.
   it("creates missing parent directories before opening the file", async () => {
     const dbPath = join(scratchRoot, "nested", "deeper", "fittrack.db");
 

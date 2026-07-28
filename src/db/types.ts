@@ -1,109 +1,4 @@
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-
-import Database from "better-sqlite3";
-
-// Bundled as a string rather than read at runtime. This was
-// `readFileSync(join(import.meta.dirname, "schema.sql"))`, which resolves to
-// src/lib/ under `vite dev` but to .output/server/_ssr/ in a production build —
-// and the bundler does not copy the .sql file there. So `npm run start` threw
-// ENOENT on the first request touching the database, and every DB-backed route
-// 500'd. It went unnoticed because `npm run build` only proves the bundle
-// builds, and the e2e suite only ever exercised `vite dev`.
-import schemaSql from "./schema.sql?raw";
-
-let dbInstance: Database.Database | null = null;
-
-function runMigrations(db: Database.Database) {
-  const migrations: { table: string; column: string; sql: string }[] = [
-    {
-      column: "periodization_type",
-      sql: "ALTER TABLE programs ADD COLUMN periodization_type TEXT NOT NULL DEFAULT 'linear' CHECK(periodization_type IN ('linear', 'dup'))",
-      table: "programs",
-    },
-    {
-      column: "progression_increment_pct",
-      sql: "ALTER TABLE programs ADD COLUMN progression_increment_pct REAL NOT NULL DEFAULT 2.5",
-      table: "programs",
-    },
-    {
-      column: "is_active",
-      sql: "ALTER TABLE programs ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0",
-      table: "programs",
-    },
-    {
-      column: "program_id",
-      sql: "ALTER TABLE workout_sessions ADD COLUMN program_id INTEGER REFERENCES programs(id)",
-      table: "workout_sessions",
-    },
-    {
-      column: "program_day_id",
-      sql: "ALTER TABLE workout_sessions ADD COLUMN program_day_id INTEGER REFERENCES program_days(id)",
-      table: "workout_sessions",
-    },
-    {
-      column: "barcode",
-      sql: "ALTER TABLE foods ADD COLUMN barcode TEXT",
-      table: "foods",
-    },
-  ];
-
-  for (const migration of migrations) {
-    const columns = db
-      .prepare(`PRAGMA table_info(${migration.table})`)
-      .all() as { name: string }[];
-    if (!columns.some((column) => column.name === migration.column)) {
-      db.exec(migration.sql);
-    }
-  }
-
-  // Batch 1 (PRD 09): recency/frequency queries over food_log by user + date.
-  db.exec(
-    "CREATE INDEX IF NOT EXISTS idx_food_log_user_date ON food_log(user_id, date DESC)"
-  );
-
-  // Batch 5 (PRD 09, issue #58): barcode lookup on packaged foods.
-  db.exec("CREATE INDEX IF NOT EXISTS idx_foods_barcode ON foods(barcode)");
-
-  // Batch 1 (PRD 10): last-performance queries by exercise.
-  db.exec(
-    "CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id, id DESC)"
-  );
-
-  // Scheduled push delivery idempotency (issue #67).
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS notification_deliveries (
-      user_id INTEGER NOT NULL REFERENCES users(id),
-      type TEXT NOT NULL,
-      slot TEXT NOT NULL,
-      delivered_at TEXT NOT NULL,
-      PRIMARY KEY (user_id, type, slot)
-    )
-  `);
-}
-
-export function getDb(): Database.Database {
-  if (!dbInstance) {
-    const dbPath =
-      process.env.DATABASE_PATH || join(process.cwd(), "data", "fittrack.db");
-    // Synchronous on purpose. This was `import("node:fs").then(fs => ...)`,
-    // which defers the mkdir to a microtask — but `new Database()` on the next
-    // line runs before that tick, so opening the file failed whenever data/ did
-    // not exist yet. The deferred mkdir then created the directory a moment too
-    // late, so the *next* run succeeded and the failure looked intermittent.
-    // In the dev loop that cost a whole verification cycle (and the model retry
-    // behind it) on any fresh clone, worktree, or rewound tree.
-    mkdirSync(dirname(dbPath), { recursive: true });
-
-    dbInstance = new Database(dbPath);
-    dbInstance.pragma("journal_mode = WAL");
-    dbInstance.pragma("foreign_keys = ON");
-
-    dbInstance.exec(schemaSql);
-    runMigrations(dbInstance);
-  }
-  return dbInstance;
-}
+/** Snake-case API shapes returned to routes and offline clients. */
 
 export interface User {
   activity_level: "sedentary" | "light" | "moderate" | "active" | "very_active";
@@ -157,7 +52,7 @@ export interface FoodLogEntry {
   fat_g: number;
   food_id: number | null;
   id: number;
-  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  meal_type: MealType;
   notes: string | null;
   protein_g: number;
   servings: number;

@@ -2,7 +2,7 @@
 //
 // Kept separate from api.ts and offline.ts so the server-side replay handler and
 // the browser outbox agree on payload shapes without importing one another
-// (api.ts pulls in better-sqlite3, offline.ts pulls in IndexedDB globals).
+// (api.ts pulls in Drizzle database layer, offline.ts pulls in IndexedDB globals).
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 

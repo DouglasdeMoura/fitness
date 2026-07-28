@@ -30,6 +30,7 @@ import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialo
 import { TemplateIcon } from "~/components/icons/fit-track-icons";
 import { NutritionSkeleton } from "~/components/loading/page-skeletons";
 import { useLogMealTemplate } from "~/components/nutrition/use-log-meal-template";
+import type { Food } from "~/db/types";
 import {
   deleteMealTemplate,
   getMealTemplate,
@@ -41,7 +42,6 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { Food } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,

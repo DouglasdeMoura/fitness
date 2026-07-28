@@ -3,9 +3,12 @@
  * Burke et al. 2011: timely prompts support self-monitoring adherence.
  */
 
-import type Database from "better-sqlite3";
-
-import type { NotificationPreferencesRow } from "./db";
+import type { FitTrackDatabase } from "~/db";
+import {
+  getNotificationPreferencesRow,
+  upsertNotificationPreferencesRow,
+} from "~/db/notification-queries";
+import type { NotificationPreferencesRow } from "~/db/types";
 
 export type NotificationType =
   | "rest_timer"
@@ -112,12 +115,10 @@ function rowToPreferences(
 }
 
 export function getNotificationPreferences(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number
 ): NotificationPreferences {
-  const row = db
-    .prepare("SELECT * FROM notification_preferences WHERE user_id = ?")
-    .get(userId) as NotificationPreferencesRow | undefined;
+  const row = getNotificationPreferencesRow(db, userId);
   if (!row) {
     return defaultNotificationPreferences();
   }
@@ -179,46 +180,27 @@ function withReminderDefaults(
 }
 
 export function upsertNotificationPreferences(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number,
   update: NotificationPreferencesUpdate
 ): NotificationPreferences {
   const current = getNotificationPreferences(db, userId);
   const next = withReminderDefaults(current, update);
 
-  db.prepare(
-    `INSERT INTO notification_preferences (
-      user_id, rest_timer, meal_reminders, meal_times,
-      workout_reminders, workout_days, workout_time,
-      weekly_review, weekly_review_day, weekly_review_time,
-      quiet_start, quiet_end
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET
-      rest_timer = excluded.rest_timer,
-      meal_reminders = excluded.meal_reminders,
-      meal_times = excluded.meal_times,
-      workout_reminders = excluded.workout_reminders,
-      workout_days = excluded.workout_days,
-      workout_time = excluded.workout_time,
-      weekly_review = excluded.weekly_review,
-      weekly_review_day = excluded.weekly_review_day,
-      weekly_review_time = excluded.weekly_review_time,
-      quiet_start = excluded.quiet_start,
-      quiet_end = excluded.quiet_end`
-  ).run(
-    userId,
-    boolToInt(next.rest_timer),
-    boolToInt(next.meal_reminders),
-    JSON.stringify(next.meal_times),
-    boolToInt(next.workout_reminders),
-    JSON.stringify(next.workout_days),
-    next.workout_time,
-    boolToInt(next.weekly_review),
-    next.weekly_review_day,
-    next.weekly_review_time,
-    next.quiet_start,
-    next.quiet_end
-  );
+  upsertNotificationPreferencesRow(db, {
+    meal_reminders: boolToInt(next.meal_reminders),
+    meal_times: JSON.stringify(next.meal_times),
+    quiet_end: next.quiet_end,
+    quiet_start: next.quiet_start,
+    rest_timer: boolToInt(next.rest_timer),
+    user_id: userId,
+    weekly_review: boolToInt(next.weekly_review),
+    weekly_review_day: next.weekly_review_day,
+    weekly_review_time: next.weekly_review_time,
+    workout_days: JSON.stringify(next.workout_days),
+    workout_reminders: boolToInt(next.workout_reminders),
+    workout_time: next.workout_time,
+  });
 
   return next;
 }

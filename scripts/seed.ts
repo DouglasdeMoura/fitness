@@ -1,24 +1,21 @@
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import Database from "better-sqlite3";
+import { and, eq } from "drizzle-orm";
 
-// Same resolution order as getDb() (src/lib/db.ts) and e2eDatabasePath()
-// (tests/e2e/test-helpers.ts). Honouring DATABASE_PATH is what lets a run seed
-// an isolated database instead of the shared data/fittrack.db.
+import { db } from "../src/db/index.ts";
+import {
+  exercises as exercisesTable,
+  foods as foodsTable,
+  programDays,
+  programExercises,
+  programs,
+  users,
+} from "../src/db/schema.ts";
+
 const dbPath =
   process.env.DATABASE_PATH ?? join(process.cwd(), "data", "fittrack.db");
 mkdirSync(dirname(dbPath), { recursive: true });
-
-const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
-
-const schema = readFileSync(
-  join(process.cwd(), "src", "lib", "schema.sql"),
-  "utf-8"
-);
-db.exec(schema);
 
 // Seed foods
 const foods = [
@@ -88,13 +85,36 @@ const foods = [
   ["Dark Chocolate 70%", null, 28, "g", 155, 2, 13, 12, 3, 7, 4],
 ];
 
-const insertFood = db.prepare(
-  `INSERT OR IGNORE INTO foods (name, brand, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, source)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed')`
-);
-
-for (const f of foods) {
-  insertFood.run(...f);
+for (const f of foods as [
+  string,
+  string | null,
+  number,
+  string,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+][]) {
+  db.insert(foodsTable)
+    .values({
+      brand: f[1],
+      caloriesPerServing: f[4],
+      carbsG: f[6],
+      fatG: f[7],
+      fiberG: f[8],
+      name: f[0],
+      proteinG: f[5],
+      servingSize: f[2],
+      servingUnit: f[3],
+      sodiumMg: f[10],
+      source: "seed",
+      sugarG: f[9],
+    })
+    .onConflictDoNothing()
+    .run();
 }
 
 // Seed exercises
@@ -345,77 +365,116 @@ const exercises = [
   ],
 ];
 
-const insertExercise = db.prepare(
-  `INSERT OR IGNORE INTO exercises (name, category, muscle_group, equipment, instructions)
-   VALUES (?, ?, ?, ?, ?)`
-);
-
-for (const e of exercises) {
-  insertExercise.run(...e);
+for (const e of exercises as [
+  string,
+  "compound" | "isolation" | "bodyweight" | "cardio" | "mobility",
+  string,
+  string | null,
+  string | null,
+][]) {
+  db.insert(exercisesTable)
+    .values({
+      category: e[1],
+      equipment: e[3],
+      instructions: e[4],
+      muscleGroup: e[2],
+      name: e[0],
+    })
+    .onConflictDoNothing()
+    .run();
 }
 
 // Seed training programs
-const userId = db.prepare("SELECT id FROM users LIMIT 1").get()?.id;
-if (!userId) {
-  db.prepare(
-    `INSERT INTO users (name, sex, height_cm, activity_level, goal_type)
-     VALUES ('Athlete', 'male', 178, 'moderate', 'build_muscle')`
-  ).run();
+let athlete = db.select({ id: users.id }).from(users).limit(1).get();
+if (!athlete) {
+  athlete = db
+    .insert(users)
+    .values({
+      activityLevel: "moderate",
+      goalType: "build_muscle",
+      heightCm: 178,
+      name: "Athlete",
+      sex: "male",
+    })
+    .returning({ id: users.id })
+    .get();
 }
-
-const athleteId = db.prepare("SELECT id FROM users LIMIT 1").get().id;
+const athleteId = athlete.id;
 const exerciseIds = Object.fromEntries(
   db
-    .prepare("SELECT id, name FROM exercises")
+    .select({ id: exercisesTable.id, name: exercisesTable.name })
+    .from(exercisesTable)
     .all()
     .map((row) => [row.name, row.id])
 );
 
-function seedProgram(program, days) {
+function seedProgram(
+  program: {
+    name: string;
+    description: string;
+    frequency_per_week: number;
+    periodization_type: "linear" | "dup";
+    progression_increment_pct: number;
+    is_active: number;
+  },
+  days: {
+    day_name: string;
+    sort_order: number;
+    exercises: {
+      name: string;
+      target_sets: number;
+      target_reps: string;
+      target_rpe: number;
+      rest_seconds: number;
+      sort_order: number;
+    }[];
+  }[]
+) {
   const existing = db
-    .prepare("SELECT id FROM programs WHERE user_id = ? AND name = ?")
-    .get(athleteId, program.name);
+    .select({ id: programs.id })
+    .from(programs)
+    .where(and(eq(programs.userId, athleteId), eq(programs.name, program.name)))
+    .get();
   if (existing) {
     return existing.id;
   }
 
-  const result = db
-    .prepare(
-      `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      athleteId,
-      program.name,
-      program.description,
-      program.frequency_per_week,
-      program.periodization_type,
-      program.progression_increment_pct,
-      program.is_active
-    );
+  const programId = db
+    .insert(programs)
+    .values({
+      description: program.description,
+      frequencyPerWeek: program.frequency_per_week,
+      isActive: program.is_active,
+      name: program.name,
+      periodizationType: program.periodization_type,
+      progressionIncrementPct: program.progression_increment_pct,
+      userId: athleteId,
+    })
+    .returning({ id: programs.id })
+    .get().id;
 
-  const programId = result.lastInsertRowid;
   for (const day of days) {
-    const dayResult = db
-      .prepare(
-        "INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)"
-      )
-      .run(programId, day.day_name, day.sort_order);
-    const dayId = dayResult.lastInsertRowid;
+    const dayId = db
+      .insert(programDays)
+      .values({
+        dayName: day.day_name,
+        programId,
+        sortOrder: day.sort_order,
+      })
+      .returning({ id: programDays.id })
+      .get().id;
     for (const exercise of day.exercises) {
-      db.prepare(
-        `INSERT INTO program_exercises
-         (program_day_id, exercise_id, target_sets, target_reps, target_rpe, rest_seconds, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        dayId,
-        exerciseIds[exercise.name],
-        exercise.target_sets,
-        exercise.target_reps,
-        exercise.target_rpe,
-        exercise.rest_seconds,
-        exercise.sort_order
-      );
+      db.insert(programExercises)
+        .values({
+          exerciseId: exerciseIds[exercise.name],
+          programDayId: dayId,
+          restSeconds: exercise.rest_seconds,
+          sortOrder: exercise.sort_order,
+          targetReps: exercise.target_reps,
+          targetRpe: exercise.target_rpe,
+          targetSets: exercise.target_sets,
+        })
+        .run();
     }
   }
   return programId;
@@ -696,4 +755,3 @@ console.log(
 );
 
 console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`);
-db.close();

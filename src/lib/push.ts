@@ -6,7 +6,15 @@
  * VAPID_PUBLIC_KEY is absent.
  */
 
-import type Database from "better-sqlite3";
+import type { FitTrackDatabase } from "~/db";
+import {
+  deletePushSubscriptionByEndpoint as deletePushSubscriptionByEndpointRow,
+  hasPushSubscription as hasPushSubscriptionRow,
+  listPushSubscriptionsForUser as listPushSubscriptionsForUserRows,
+  listUserIds as listUserIdsRows,
+  tryClaimNotificationDelivery as tryClaimNotificationDeliveryRow,
+  upsertPushSubscription as upsertPushSubscriptionRow,
+} from "~/db/push-queries";
 
 import type { NotificationType } from "./notification-preferences";
 import { isIosDevice } from "./pwa-install";
@@ -122,53 +130,32 @@ export function readVapidConfig(
 // --- Database ---
 
 export function upsertPushSubscription(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number,
   input: PushSubscriptionInput
 ): void {
-  const createdAt = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(endpoint) DO UPDATE SET
-       user_id = excluded.user_id,
-       p256dh = excluded.p256dh,
-       auth = excluded.auth,
-       created_at = excluded.created_at`
-  ).run(userId, input.endpoint, input.keys.p256dh, input.keys.auth, createdAt);
+  upsertPushSubscriptionRow(db, userId, input);
 }
 
 export function deletePushSubscriptionByEndpoint(
-  db: Database.Database,
+  db: FitTrackDatabase,
   endpoint: string
 ): boolean {
-  const result = db
-    .prepare("DELETE FROM push_subscriptions WHERE endpoint = ?")
-    .run(endpoint);
-  return result.changes > 0;
+  return deletePushSubscriptionByEndpointRow(db, endpoint);
 }
 
 export function listPushSubscriptionsForUser(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number
 ): PushSubscriptionRow[] {
-  return db
-    .prepare(
-      "SELECT * FROM push_subscriptions WHERE user_id = ? ORDER BY created_at DESC"
-    )
-    .all(userId) as PushSubscriptionRow[];
+  return listPushSubscriptionsForUserRows(db, userId);
 }
 
 export function hasPushSubscription(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number
 ): boolean {
-  const row = db
-    .prepare(
-      "SELECT COUNT(*) AS count FROM push_subscriptions WHERE user_id = ?"
-    )
-    .get(userId) as { count: number };
-  return row.count > 0;
+  return hasPushSubscriptionRow(db, userId);
 }
 
 // --- Delivery ---
@@ -255,7 +242,7 @@ export async function sendPushToSubscription(
 }
 
 export async function sendPushToUserSubscriptions(
-  db: Database.Database,
+  db: FitTrackDatabase,
   client: PushNotificationClient,
   vapid: VapidConfig,
   userId: number,
@@ -441,27 +428,16 @@ export function notificationSlotForNow(now: Date): string {
  * Claim a delivery slot before sending. Returns false when another run already claimed it.
  */
 export function tryClaimNotificationDelivery(
-  db: Database.Database,
+  db: FitTrackDatabase,
   userId: number,
   type: ScheduledNotificationType,
   slot: string
 ): boolean {
-  const deliveredAt = new Date().toISOString();
-  const result = db
-    .prepare(
-      `INSERT INTO notification_deliveries (user_id, type, slot, delivered_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(user_id, type, slot) DO NOTHING`
-    )
-    .run(userId, type, slot, deliveredAt);
-  return result.changes > 0;
+  return tryClaimNotificationDeliveryRow(db, userId, type, slot);
 }
 
-export function listUserIds(db: Database.Database): number[] {
-  const rows = db.prepare("SELECT id FROM users ORDER BY id").all() as {
-    id: number;
-  }[];
-  return rows.map((row) => row.id);
+export function listUserIds(db: FitTrackDatabase): number[] {
+  return listUserIdsRows(db);
 }
 
 // --- Reminder preferences (issue #66) ---

@@ -27,6 +27,7 @@ import type {
   UpdateProgramExercise,
 } from "~/components/workout/program-exercise-table";
 import { ProgramExerciseTable } from "~/components/workout/program-exercise-table";
+import type { PeriodizationType } from "~/db/types";
 import {
   deleteProgram,
   getExercises,
@@ -39,7 +40,6 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { PeriodizationType } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,

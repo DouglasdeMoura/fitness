@@ -1,4 +1,4 @@
-import type { Food, MealType } from "./db";
+import type { Food, MealType } from "~/db/types";
 
 /** Minimum query length before the food catalog search runs. */
 export const FOOD_SEARCH_MIN_LENGTH = 2;

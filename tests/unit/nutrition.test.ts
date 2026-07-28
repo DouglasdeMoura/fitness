@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { FoodLogEntry } from "~/lib/db";
+import type { FoodLogEntry } from "~/db/types";
 import type { MealType } from "~/lib/nutrition";
 import {
   ACTIVITY_MULTIPLIERS,

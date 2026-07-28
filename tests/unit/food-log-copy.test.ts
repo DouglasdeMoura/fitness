@@ -1,7 +1,7 @@
-import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { FoodLogEntry } from "~/lib/db";
+import type { FoodLogEntry } from "~/db/types";
 import {
   canCopyDayFromDate,
   canCopyMealFromDate,
@@ -12,7 +12,10 @@ import {
   previousDay,
 } from "~/lib/food-log-copy";
 
-const USER_ID = 1;
+import { foodLog } from "../../src/db/schema";
+import { createDrizzleTestDb } from "./drizzle-test-db";
+import type { DrizzleTestDb } from "./drizzle-test-db";
+
 const FROM_DATE = "2020-01-01";
 const TO_DATE = "2020-01-02";
 
@@ -22,7 +25,7 @@ function makeEntry(
   return {
     calories: 165,
     carbs_g: 0,
-    created_at: "2020-01-01T08:00:00Z",
+    created_at: "2020-01-01T00:00:00.000Z",
     custom_name: null,
     date: FROM_DATE,
     fat_g: 3.6,
@@ -30,77 +33,53 @@ function makeEntry(
     notes: null,
     protein_g: 31,
     servings: 1,
-    user_id: USER_ID,
+    user_id: 1,
     ...partial,
   };
 }
 
-const TEST_SCHEMA = `
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL
-);
-CREATE TABLE foods (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  serving_size REAL NOT NULL,
-  serving_unit TEXT NOT NULL,
-  calories_per_serving REAL NOT NULL,
-  protein_g REAL NOT NULL,
-  carbs_g REAL NOT NULL,
-  fat_g REAL NOT NULL,
-  source TEXT NOT NULL DEFAULT 'seed'
-);
-CREATE TABLE food_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  food_id INTEGER REFERENCES foods(id),
-  custom_name TEXT,
-  date TEXT NOT NULL,
-  meal_type TEXT NOT NULL CHECK(meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
-  servings REAL NOT NULL,
-  calories REAL NOT NULL,
-  protein_g REAL NOT NULL,
-  carbs_g REAL NOT NULL,
-  fat_g REAL NOT NULL,
-  notes TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-`;
-
-function createTestDb(): Database.Database {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  db.exec(TEST_SCHEMA);
-  db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(USER_ID, "Test");
-  db.prepare(
-    `INSERT INTO foods (id, name, serving_size, serving_unit, calories_per_serving, protein_g, carbs_g, fat_g, source)
-     VALUES (1, 'Chicken Breast (raw)', 100, 'g', 165, 31, 0, 3.6, 'seed')`
-  ).run();
-  return db;
+function seedEntry(fixture: DrizzleTestDb, entry: FoodLogEntry): void {
+  fixture.db
+    .insert(foodLog)
+    .values({
+      calories: entry.calories,
+      carbsG: entry.carbs_g,
+      createdAt: entry.created_at,
+      customName: entry.custom_name,
+      date: entry.date,
+      fatG: entry.fat_g,
+      foodId: entry.food_id,
+      id: entry.id,
+      mealType: entry.meal_type,
+      notes: entry.notes,
+      proteinG: entry.protein_g,
+      servings: entry.servings,
+      userId: fixture.userId,
+    })
+    .run();
 }
 
-function seedEntry(db: Database.Database, entry: FoodLogEntry): void {
-  db.prepare(
-    `INSERT INTO food_log (
-      id, user_id, food_id, custom_name, date, meal_type,
-      servings, calories, protein_g, carbs_g, fat_g, notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    entry.id,
-    entry.user_id,
-    entry.food_id,
-    entry.custom_name,
-    entry.date,
-    entry.meal_type,
-    entry.servings,
-    entry.calories,
-    entry.protein_g,
-    entry.carbs_g,
-    entry.fat_g,
-    entry.notes,
-    entry.created_at
-  );
+function entriesOnDate(fixture: DrizzleTestDb, date: string): FoodLogEntry[] {
+  return fixture.db
+    .select()
+    .from(foodLog)
+    .where(eq(foodLog.date, date))
+    .all()
+    .map((row) => ({
+      calories: row.calories,
+      carbs_g: row.carbsG,
+      created_at: row.createdAt,
+      custom_name: row.customName,
+      date: row.date,
+      fat_g: row.fatG,
+      food_id: row.foodId,
+      id: row.id,
+      meal_type: row.mealType,
+      notes: row.notes,
+      protein_g: row.proteinG,
+      servings: row.servings,
+      user_id: row.userId,
+    }));
 }
 
 describe("copy visibility predicates (issue #55)", () => {
@@ -124,88 +103,88 @@ describe("copy visibility predicates (issue #55)", () => {
 });
 
 describe("food log copy transactions (issue #55)", () => {
-  let db: Database.Database;
+  let fixture: DrizzleTestDb;
 
   beforeEach(() => {
-    db = createTestDb();
-    seedEntry(db, makeEntry({ id: 1, meal_type: "breakfast" }));
+    fixture = createDrizzleTestDb();
+    seedEntry(fixture, makeEntry({ id: 1, meal_type: "breakfast" }));
     seedEntry(
-      db,
+      fixture,
       makeEntry({ calories: 78, id: 2, meal_type: "breakfast", protein_g: 6.3 })
     );
     seedEntry(
-      db,
+      fixture,
       makeEntry({ calories: 130, id: 3, meal_type: "lunch", protein_g: 2.7 })
     );
   });
 
   afterEach(() => {
-    db.close();
+    fixture.close();
   });
 
   it("copies every entry in a meal inside one transaction", () => {
     const result = copyMealEntriesInDb(
-      db,
-      USER_ID,
+      fixture.db,
+      fixture.userId,
       FROM_DATE,
       TO_DATE,
-      "breakfast"
+      "breakfast",
+      canCopyMealFromDate,
+      entriesForMeal
     );
     expect(result.entries).toHaveLength(2);
-    const copied = entriesForMeal(
-      db
-        .prepare("SELECT * FROM food_log WHERE date = ?")
-        .all(TO_DATE) as FoodLogEntry[],
-      "breakfast"
-    );
+    const copied = entriesForMeal(entriesOnDate(fixture, TO_DATE), "breakfast");
     expect(copied).toHaveLength(2);
     expect(copied.every((entry) => entry.date === TO_DATE)).toBeTruthy();
   });
 
   it("writes nothing when a meal copy would be a no-op", () => {
-    seedEntry(db, makeEntry({ date: TO_DATE, id: 4, meal_type: "breakfast" }));
+    seedEntry(
+      fixture,
+      makeEntry({ date: TO_DATE, id: 4, meal_type: "breakfast" })
+    );
     expect(() =>
-      copyMealEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE, "breakfast")
+      copyMealEntriesInDb(
+        fixture.db,
+        fixture.userId,
+        FROM_DATE,
+        TO_DATE,
+        "breakfast",
+        canCopyMealFromDate,
+        entriesForMeal
+      )
     ).toThrow();
     const targetBreakfast = entriesForMeal(
-      db
-        .prepare("SELECT * FROM food_log WHERE date = ?")
-        .all(TO_DATE) as FoodLogEntry[],
+      entriesOnDate(fixture, TO_DATE),
       "breakfast"
     );
     expect(targetBreakfast).toHaveLength(1);
   });
 
   it("copies a full day and undo deletes exactly the created rows", () => {
-    const result = copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE);
+    const result = copyDayEntriesInDb(
+      fixture.db,
+      fixture.userId,
+      FROM_DATE,
+      TO_DATE,
+      canCopyDayFromDate
+    );
     expect(result.entries).toHaveLength(3);
     const createdIds = result.entries.map((entry) => entry.id);
 
-    const undo = deleteFoodLogEntriesInDb(db, USER_ID, createdIds);
+    const undo = deleteFoodLogEntriesInDb(
+      fixture.db,
+      fixture.userId,
+      createdIds
+    );
     expect(undo.deleted_ids).toStrictEqual(createdIds);
-    expect(
-      (
-        db
-          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
-          .get(TO_DATE) as {
-          count: number;
-        }
-      ).count
-    ).toBe(0);
-    expect(
-      (
-        db
-          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
-          .get(FROM_DATE) as {
-          count: number;
-        }
-      ).count
-    ).toBe(3);
+    expect(entriesOnDate(fixture, TO_DATE)).toHaveLength(0);
+    expect(entriesOnDate(fixture, FROM_DATE)).toHaveLength(3);
   });
 
   it("rolls back a day copy when the target day already has entries", () => {
     seedEntry(
-      db,
+      fixture,
       makeEntry({
         calories: 50,
         date: TO_DATE,
@@ -214,15 +193,15 @@ describe("food log copy transactions (issue #55)", () => {
         protein_g: 1,
       })
     );
-    expect(() => copyDayEntriesInDb(db, USER_ID, FROM_DATE, TO_DATE)).toThrow();
-    expect(
-      (
-        db
-          .prepare("SELECT COUNT(*) AS count FROM food_log WHERE date = ?")
-          .get(TO_DATE) as {
-          count: number;
-        }
-      ).count
-    ).toBe(1);
+    expect(() =>
+      copyDayEntriesInDb(
+        fixture.db,
+        fixture.userId,
+        FROM_DATE,
+        TO_DATE,
+        canCopyDayFromDate
+      )
+    ).toThrow();
+    expect(entriesOnDate(fixture, TO_DATE)).toHaveLength(1);
   });
 });

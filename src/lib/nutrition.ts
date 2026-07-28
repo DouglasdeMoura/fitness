@@ -4,7 +4,7 @@
 // - Morton RW et al. "A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength." Br J Sports Med. 2018
 // - Helms ER et al. "A systematic review of dietary protein during caloric restriction in resistance-trained lean athletes." Int J Sport Nutr Exerc Metab. 2014
 
-import type { FoodLogEntry } from "./db";
+import type { FoodLogEntry } from "~/db/types";
 
 export type Sex = "male" | "female" | "other";
 export type ActivityLevel =

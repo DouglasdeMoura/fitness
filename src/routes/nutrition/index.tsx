@@ -12,6 +12,7 @@ import { FoodLogCard } from "~/components/nutrition/food-log-card";
 import { FoodLogDialog } from "~/components/nutrition/food-log-dialog";
 import { StickyMacroHeader } from "~/components/nutrition/sticky-macro-header";
 import { ToastUndoButton } from "~/components/toast-undo-button";
+import type { FoodLogEntry } from "~/db/types";
 import {
   addFoodLogEntry,
   copyDayFromDate,
@@ -26,7 +27,6 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { FoodLogEntry } from "~/lib/db";
 import { deleteFoodEntryTitle } from "~/lib/delete-confirmation";
 import { canCopyDayFromDate, previousDay } from "~/lib/food-log-copy";
 import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
@@ -310,7 +310,7 @@ function useConfirmDeleteFoodEntry(selectedDate: string) {
 
 function useCopyDayFromYesterday(
   selectedDate: string,
-  sourceDayEntries: import("~/lib/db").FoodLogEntry[]
+  sourceDayEntries: import("~/db/types").FoodLogEntry[]
 ) {
   const toast = useToast();
   const queryClient = useQueryClient();

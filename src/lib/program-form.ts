@@ -5,12 +5,12 @@
 // and makes the query<->form<->payload translations unit-testable without a
 // DOM. Mirrors the split already used by ~/lib/template-form and ~/lib/settings.
 
+import type { Exercise, PeriodizationType } from "~/db/types";
 import type {
   ProgramDayInput,
   ProgramDetail,
   ProgramExerciseInput,
 } from "~/lib/api";
-import type { Exercise, PeriodizationType } from "~/lib/db";
 
 /**
  * A program exercise as the form edits it. Extends the persisted input with a

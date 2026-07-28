@@ -1,17 +1,17 @@
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 
+import type { NutritionTotals } from "../lib/nutrition";
+import { calculateFoodMacros, sumNutritionTotals } from "../lib/nutrition";
+import type { FoodRecord } from "./food-nutrition-queries";
+import type { FitTrackDatabase } from "./index";
+import { foods, mealPlans, mealTemplateItems, mealTemplates } from "./schema";
 import type {
   Food,
   MealPlan,
   MealTemplate,
   MealTemplateItem,
   MealType,
-} from "../lib/db";
-import type { NutritionTotals } from "../lib/nutrition";
-import { calculateFoodMacros, sumNutritionTotals } from "../lib/nutrition";
-import type { FoodRecord } from "./food-nutrition-queries";
-import type { FitTrackDatabase } from "./index";
-import { foods, mealPlans, mealTemplateItems, mealTemplates } from "./schema";
+} from "./types";
 
 export type MealTemplateRecord = typeof mealTemplates.$inferSelect;
 export type MealTemplateItemRecord = typeof mealTemplateItems.$inferSelect;

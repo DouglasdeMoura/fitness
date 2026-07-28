@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { Exercise } from "~/db/types";
 import type { ProgramDetail } from "~/lib/api";
-import type { Exercise } from "~/lib/db";
 import type {
   EditableProgramDay,
   EditableProgramExercise,

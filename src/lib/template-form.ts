@@ -5,8 +5,8 @@
 // and makes the query<->form<->payload translations unit-testable without a
 // DOM. Mirrors the split already used by ~/lib/settings for the profile form.
 
+import type { Food } from "~/db/types";
 import type { MealTemplateDetail, MealTemplateItemInput } from "~/lib/api";
-import type { Food } from "~/lib/db";
 import type { MealType } from "~/lib/nutrition";
 
 /**

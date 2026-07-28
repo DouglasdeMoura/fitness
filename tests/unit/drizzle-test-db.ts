@@ -66,3 +66,8 @@ export function createDrizzleTestDb(): DrizzleTestDb {
     userId,
   };
 }
+
+/** In-memory Drizzle DB with migrations applied and one default user. */
+export function createDrizzleMemoryDb(): DrizzleTestDb {
+  return createDrizzleTestDb();
+}

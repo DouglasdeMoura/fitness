@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Food } from "~/lib/db";
+import type { Food } from "~/db/types";
 import type { FoodLogHistory } from "~/lib/food-search";
 import {
   FOOD_SEARCH_MIN_LENGTH,

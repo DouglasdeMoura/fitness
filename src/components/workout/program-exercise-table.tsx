@@ -10,7 +10,7 @@ import {
 } from "@astryxdesign/core";
 
 import { ScrollableTable } from "~/components/scrollable-table";
-import type { Exercise } from "~/lib/db";
+import type { Exercise } from "~/db/types";
 import type {
   EditableProgramDay,
   EditableProgramExercise,

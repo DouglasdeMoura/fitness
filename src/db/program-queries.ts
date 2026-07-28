@@ -9,12 +9,6 @@ import {
   sql,
 } from "drizzle-orm";
 
-import type {
-  PeriodizationType,
-  Program,
-  ProgramDay,
-  ProgramExercise,
-} from "../lib/db";
 import type { FitTrackDatabase } from "./index";
 import {
   exercises,
@@ -24,6 +18,12 @@ import {
   workoutSessions,
   workoutSets,
 } from "./schema";
+import type {
+  PeriodizationType,
+  Program,
+  ProgramDay,
+  ProgramExercise,
+} from "./types";
 
 export type ProgramRecord = typeof programs.$inferSelect;
 export type ProgramDayRecord = typeof programDays.$inferSelect;

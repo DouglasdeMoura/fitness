@@ -31,7 +31,7 @@ class WebPushNotificationClient implements PushNotificationClient {
 export const webPushClient = new WebPushNotificationClient();
 
 export async function deliverPushToUser(
-  db: import("better-sqlite3").Database,
+  db: import("~/db").FitTrackDatabase,
   vapid: VapidConfig,
   userId: number,
   payload: PushPayload

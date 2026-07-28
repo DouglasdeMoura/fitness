@@ -3,7 +3,7 @@
  * Burke et al. 2011: timely prompts support self-monitoring adherence.
  */
 
-import type Database from "better-sqlite3";
+import type { FitTrackDatabase } from "~/db";
 
 import type {
   PushNotificationClient,
@@ -34,7 +34,7 @@ export interface SchedulerRunResult {
 
 export interface RunScheduledNotificationsInput {
   client: PushNotificationClient;
-  db: Database.Database;
+  db: FitTrackDatabase;
   now: Date;
   vapid: VapidConfig | null;
 }
@@ -141,7 +141,7 @@ export async function runScheduledNotifications(
 export async function handleSchedulerCronRequest(
   request: Request,
   deps: {
-    db: Database.Database;
+    db: FitTrackDatabase;
     client: PushNotificationClient;
     vapid: VapidConfig | null;
     env?: EnvLike;

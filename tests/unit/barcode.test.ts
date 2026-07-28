@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { matchCachedFoodBarcode } from "~/components/nutrition/barcode-scanner";
+import type { Food } from "~/db/types";
 import {
   barcodeLookupVariants,
   isBarcodeDetectorSupported,
   normalizeBarcode,
 } from "~/lib/barcode";
-import type { Food } from "~/lib/db";
 
 function sampleFood(overrides: Partial<Food> = {}): Food {
   return {

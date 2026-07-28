@@ -32,6 +32,7 @@ import { ToastUndoButton } from "~/components/toast-undo-button";
 import { SessionSummaryCard } from "~/components/workout/session-summary-card";
 import type { WorkoutSetRow } from "~/components/workout/workout-sets-table";
 import { WorkoutSetsTable } from "~/components/workout/workout-sets-table";
+import type { Exercise, WorkoutSession } from "~/db/types";
 import type {
   ExerciseSetHistoryRow,
   ProgramDayTarget,
@@ -50,7 +51,6 @@ import {
   getWorkoutSessionSummary,
   getWorkoutSessions,
 } from "~/lib/api";
-import type { Exercise, WorkoutSession } from "~/lib/db";
 import { deleteWorkoutSetTitle } from "~/lib/delete-confirmation";
 import { formatDisplayInteger } from "~/lib/format-number";
 import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";

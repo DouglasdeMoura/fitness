@@ -11,10 +11,10 @@ import {
   sql,
 } from "drizzle-orm";
 
-import type { Exercise, WorkoutSession, WorkoutSet } from "../lib/db";
 import type { ExerciseSetSnapshot } from "../lib/records";
 import type { FitTrackDatabase } from "./index";
 import { exercises, workoutSessions, workoutSets } from "./schema";
+import type { Exercise, WorkoutSession, WorkoutSet } from "./types";
 
 export type ExerciseRecord = typeof exercises.$inferSelect;
 export type WorkoutSessionRecord = typeof workoutSessions.$inferSelect;

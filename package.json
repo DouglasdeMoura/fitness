@@ -8,14 +8,14 @@
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
-    "db:seed": "node scripts/seed.mjs",
+    "db:seed": "npx tsx scripts/seed.ts",
     "icons:build": "node scripts/build-icons.mjs",
     "dev-loop": "bash scripts/dev-loop.sh",
     "typecheck": "tsc --noEmit",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
-    "test:e2e": "echo 'e2e is DISABLED — the suite is red (42+ pre-existing failures). No specs ran. Use `npm run test:e2e:run` to run it anyway.'",
+    "test:e2e": "echo 'e2e is DISABLED \u2014 the suite is red (42+ pre-existing failures). No specs ran. Use `npm run test:e2e:run` to run it anyway.'",
     "test:e2e:run": "npx playwright test --project=chromium --project=pixel-7",
     "test:watch": "vitest watch",
     "test:e2e:webkit": "docker run --rm --network host -v \"$PWD\":/work -w /work -e CI=1 mcr.microsoft.com/playwright:v1.62.0-noble npx playwright test --project=iphone-14",
@@ -25,7 +25,10 @@
     "format:check": "oxfmt --check src/ tests/ scripts/",
     "prepare": "lefthook install",
     "check": "ultracite check",
-    "fix": "ultracite fix"
+    "fix": "ultracite fix",
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:studio": "npx drizzle-kit studio",
+    "db:generate": "npx drizzle-kit generate"
   },
   "dependencies": {
     "@astryxdesign/cli": "^0.1.8",

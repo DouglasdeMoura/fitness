@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import type { PushSubscriptionRow } from "~/lib/push";
@@ -16,6 +18,11 @@ import {
   upsertPushSubscription,
 } from "~/lib/push";
 
+import type { FitTrackDatabase } from "../../src/db";
+import * as relations from "../../src/db/relations";
+import * as dbSchema from "../../src/db/schema";
+import { pushSubscriptions } from "../../src/db/schema";
+
 const SAMPLE_SUBSCRIPTION = {
   endpoint: "https://push.example.test/device-1",
   keys: {
@@ -24,17 +31,23 @@ const SAMPLE_SUBSCRIPTION = {
   },
 };
 
-function createTestDb(): Database.Database {
-  const schema = readFileSync(
-    join(process.cwd(), "src/lib/schema.sql"),
+function createTestDb(): FitTrackDatabase {
+  const migrationSql = readFileSync(
+    join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
     "utf-8"
   );
-  const db = new Database(":memory:");
-  db.exec(schema);
-  db.prepare(
-    `INSERT INTO users (name, sex, height_cm, activity_level, goal_type)
-     VALUES ('Athlete', 'male', 178, 'moderate', 'build_muscle')`
-  ).run();
+  const sqlite = new Database(":memory:");
+  sqlite.exec(migrationSql);
+  const db = drizzle(sqlite, { schema: { ...dbSchema, ...relations } });
+  db.insert(dbSchema.users)
+    .values({
+      activityLevel: "moderate",
+      goalType: "build_muscle",
+      heightCm: 178,
+      name: "Athlete",
+      sex: "male",
+    })
+    .run();
   return db;
 }
 
@@ -82,9 +95,9 @@ describe("sendPushToSubscription with FakePushNotificationClient", () => {
       row,
       { body: "Body", title: "Test" },
       (endpoint) => {
-        db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(
-          endpoint
-        );
+        db.delete(pushSubscriptions)
+          .where(eq(pushSubscriptions.endpoint, endpoint))
+          .run();
         return true;
       }
     );

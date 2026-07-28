@@ -26,13 +26,13 @@ import { useState } from "react";
 import { useLogMealTemplate } from "~/components/nutrition/use-log-meal-template";
 import { ScrollableTable } from "~/components/scrollable-table";
 import { ToastUndoButton } from "~/components/toast-undo-button";
+import type { FoodLogEntry } from "~/db/types";
 import type { MealTemplateSummary } from "~/lib/api";
 import {
   addFoodLogEntry,
   copyMealFromDate,
   deleteFoodLogEntries,
 } from "~/lib/api";
-import type { FoodLogEntry } from "~/lib/db";
 import {
   canCopyMealFromDate,
   entriesForMeal,

@@ -14,6 +14,7 @@ import { useToast } from "@astryxdesign/core/Toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { Food } from "~/db/types";
 import {
   addFoodLogEntry,
   getFoodByBarcode,
@@ -24,7 +25,6 @@ import {
   isBarcodeDetectorSupported,
   normalizeBarcode,
 } from "~/lib/barcode";
-import type { Food } from "~/lib/db";
 import type { MealType } from "~/lib/nutrition";
 import { buildFoodLogDraft, mealTypeForHour } from "~/lib/nutrition";
 import { getCachedFoodByBarcode, runOrQueue } from "~/lib/offline";

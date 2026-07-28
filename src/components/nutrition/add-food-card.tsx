@@ -29,6 +29,7 @@ import type { MutableRefObject } from "react";
 import { useImperativeHandle, useRef, useState } from "react";
 
 import { BarcodeScanner } from "~/components/nutrition/barcode-scanner";
+import type { Food } from "~/db/types";
 import { useDebouncedValue } from "~/hooks/use-debounced-value";
 import type { LoggedFoodSummary } from "~/lib/api";
 import {
@@ -44,7 +45,6 @@ import {
   EMPTY_CUSTOM_FOOD_DRAFT,
   isCustomFoodDraftValid,
 } from "~/lib/custom-food";
-import type { Food } from "~/lib/db";
 import type { RankedFoodSearchResult } from "~/lib/food-search";
 import {
   FOOD_SEARCH_MIN_LENGTH,

@@ -26,6 +26,7 @@ import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialo
 import { TemplateIcon } from "~/components/icons/fit-track-icons";
 import { WorkoutSkeleton } from "~/components/loading/page-skeletons";
 import { ScrollableTable } from "~/components/scrollable-table";
+import type { PeriodizationType } from "~/db/types";
 import type { ProgramSummary } from "~/lib/api";
 import {
   deleteProgram,
@@ -38,7 +39,6 @@ import {
   pickFailedDataLoadQuery,
   useDataLoadQuery,
 } from "~/lib/data-load-query";
-import type { PeriodizationType } from "~/lib/db";
 import {
   deleteCannotBeUndoneSubtitle,
   deleteNamedEntityTitle,

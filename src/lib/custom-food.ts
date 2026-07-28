@@ -2,7 +2,7 @@
 // draft → payload mapping and the validity rule can be unit-tested in isolation
 // (the unit suite runs in the node environment, without a React host).
 
-import type { Food } from "./db";
+import type { Food } from "~/db/types";
 
 /**
  * Form-friendly shape for creating a custom food. Mirrors the persisted Food
