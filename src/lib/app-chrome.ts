@@ -1,22 +1,50 @@
-export function getStoredTheme(): "light" | "dark" {
+export type ColorMode = "light" | "dark";
+
+export const DEFAULT_COLOR_MODE: ColorMode = "light";
+export const THEME_STORAGE_KEY = "fittrack-theme";
+export const DARK_COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+/**
+ * Resolves the stored preference before the operating-system preference.
+ *
+ * @example getStoredTheme() // "dark" when no choice is stored and the OS is dark
+ */
+export function getStoredTheme(): ColorMode {
   if (typeof localStorage === "undefined") {
-    return "light";
+    return DEFAULT_COLOR_MODE;
   }
-  const stored = localStorage.getItem("fittrack-theme");
-  return stored === "dark" ? "dark" : "light";
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === "light" || storedTheme === "dark") {
+    return storedTheme;
+  }
+  const prefersDark =
+    typeof matchMedia === "function" &&
+    matchMedia(DARK_COLOR_SCHEME_QUERY).matches;
+  return prefersDark ? "dark" : DEFAULT_COLOR_MODE;
 }
 
 /** Custom event dispatched when theme is toggled from Settings (issue #34). */
 export const THEME_CHANGE_EVENT = "fittrack-theme-changed";
 
-export function persistTheme(mode: "light" | "dark"): void {
-  localStorage.setItem("fittrack-theme", mode);
+export function persistTheme(mode: ColorMode): void {
+  localStorage.setItem(THEME_STORAGE_KEY, mode);
+  if (typeof document !== "undefined") {
+    document.documentElement.dataset.theme = mode;
+    document.documentElement.style.colorScheme = mode;
+    const provider = document.body.querySelector<HTMLElement>(
+      "[data-astryx-theme]"
+    );
+    if (provider) {
+      provider.dataset.theme = mode;
+      provider.style.colorScheme = mode;
+    }
+  }
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: mode }));
   }
 }
 
-export function toggleColorMode(mode: "light" | "dark"): "light" | "dark" {
+export function toggleColorMode(mode: ColorMode): ColorMode {
   return mode === "light" ? "dark" : "light";
 }
 

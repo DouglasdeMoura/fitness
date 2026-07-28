@@ -9,6 +9,7 @@ import {
   isPublicMarketingRoute,
   isWorkoutRoute,
   navValueFromPath,
+  persistTheme,
 } from "~/lib/app-chrome";
 
 const NAV_ITEMS = [
@@ -80,6 +81,7 @@ describe(getStoredTheme, () => {
         store[key] = value;
       },
     });
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
   });
 
   afterEach(() => {
@@ -95,9 +97,47 @@ describe(getStoredTheme, () => {
     expect(getStoredTheme()).toBe("dark");
   });
 
+  it("uses the operating-system dark preference when nothing is stored", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    expect(getStoredTheme()).toBe("dark");
+  });
+
   it("treats unknown values as light", () => {
     localStorage.setItem("fittrack-theme", "sepia");
     expect(getStoredTheme()).toBe("light");
+  });
+});
+
+describe(persistTheme, () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("updates storage, the root, and the rendered Astryx provider", () => {
+    const root = {
+      dataset: { theme: "dark" },
+      style: { colorScheme: "dark" },
+    };
+    const provider = {
+      dataset: { theme: "dark" },
+      style: { colorScheme: "dark" },
+    };
+    const setItem = vi.fn();
+    vi.stubGlobal("localStorage", { setItem });
+    vi.stubGlobal("window");
+    vi.stubGlobal("document", {
+      body: { querySelector: () => provider },
+      documentElement: root,
+    });
+
+    persistTheme("light");
+
+    expect(setItem).toHaveBeenCalledWith("fittrack-theme", "light");
+    expect(root).toEqual({
+      dataset: { theme: "light" },
+      style: { colorScheme: "light" },
+    });
+    expect(provider).toEqual(root);
   });
 });
 

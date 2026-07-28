@@ -27,13 +27,15 @@ import { UserMenu } from "~/components/user-menu";
 import { RestTimer } from "~/components/workout/rest-timer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
 import {
-  getStoredTheme,
+  DEFAULT_COLOR_MODE,
   isMinimalChromeRoute,
   isWorkoutRoute,
   navValueFromPath,
+  persistTheme,
   THEME_CHANGE_EVENT,
   toggleColorMode,
 } from "~/lib/app-chrome";
+import type { ColorMode } from "~/lib/app-chrome";
 import { fittrackTheme } from "~/lib/fittrack-theme";
 import {
   getRestTimerSnapshot,
@@ -103,27 +105,20 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
-  // Keep SSR + first client render identical; hydrate preference after mount.
-  const [colorMode, setColorMode] = useState<"light" | "dark">("light");
-  const [themeReady, setThemeReady] = useState(false);
-  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-
-  useEffect(() => {
-    const stored = getStoredTheme();
-    setColorMode(stored);
-    setThemeReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!themeReady) {
-      return;
+  // The blocking head script owns pre-paint resolution; React reads its result.
+  const [colorMode, setColorMode] = useState<ColorMode>(() => {
+    if (typeof document === "undefined") {
+      return DEFAULT_COLOR_MODE;
     }
-    localStorage.setItem("fittrack-theme", colorMode);
-  }, [colorMode, themeReady]);
+    return document.documentElement.dataset.theme === "dark"
+      ? "dark"
+      : DEFAULT_COLOR_MODE;
+  });
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   // Listen for theme changes dispatched from Settings (issue #34).
   useEffect(() => {
-    const handler = (event: CustomEvent<"light" | "dark">) => {
+    const handler = (event: CustomEvent<ColorMode>) => {
       setColorMode(event.detail);
     };
     window.addEventListener(THEME_CHANGE_EVENT, handler as EventListener);
@@ -198,7 +193,9 @@ export function AppChrome({ children }: { children: ReactNode }) {
                       icon={<ThemeToggleIcon />}
                       label="Toggle dark mode"
                       onClick={() => {
-                        setColorMode((mode) => toggleColorMode(mode));
+                        const nextMode = toggleColorMode(colorMode);
+                        setColorMode(nextMode);
+                        persistTheme(nextMode);
                       }}
                       size="lg"
                       tooltip="Toggle dark mode"
