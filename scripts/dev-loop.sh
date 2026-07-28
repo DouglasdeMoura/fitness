@@ -19,11 +19,16 @@
 #   npm run dev-loop -- --issue 11          # Work on specific issue
 #   npm run dev-loop -- --no-e2e            # Skip the Playwright gate
 #                                           # (or RUN_E2E=false npm run dev-loop)
+#   npm run dev-loop -- --model-timeout 45m # Cap one model call (default 45m)
 #
 # Without --max, the loop runs indefinitely until one of these:
 #   1. No open issues remain (everything is done)
 #   2. All models fail (no tokens left or quota exhausted)
 #   3. The script is killed (Ctrl+C)
+#
+# Every phase appends a record to .dev-loop/timings.jsonl. That file is the only
+# way to tell a slow iteration from a stuck one — see `analyse_timings` at the
+# bottom, which prints a per-phase breakdown in the run summary.
 #
 set -euo pipefail
 
@@ -32,14 +37,29 @@ cd "$REPO_DIR"
 
 LEARNINGS_FILE="$REPO_DIR/.dev-loop/learnings.json"
 STATE_FILE="$REPO_DIR/.dev-loop/state.json"
+TIMINGS_FILE="$REPO_DIR/.dev-loop/timings.jsonl"
 MAX_ITERATIONS=0  # 0 = unlimited (run until done or killed)
 DRY_RUN=false
 ISSUE_NUMBER=""
-# The e2e suite is ~15min at workers:1 and dominates iteration time. --no-e2e
-# drops it from the gate for runs where it is checked manually instead. The
-# gate is weaker without it: Playwright specs the model writes go unexecuted,
-# so interaction, mobile, and a11y regressions can reach main.
+# The e2e suite dominates iteration time whenever it runs. --no-e2e drops it
+# from the gate for runs where it is checked manually instead. The gate is
+# weaker without it: Playwright specs the model writes go unexecuted, so
+# interaction, mobile, and a11y regressions can reach main.
 RUN_E2E=${RUN_E2E:-true}
+
+# Wall-clock ceiling on a single model call, as a `timeout` duration string.
+#
+# This used to be unbounded ("let the model work as long as it needs"), which
+# made a stuck model indistinguishable from a working one: one observed call sat
+# at 68 minutes on a first attempt with no way to tell which it was. The
+# classifier below already had an `EXIT_CODE -eq 124` → "timeout" branch, but
+# nothing ever wrapped the call in `timeout`, so that branch was unreachable and
+# the 15m bench it implies never fired. Capping makes both live.
+#
+# Set generously: the cap is a deadlock breaker, not a scheduling policy. A model
+# killed mid-refactor loses its work, so this should sit well above a normal
+# call. Raise it with --model-timeout if legitimate calls start getting reaped.
+MODEL_TIMEOUT=${MODEL_TIMEOUT:-45m}
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -48,11 +68,19 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=true; shift ;;
     --issue) ISSUE_NUMBER="$2"; shift 2 ;;
     --no-e2e) RUN_E2E=false; shift ;;
+    --model-timeout) MODEL_TIMEOUT="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
 
 mkdir -p "$REPO_DIR/.dev-loop"
+
+# Fail fast on a bad duration string. `timeout` would otherwise reject it 45
+# minutes of model work later, once per iteration, forever.
+if ! timeout "$MODEL_TIMEOUT" true 2>/dev/null; then
+  echo "Invalid --model-timeout: '$MODEL_TIMEOUT' (expected a timeout(1) duration, e.g. 45m, 2700s, 1h)" >&2
+  exit 1
+fi
 
 # Initialize learnings file if it doesn't exist
 if [[ ! -f "$LEARNINGS_FILE" ]]; then
@@ -133,6 +161,56 @@ soonest_cooldown_expiry() {
     fi
   done
   echo "$soonest"
+}
+
+# ─── Phase timing ────────────────────────────────────────────────────────
+#
+# Iteration cost used to be invisible. The only artefact of a run was a tee'd
+# model transcript, and the summary reported counts, never durations — so
+# "the model is thinking" and "the model is wedged" looked identical from
+# outside, and there was no way to tell whether e2e or the model call was the
+# tax. Each phase now appends one JSON line to .dev-loop/timings.jsonl.
+
+# Seconds elapsed since the epoch second in $1.
+elapsed_since() {
+  echo $(( $(date +%s) - $1 ))
+}
+
+# Append one phase record. Deliberately never fatal — a failed timing write must
+# not be able to kill a run that is otherwise fine.
+record_timing() {
+  local phase="$1" seconds="$2" outcome="$3"
+  jq -nc \
+    --arg at "$(date -Is)" \
+    --argjson iteration "$iter" \
+    --arg issue "${ISSUE_NUM:-}" \
+    --arg phase "$phase" \
+    --arg model "${MODEL:-}" \
+    --argjson seconds "$seconds" \
+    --arg outcome "$outcome" \
+    '{at: $at, iteration: $iteration, issue: $issue, phase: $phase,
+      model: $model, seconds: $seconds, outcome: $outcome}' \
+    >> "$TIMINGS_FILE" 2>/dev/null || true
+}
+
+# Per-phase totals across all recorded history, slowest first. This is the
+# number to look at before optimising anything in this script.
+analyse_timings() {
+  if [[ ! -s "$TIMINGS_FILE" ]]; then
+    echo "    (no timings recorded yet)"
+    return
+  fi
+  jq -rs '
+    group_by(.phase)
+    | map({
+        phase: .[0].phase,
+        runs: length,
+        total_min: ((map(.seconds) | add) / 60 | floor),
+        median_s: (map(.seconds) | sort | .[(length / 2) | floor])
+      })
+    | sort_by(-.total_min)[]
+    | "    \(.phase): \(.runs) runs, \(.total_min)m total, \(.median_s)s median"
+  ' "$TIMINGS_FILE" 2>/dev/null || echo "    (timings unreadable)"
 }
 
 # Accumulates the lines that explain a verification failure, so the next attempt
@@ -307,16 +385,21 @@ TEMPLATE_END
   PROMPT=${PROMPT//__ISSUE_TITLE__/"$ISSUE_TITLE"}
   PROMPT=${PROMPT//__ISSUE_NUM__/"$ISSUE_NUM"}
   PROMPT=${PROMPT//__ISSUE_BODY__/"$ISSUE_BODY"}
-  # The model must not be told the loop verifies e2e when it does not — it
-  # would treat the gate as a safety net that is not there and skip running
-  # the specs itself. With the gate off, running them is on the model.
+  # Exactly one party runs the suite, and the prompt says which. Telling the
+  # model to run it itself when the gate is off does not make the gate stronger
+  # — it just moves the same ~15min into the untimed model call, where a failure
+  # is invisible to the loop and cannot be replayed into the next attempt.
   if $RUN_E2E; then
-    E2E_NOTE="(Playwright — the loop verifies this too, so a
-                         failure here blocks the push and leaves the issue open)"
+    E2E_NOTE="(Playwright — the loop runs this after you, and a
+                         failure blocks the push and leaves the issue open. Write
+                         the specs; do NOT run the full suite yourself, the gate
+                         does that. Running a single spec you are debugging is
+                         fine.)"
   else
-    E2E_NOTE="(Playwright — the loop does NOT run this right now, so nothing
-                         catches a broken spec but you. Run it yourself before
-                         committing; do not assume a later gate will.)"
+    E2E_NOTE="(Playwright — NOT run by the loop and NOT your job this run. Write
+                         the specs, but do not run the full suite; a human runs
+                         it separately. Running a single spec you are debugging
+                         is fine.)"
   fi
   PROMPT=${PROMPT//__E2E_NOTE__/"$E2E_NOTE"}
 
@@ -432,17 +515,38 @@ commit body and explain what you changed instead.
     # Disable set -e for this block since omp may return non-zero
     OUTPUT_FILE=$(mktemp)
     set +e
-    # No timeout — let the model work as long as it needs. omp has its own
-    # internal timeouts. Killing a working model mid-refactor is worse than
-    # waiting. The verification step after will catch incomplete work.
+    # Bounded by $MODEL_TIMEOUT so a wedged call cannot stall the loop forever;
+    # exit 124 is classified as "timeout" below and benches the model for 15m.
     #
-    # tee shows live output on the terminal while saving to file for error detection.
-    echo "    ⏳ Working... (live output below)"
+    # Run under a pty via `script`. omp writes a single "Working..." line when
+    # stdout is not a TTY and buffers the rest until exit — a 68-minute call left
+    # an 11-byte transcript. Since the classifier below reads `tail -20` of that
+    # file, rate_limited and needs_auth could essentially never match, and those
+    # runs fell through to no_changes or were counted as successes. A pty makes
+    # omp stream, which both restores the classifier and gives a live view.
+    #
+    # -q suppresses script's own banner, -e propagates the child's exit status
+    # (so $MODEL_TIMEOUT's 124 survives), -c takes the command.
+    echo "    ⏳ Working... (live output below, capped at $MODEL_TIMEOUT)"
     echo "    ─────────────────────────────────────────────────────────"
-    omp -p --model "$MODEL" --cwd "$REPO_DIR" --no-session "$PROMPT" 2>&1 | tee "$OUTPUT_FILE"
+    MODEL_START=$(date +%s)
+    # The prompt travels in the environment, not in the command string. `script`
+    # runs its -c argument through /bin/sh, and a prompt embedded there would
+    # have to survive that shell: it is multi-line and contains quotes, $ and
+    # backticks, and `printf %q` would escape the newlines as bash-only $'...'
+    # syntax that dash does not parse. Single-quoting the command defers all
+    # expansion to that inner shell, where "$DEV_LOOP_PROMPT" is safe whatever
+    # the issue body contains.
+    export DEV_LOOP_PROMPT="$PROMPT" DEV_LOOP_MODEL="$MODEL"
+    export DEV_LOOP_CWD="$REPO_DIR" DEV_LOOP_TIMEOUT="$MODEL_TIMEOUT"
+    script -qe -c 'timeout "$DEV_LOOP_TIMEOUT" omp -p --model "$DEV_LOOP_MODEL" \
+      --cwd "$DEV_LOOP_CWD" --no-session "$DEV_LOOP_PROMPT"' /dev/null 2>&1 \
+      | tee "$OUTPUT_FILE"
     EXIT_CODE=${PIPESTATUS[0]}
     set -e
+    MODEL_SECONDS=$(elapsed_since "$MODEL_START")
     echo "    ─────────────────────────────────────────────────────────"
+    echo "    ⏱️  Model call took $((MODEL_SECONDS / 60))m$((MODEL_SECONDS % 60))s"
 
     # ─── Merge any feature branch the model may have created ─────────
     CURRENT_BRANCH=$(git branch --show-current)
@@ -470,7 +574,10 @@ commit body and explain what you changed instead.
     # permanently skip that model for the rest of the session. Requiring the
     # word to appear alongside an exceeded/exhausted/429 context keeps a model
     # that summarises "added rate limit handling" from tripping it.
-    OUTPUT_TAIL=$(tail -20 "$OUTPUT_FILE")
+    # Strip the trailing CR the pty adds to every line, so patterns stay
+    # line-oriented. Mid-line CRs (spinner redraws) are left alone — grep
+    # matches anywhere in a line, so they cost nothing.
+    OUTPUT_TAIL=$(sed 's/\r$//' "$OUTPUT_FILE" | tail -20)
     HEAD_AFTER=$(git rev-parse HEAD)
     WORKTREE_DIRTY=$(git status --porcelain)
 
@@ -480,14 +587,18 @@ commit body and explain what you changed instead.
       ERROR_TYPE="invalid_argument"
     elif echo "$OUTPUT_TAIL" | grep -qiE "Use /login|API key (not|is) |unauthoriz|\b401\b"; then
       ERROR_TYPE="needs_auth"
+    elif [[ $EXIT_CODE -eq 124 ]]; then
+      # Ordered above no_changes deliberately. A model reaped at $MODEL_TIMEOUT
+      # usually has nothing committed, so the no_changes branch would swallow it
+      # and bench it for 5m instead of the 15m a timeout implies — and the
+      # summary would report a model that declined rather than one that hung.
+      ERROR_TYPE="timeout"
     elif [[ "$HEAD_BEFORE" == "$HEAD_AFTER" && -z "$WORKTREE_DIRTY" ]]; then
       # Nothing committed and nothing even edited. Whatever the exit code or the
       # transcript claimed, there is no work here to verify — fall through to
       # the next model rather than "verifying" an unchanged tree and closing the
       # issue off the back of it.
       ERROR_TYPE="no_changes"
-    elif [[ $EXIT_CODE -eq 124 ]]; then
-      ERROR_TYPE="timeout"
     elif [[ $EXIT_CODE -ne 0 ]]; then
       # HEAD moved or files changed, so real work exists despite the non-zero
       # exit. Let verification judge whether it is any good.
@@ -499,6 +610,8 @@ commit body and explain what you changed instead.
     else
       ERROR_TYPE=""
     fi
+
+    record_timing "model" "$MODEL_SECONDS" "${ERROR_TYPE:-produced_work}"
 
     if [[ -z "$ERROR_TYPE" ]]; then
       echo "✅ Model $MODEL succeeded"
@@ -585,10 +698,13 @@ commit body and explain what you changed instead.
   #
   # Cheap (~3s) and runs first so a type error fails before the expensive suites.
   echo "  ▸ Typechecking (tsc)..."
+  PHASE_START=$(date +%s)
   set +e
   TYPE_OUTPUT=$(set -o pipefail; npm run typecheck 2>&1 | tee /dev/stderr)
   TYPE_EXIT=$?
   set -e
+  record_timing "typecheck" "$(elapsed_since "$PHASE_START")" \
+    "$([[ $TYPE_EXIT -eq 0 ]] && echo passed || echo failed)"
   if [[ $TYPE_EXIT -eq 0 ]]; then
     echo "    ✅ Typecheck passed"
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}types:passed "
@@ -606,10 +722,13 @@ commit body and explain what you changed instead.
   # pipefail inside the substitution: PIPESTATUS of the inner pipeline is not
   # visible out here, and without it $? would be tee's exit code (always 0),
   # silently passing verification on failing tests.
+  PHASE_START=$(date +%s)
   set +e
   UNIT_OUTPUT=$(set -o pipefail; npm run test:unit 2>&1 | tee /dev/stderr)
   UNIT_EXIT=$?
   set -e
+  record_timing "unit" "$(elapsed_since "$PHASE_START")" \
+    "$([[ $UNIT_EXIT -eq 0 ]] && echo passed || echo failed)"
   if [[ $UNIT_EXIT -eq 0 ]]; then
     UNIT_COUNT=$(echo "$UNIT_OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' || echo "?")
     echo "    ✅ Unit tests passed ($UNIT_COUNT tests)"
@@ -630,10 +749,13 @@ commit body and explain what you changed instead.
 
   # 2. Production build
   echo "  ▸ Running production build..."
+  PHASE_START=$(date +%s)
   set +e
   BUILD_OUTPUT=$(set -o pipefail; npm run build 2>&1 | tee /dev/stderr)
   BUILD_EXIT=$?
   set -e
+  record_timing "build" "$(elapsed_since "$PHASE_START")" \
+    "$([[ $BUILD_EXIT -eq 0 ]] && echo passed || echo failed)"
   if [[ $BUILD_EXIT -eq 0 ]]; then
     echo "    ✅ Build succeeded"
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}build:passed "
@@ -651,21 +773,36 @@ commit body and explain what you changed instead.
   #
   # This was previously skipped as "too slow", which left the Playwright specs
   # the loop writes completely unexecuted — no interaction, mobile, or a11y
-  # regression could be caught before pushing to main. The rationale did not
-  # hold: the model call above has no timeout by design and runs for minutes,
-  # so the suite is rounding error against it.
+  # regression could be caught before pushing to main.
+  #
+  # Exactly one party pays for e2e. When the gate is on, the loop runs it here
+  # and the prompt tells the model not to; when the gate is off, neither does
+  # and a human runs it. The middle state — gate off, prompt telling the model
+  # to run the suite itself — is what --no-e2e used to produce, and it was the
+  # worst of both: the ~15min suite still ran, but inside the untimed model call
+  # where it could not be measured, retried, or attributed, and the loop paid
+  # model tokens for reading the output. One observed call spent 13 of its 68
+  # minutes doing exactly this.
   #
   # Only run when unit tests and build already passed — e2e against a broken
   # build produces noise, not signal.
+  #
+  # E2E_WEB_SERVER_COMMAND: the build above is already fresh, so serve it rather
+  # than making Playwright's webServer rebuild or fall back to `vite dev`.
   if ! $RUN_E2E; then
-    echo "  ▸ Skipping e2e (--no-e2e) — run 'npm run test:e2e' manually"
+    echo "  ▸ Skipping e2e (--no-e2e) — nothing ran it; run 'npm run test:e2e' manually"
     VERIFICATION_DETAILS="${VERIFICATION_DETAILS}e2e:disabled"
   elif $VERIFICATION_PASSED; then
     echo "  ▸ Running browser e2e suite (Playwright)..."
+    PHASE_START=$(date +%s)
     set +e
-    E2E_OUTPUT=$(set -o pipefail; npm run test:e2e 2>&1 | tee /dev/stderr)
+    E2E_OUTPUT=$(set -o pipefail; E2E_WEB_SERVER_COMMAND="npm run start" \
+      E2E_REUSE_SERVER=false \
+      npm run test:e2e 2>&1 | tee /dev/stderr)
     E2E_EXIT=$?
     set -e
+    record_timing "e2e" "$(elapsed_since "$PHASE_START")" \
+      "$([[ $E2E_EXIT -eq 0 ]] && echo passed || echo failed)"
     if [[ $E2E_EXIT -eq 0 ]]; then
       E2E_COUNT=$(echo "$E2E_OUTPUT" | grep -oP '\K\d+(?= passed)' | tail -1 || echo "?")
       echo "    ✅ E2E passed ($E2E_COUNT tests)"
@@ -832,6 +969,9 @@ echo "  Model runs failed:      $FAIL_COUNT"
 echo ""
 echo "  Model usage:"
 jq -r '.model_usage | to_entries[] | "    \(.key): \(.value) runs"' "$LEARNINGS_FILE" 2>/dev/null || echo "    (no data yet)"
+echo ""
+echo "  Where the time went (all recorded runs, slowest phase first):"
+analyse_timings
 echo ""
 echo "  Verification:"
 echo "    Streak:    $(jq -r '.verification_streak // 0' "$LEARNINGS_FILE") consecutive passes"
