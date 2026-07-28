@@ -43,6 +43,7 @@ function findSyncResultByTempRef(database: FitTrackDatabase, tempRef: string) {
 
 function recordSyncOutcome(
   database: FitTrackDatabase,
+  userId: number,
   row: {
     client_id: string;
     error: string | null;
@@ -65,6 +66,7 @@ function recordSyncOutcome(
       resultId: row.result_id,
       status: row.status,
       tempRef: row.temp_ref,
+      userId,
     })
     .onConflictDoUpdate({
       set: {
@@ -80,6 +82,7 @@ function recordSyncOutcome(
 
 export function listAppliedClientIds(
   database: FitTrackDatabase,
+  userId: number,
   clientIds: string[]
 ): string[] {
   if (clientIds.length === 0) {
@@ -91,6 +94,7 @@ export function listAppliedClientIds(
     .where(
       and(
         eq(syncQueue.status, "applied"),
+        eq(syncQueue.userId, userId),
         inArray(syncQueue.clientId, clientIds)
       )
     )
@@ -287,7 +291,7 @@ export function processSyncMutations(
   const applyAndRecord = (mutation: QueuedMutation): number | undefined =>
     database.transaction(() => {
       const resultId = apply(mutation);
-      recordSyncOutcome(database, {
+      recordSyncOutcome(database, userId, {
         client_id: mutation.client_id,
         error: null,
         kind: mutation.kind,
@@ -333,7 +337,7 @@ export function processSyncMutations(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      recordSyncOutcome(database, {
+      recordSyncOutcome(database, userId, {
         client_id: mutation.client_id,
         error: message,
         kind: mutation.kind,

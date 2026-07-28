@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 
 import type { FitTrackDatabase } from "./index";
 import { notificationDeliveries, pushSubscriptions, users } from "./schema";
@@ -55,11 +55,17 @@ export function upsertPushSubscription(
 
 export function deletePushSubscriptionByEndpoint(
   database: FitTrackDatabase,
+  userId: number,
   endpoint: string
 ): boolean {
   const result = database
     .delete(pushSubscriptions)
-    .where(eq(pushSubscriptions.endpoint, endpoint))
+    .where(
+      and(
+        eq(pushSubscriptions.endpoint, endpoint),
+        eq(pushSubscriptions.userId, userId)
+      )
+    )
     .run();
   return result.changes > 0;
 }

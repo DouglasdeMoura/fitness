@@ -274,6 +274,7 @@ export const syncQueue = sqliteTable(
       .notNull()
       .default("applied"),
     tempRef: text("temp_ref"),
+    userId: integer("user_id").references(() => users.id),
   },
   (table) => [
     check(
@@ -281,6 +282,7 @@ export const syncQueue = sqliteTable(
       sql`${table.status} in ('applied', 'failed')`
     ),
     index("idx_sync_queue_temp_ref").on(table.tempRef),
+    index("idx_sync_queue_user").on(table.userId),
   ]
 );
 

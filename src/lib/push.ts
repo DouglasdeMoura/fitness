@@ -123,9 +123,10 @@ export function upsertPushSubscription(
 
 export function deletePushSubscriptionByEndpoint(
   db: FitTrackDatabase,
+  userId: number,
   endpoint: string
 ): boolean {
-  return deletePushSubscriptionByEndpointRow(db, endpoint);
+  return deletePushSubscriptionByEndpointRow(db, userId, endpoint);
 }
 
 export function listPushSubscriptionsForUser(
@@ -234,7 +235,7 @@ export async function sendPushToUserSubscriptions(
 ): Promise<PushSendResult[]> {
   const rows = listPushSubscriptionsForUser(db, userId);
   const prune = (endpoint: string) =>
-    deletePushSubscriptionByEndpoint(db, endpoint);
+    deletePushSubscriptionByEndpoint(db, userId, endpoint);
   const results: PushSendResult[] = [];
   for (const row of rows) {
     results.push(

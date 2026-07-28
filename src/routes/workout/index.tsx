@@ -448,9 +448,14 @@ function WorkoutPageContent() {
         () => addWorkoutSet({ data: { ...setFields, session_id: sessionId } })
       );
       if (!outcome.queued) {
+        const savedSet = outcome.result;
+        if (!savedSet) {
+          toast({ body: mutationFailedBody("Save set"), type: "error" });
+          return;
+        }
         setSets((prev) =>
           prev.map((row, i) =>
-            i === index ? { ...row, id: outcome.result.id, recordKinds } : row
+            i === index ? { ...row, id: savedSet.id, recordKinds } : row
           )
         );
       } else if (recordKinds.length > 0) {
@@ -530,13 +535,20 @@ function WorkoutPageContent() {
                         },
                       })
                   );
+                  if (!outcome.queued && !outcome.result) {
+                    toast({
+                      body: mutationFailedBody("Restore set"),
+                      type: "error",
+                    });
+                    return;
+                  }
                   const restored: WorkoutSetRow = outcome.queued
                     ? {
                         reps: removed.reps,
                         rpe: removed.rpe,
                         weight: removed.weight,
                       }
-                    : { ...removed, id: outcome.result.id };
+                    : { ...removed, id: outcome.result!.id };
                   setSets((prev) => {
                     const next = [...prev];
                     next.splice(index, 0, restored);

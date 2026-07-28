@@ -11,7 +11,7 @@ import {
   listWeeklyNutritionAggregates,
   listWeeklyWorkoutSetRows,
 } from "~/db/progress-queries";
-import { listAppliedClientIds, processSyncMutations } from "~/db/sync-queries";
+import { processSyncMutations } from "~/db/sync-queries";
 import type { Food, FoodLogEntry, MealType, WorkoutSession } from "~/db/types";
 
 import {
@@ -68,13 +68,11 @@ import {
   upsertBodyweightRecord,
 } from "../db/user-body-queries";
 import {
-  deleteWorkoutSetRecord,
   findLastPerformanceRow,
   findPreviousNamedSessionRecord,
   findWorkoutSessionForUser,
   findWorkoutSessionWithSets,
   insertWorkoutSessionRecord,
-  insertWorkoutSetRecord,
   listExerciseHistoryRows,
   listExerciseRecords,
   listExerciseSetHistoryRows,
@@ -87,6 +85,12 @@ import {
   updateWorkoutSessionDuration,
 } from "../db/workout-queries";
 import type { SessionSetRow } from "../db/workout-queries";
+import {
+  executeAddWorkoutSet,
+  executeDeleteWorkoutSet,
+  executeGetSyncedClientIds,
+  executeUnsubscribePush,
+} from "./auth-enforcement-handlers.server";
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
 import type { ConsistencyMetrics } from "./consistency";
 import { assembleConsistencyMetrics } from "./consistency";
@@ -115,7 +119,6 @@ import {
 } from "./nutrition";
 import type { NotificationPreferences } from "./push";
 import {
-  deletePushSubscriptionByEndpoint,
   getNotificationPreferences,
   hasPushSubscription,
   listPushSubscriptionsForUser,
@@ -632,27 +635,11 @@ export const createWorkoutSession = createServerFn({ method: "POST" })
 
 export const addWorkoutSet = createServerFn({ method: "POST" })
   .validator(serverInputValidator(addWorkoutSetInputSchema))
-  .handler(async (ctx) => {
-    const d = ctx.data;
-    const record = await insertWorkoutSetRecord(drizzleDb, {
-      exerciseId: d.exercise_id,
-      notes: d.notes ?? null,
-      reps: d.reps,
-      restSeconds: d.rest_seconds ?? null,
-      rpe: d.rpe,
-      sessionId: d.session_id,
-      setNumber: d.set_number,
-      weightKg: d.weight_kg,
-    });
-    return toLegacyWorkoutSet(record);
-  });
+  .handler(async (ctx) => executeAddWorkoutSet(ctx.data));
 
 export const deleteWorkoutSet = createServerFn({ method: "POST" })
   .validator(serverInputValidator(deleteWorkoutSetInputSchema))
-  .handler(async (ctx) => {
-    await deleteWorkoutSetRecord(drizzleDb, ctx.data.id);
-    return { success: true };
-  });
+  .handler(async (ctx) => executeDeleteWorkoutSet(ctx.data));
 
 export interface WorkoutSessionSummary {
   comparisonSentence: string;
@@ -1655,13 +1642,7 @@ export const syncQueuedMutations = createServerFn({ method: "POST" })
  */
 export const getSyncedClientIds = createServerFn({ method: "POST" })
   .validator(serverInputValidator(getSyncedClientIdsInputSchema))
-  .handler(async (ctx) => {
-    const ids = ctx.data?.client_ids ?? [];
-    if (ids.length === 0) {
-      return { client_ids: [] as string[] };
-    }
-    return { client_ids: listAppliedClientIds(drizzleDb, ids) };
-  });
+  .handler(async (ctx) => executeGetSyncedClientIds(ctx.data));
 
 // --- Web Push (issue #65) ---
 
@@ -1697,10 +1678,7 @@ export const subscribePush = createServerFn({ method: "POST" })
 
 export const unsubscribePush = createServerFn({ method: "POST" })
   .validator(serverInputValidator(unsubscribePushInputSchema))
-  .handler(async (ctx) => {
-    deletePushSubscriptionByEndpoint(drizzleDb, ctx.data.endpoint);
-    return { ok: true as const };
-  });
+  .handler(async (ctx) => executeUnsubscribePush(ctx.data));
 
 export const sendTestPush = createServerFn({ method: "POST" }).handler(
   async () => {

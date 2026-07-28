@@ -317,6 +317,22 @@ export async function findWorkoutSessionForUser(
   return row ? toLegacyWorkoutSession(row) : null;
 }
 
+/** Return a set id only when its parent session belongs to the user. */
+export async function findWorkoutSetIdForUser(
+  database: FitTrackDatabase,
+  setId: number,
+  userId: number
+): Promise<number | null> {
+  const row = database
+    .select({ id: workoutSets.id })
+    .from(workoutSets)
+    .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+    .where(and(eq(workoutSets.id, setId), eq(workoutSessions.userId, userId)))
+    .get();
+
+  return row?.id ?? null;
+}
+
 /** Persist computed session duration. */
 export async function updateWorkoutSessionDuration(
   database: FitTrackDatabase,
