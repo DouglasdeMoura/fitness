@@ -50,7 +50,7 @@ export default defineConfig({
       // Mobile navigation specs belong with the bottom-nav change itself.
       name: "pixel-7",
       testMatch:
-        /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile|visual)\.spec\.ts/,
+        /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile|visual|theme-flash)\.spec\.ts/,
       use: { ...devices["Pixel 7"] },
     },
     {
