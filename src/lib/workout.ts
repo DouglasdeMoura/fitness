@@ -142,7 +142,7 @@ export type DupDayEmphasis = "strength" | "hypertrophy" | "endurance";
  * Parse rep prescriptions like "8", "8-12", or "3-5".
  */
 export function parseTargetReps(targetReps: string): number {
-  const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/);
+  const match = targetReps.trim().match(/(\d+)(?:\s*-\s*(\d+))?/u);
   if (!match) {
     return 8;
   }

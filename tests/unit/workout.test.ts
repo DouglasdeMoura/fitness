@@ -186,9 +186,12 @@ describe("DUP rep-zone emphasis (Rhea et al. 2002; Prestes et al. 2009)", () => 
     ["8-12", "hypertrophy"],
     ["12-15", "endurance"],
     ["15-20", "endurance"],
-  ] as const)('classifies target reps "%s" as %s emphasis', (targetReps, expected) => {
-    expect(getDupDayEmphasis(targetReps)).toBe(expected);
-  });
+  ] as const)(
+    'classifies target reps "%s" as %s emphasis',
+    (targetReps, expected) => {
+      expect(getDupDayEmphasis(targetReps)).toBe(expected);
+    }
+  );
 
   it("falls back to a hypertrophy rep range when the prescription is unparseable", () => {
     // parseTargetReps defaults to 8 reps (mid-hypertrophy) for garbage input.

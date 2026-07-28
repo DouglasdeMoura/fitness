@@ -1,6 +1,6 @@
 import { Dialog, DialogHeader } from "@astryxdesign/core";
 
-import { AddFoodCard } from "~/components/nutrition/AddFoodCard";
+import { AddFoodCard } from "~/components/nutrition/add-food-card";
 
 /**
  * Wraps the full food-search + entry flow in a Dialog so search results

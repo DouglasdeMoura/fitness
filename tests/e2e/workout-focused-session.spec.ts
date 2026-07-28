@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import {
   finishActiveSessionIfNeeded,
@@ -7,7 +8,7 @@ import {
 } from "./test-helpers";
 
 const MOBILE_VIEWPORT = { height: 844, width: 390 };
-const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i;
+const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/iu;
 
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page);
@@ -33,7 +34,7 @@ async function addAndSaveSet(
   await page.locator('input[inputmode="decimal"]').first().fill(String(weight));
   await page.locator('input[inputmode="numeric"]').first().fill(String(reps));
   await page.locator('input[inputmode="numeric"]').nth(1).fill(String(rpe));
-  await page.getByRole("button", { name: /Save set 1/ }).click();
+  await page.getByRole("button", { name: /Save set 1/u }).click();
 }
 
 test.describe("Focused session interface (issue #32)", () => {
@@ -83,7 +84,7 @@ test.describe("Focused session interface (issue #32)", () => {
 
     // Exercise name should be rendered as a heading with display sizing
     const exerciseHeading = page.getByRole("heading", {
-      name: /Barbell Bench Press/,
+      name: /Barbell Bench Press/u,
     });
     await expect(exerciseHeading).toBeVisible();
 
@@ -117,7 +118,7 @@ test.describe("Focused session interface (issue #32)", () => {
     await expect(page.getByText("Sets logged")).toBeVisible();
 
     // Should contain meaningful volume data — use first() to avoid strict mode (table also shows volume)
-    await expect(page.getByText(/640 kg/).first()).toBeVisible();
+    await expect(page.getByText(/640 kg/).fiurst()).toBeVisible();
   });
 
   test("finish workout shows summary in a dialog", async ({ page }) => {

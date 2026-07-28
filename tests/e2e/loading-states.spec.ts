@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -109,6 +110,7 @@ test.describe("Loading states", () => {
     await openAppPage(page, "/settings");
     const saveButton = page.getByRole("button", {
       name: /^(Save Profile|Saved)$/,
+      u,
     });
     await clickHydratedButton(saveButton);
     await expect(saveButton).toHaveAttribute("aria-busy", "true");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { matchCachedFoodBarcode } from "~/components/nutrition/BarcodeScanner";
+import { matchCachedFoodBarcode } from "~/components/nutrition/barcode-scanner";
 import {
   barcodeLookupVariants,
   isBarcodeDetectorSupported,

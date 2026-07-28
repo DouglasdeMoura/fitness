@@ -23,9 +23,9 @@ import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
-import { ScrollableTable } from "~/components/ScrollableTable";
-import { ToastUndoButton } from "~/components/ToastUndoButton";
+import { useLogMealTemplate } from "~/components/nutrition/use-log-meal-template";
+import { ScrollableTable } from "~/components/scrollable-table";
+import { ToastUndoButton } from "~/components/toast-undo-button";
 import type { MealTemplateSummary } from "~/lib/api";
 import {
   addFoodLogEntry,

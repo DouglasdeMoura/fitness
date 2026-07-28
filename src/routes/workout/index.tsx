@@ -24,14 +24,14 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Suspense, useEffect, useState } from "react";
 
-import { DateNavigationBar } from "~/components/DateNavigationBar";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
-import { ScrollableTable } from "~/components/ScrollableTable";
-import { ToastUndoButton } from "~/components/ToastUndoButton";
-import { SessionSummaryCard } from "~/components/workout/SessionSummaryCard";
-import type { WorkoutSetRow } from "~/components/workout/WorkoutSetsTable";
-import { WorkoutSetsTable } from "~/components/workout/WorkoutSetsTable";
+import { DateNavigationBar } from "~/components/date-navigation-bar";
+import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialog";
+import { WorkoutSkeleton } from "~/components/loading/page-skeletons";
+import { ScrollableTable } from "~/components/scrollable-table";
+import { ToastUndoButton } from "~/components/toast-undo-button";
+import { SessionSummaryCard } from "~/components/workout/session-summary-card";
+import type { WorkoutSetRow } from "~/components/workout/workout-sets-table";
+import { WorkoutSetsTable } from "~/components/workout/workout-sets-table";
 import type {
   ExerciseSetHistoryRow,
   ProgramDayTarget,

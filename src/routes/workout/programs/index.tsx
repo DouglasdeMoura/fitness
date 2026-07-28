@@ -21,11 +21,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { TemplateIcon } from "~/components/icons/FitTrackIcons";
-import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
-import { ScrollableTable } from "~/components/ScrollableTable";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialog";
+import { TemplateIcon } from "~/components/icons/fit-track-icons";
+import { WorkoutSkeleton } from "~/components/loading/page-skeletons";
+import { ScrollableTable } from "~/components/scrollable-table";
 import type { ProgramSummary } from "~/lib/api";
 import {
   deleteProgram,

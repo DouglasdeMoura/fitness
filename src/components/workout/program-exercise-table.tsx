@@ -9,7 +9,7 @@ import {
   TextInput,
 } from "@astryxdesign/core";
 
-import { ScrollableTable } from "~/components/ScrollableTable";
+import { ScrollableTable } from "~/components/scrollable-table";
 import type { Exercise } from "~/lib/db";
 import type {
   EditableProgramDay,

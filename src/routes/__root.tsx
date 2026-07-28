@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import * as React from "react";
 
-import { AppChrome } from "~/components/AppChrome";
+import { AppChrome } from "~/components/app-chrome";
 
 import appCss from "~/styles/app.css?url";
 import focusVisibleCss from "~/styles/focus-visible.css?url";

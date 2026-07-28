@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 import {
@@ -146,13 +147,13 @@ test.describe("Web Push in Settings (issue #65)", () => {
 
     await openSettings(page);
     await expect(
-      page.getByText(/add FitTrack to your Home Screen/i)
+      page.getByText(/add FitTrack to your Home Screen/iu)
     ).toBeVisible();
   });
 });
 
 test.describe("Push not configured (issue #65)", () => {
   test("unit coverage documents the not-configured copy constant", () => {
-    expect(PUSH_NOT_CONFIGURED_MESSAGE).toMatch(/not configured/i);
+    expect(PUSH_NOT_CONFIGURED_MESSAGE).toMatch(/not configured/iu);
   });
 });

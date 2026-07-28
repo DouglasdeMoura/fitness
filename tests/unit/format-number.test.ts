@@ -50,7 +50,7 @@ describe("format-number is the sole display formatter module (issue #50)", () =>
         continue;
       }
       const content = readFileSync(file, "utf-8");
-      if (/export function formatDisplay(?:Integer|Decimal)\b/.test(content)) {
+      if (/export function formatDisplay(?:Integer|Decimal)\b/u.test(content)) {
         offenders.push(relativePath);
       }
     }

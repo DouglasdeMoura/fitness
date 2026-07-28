@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
 
+import { expect, test } from "@playwright/test";
 import Database from "better-sqlite3";
 
 import { FIXED_E2E_DATE, installDeterministicClock } from "./test-helpers";
@@ -165,10 +165,10 @@ test.describe("Log saved meal template (issue #56)", () => {
       breakfastSection.getByRole("button", { name: new RegExp(LUNCH_TEMPLATE) })
     ).toBeVisible();
     await expect(
-      breakfastSection.getByRole("button", { name: /E2E .* Bowl/ }).first()
+      breakfastSection.getByRole("button", { name: /E2E .* Bowl/u }).first()
     ).toContainText(BREAKFAST_TEMPLATE);
     await expect(
-      lunchSection.getByRole("button", { name: /E2E .* Bowl/ }).first()
+      lunchSection.getByRole("button", { name: /E2E .* Bowl/u }).first()
     ).toContainText(LUNCH_TEMPLATE);
   });
 

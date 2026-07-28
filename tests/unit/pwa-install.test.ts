@@ -111,6 +111,6 @@ describe("install copy constants", () => {
     expect(INSTALL_CARD_TITLE).toBe("Install App");
     expect(INSTALL_BUTTON_LABEL).toBe("Add to home screen");
     expect(IOS_INSTALL_STEPS).toHaveLength(3);
-    expect(IOS_INSTALL_STEPS[0]).toMatch(/Share/);
+    expect(IOS_INSTALL_STEPS[0]).toMatch(/Share/u);
   });
 });

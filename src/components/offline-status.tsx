@@ -2,6 +2,7 @@ import { Text, VStack } from "@astryxdesign/core";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useState } from "react";
+
 import type { OfflineState } from "~/lib/offline";
 import {
   getOfflineState,

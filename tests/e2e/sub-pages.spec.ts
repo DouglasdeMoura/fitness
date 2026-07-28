@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -48,13 +49,13 @@ test.describe("Meal templates and weekly planning", () => {
       .getByRole("button", { name: "Create & Edit Foods" })
       .click();
 
-    await expect(page).toHaveURL(/\/nutrition\/templates\/\d+$/);
+    await expect(page).toHaveURL(/\/nutrition\/templates\/\d+$/u);
     await page
       .getByRole("textbox", { name: "Search foods" })
       .fill("Chicken Breast");
     await page.getByRole("button", { exact: true, name: "Search" }).click();
     await page
-      .getByRole("button", { name: /Add Chicken Breast \(raw\)/ })
+      .getByRole("button", { name: /Add Chicken Breast \(raw\)/u })
       .first()
       .click();
     await page
@@ -96,7 +97,7 @@ test.describe("Training programs", () => {
     await chooseOption(page, "Periodization", "Daily undulating (DUP)");
     await programsPage.getByRole("button", { name: "Create Program" }).click();
 
-    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/u);
     await expect(
       page.getByRole("heading", { name: programName })
     ).toBeVisible();
@@ -110,10 +111,10 @@ test.describe("Training programs", () => {
     await expect(page.getByText("strength", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add exercise to Day A" }).click();
     await expect(
-      page.getByRole("spinbutton", { name: /Sets for .+, row 1 of Day A/ })
+      page.getByRole("spinbutton", { name: /Sets for .+, row 1 of Day A/u })
     ).toBeVisible();
     await expect(
-      page.getByRole("spinbutton", { name: /Sets for .+, row 2 of Day A/ })
+      page.getByRole("spinbutton", { name: /Sets for .+, row 2 of Day A/u })
     ).toBeVisible();
     await page.getByRole("button", { name: "Save Program" }).click();
     await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
@@ -128,7 +129,7 @@ test.describe("Training programs", () => {
     );
     await page.getByRole("textbox", { name: "Name" }).fill(programName);
     await page.getByRole("button", { name: "Create Program" }).click();
-    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/u);
 
     const hydrationErrors: string[] = [];
     page.on("pageerror", (error) => {
@@ -154,13 +155,13 @@ test.describe("Training programs", () => {
     await programsPage.getByRole("textbox", { name: "Name" }).fill(programName);
     await programsPage.getByRole("button", { name: "Create Program" }).click();
 
-    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/u);
     await page.getByRole("button", { name: "Add exercise to Day A" }).click();
     await page.getByRole("button", { name: "Save Program" }).click();
     await expect(page.getByRole("button", { name: "Saved!" })).toBeVisible();
 
     await page.getByRole("button", { name: "Start Day A" }).click();
-    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/);
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/u);
     await expect(
       page.getByText("Program Targets", { exact: true })
     ).toBeVisible();
@@ -169,12 +170,12 @@ test.describe("Training programs", () => {
     ).toBeVisible();
 
     await clickHydratedButton(page.getByRole("button", { name: "Finish" }));
-    await expect(page).toHaveURL(/\/workout\/?\?session=\d+&summary=true/);
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+&summary=true/u);
     await expect(
       page.getByRole("heading", { name: "Session Summary" })
     ).toBeVisible();
     await clickHydratedButton(page.getByRole("button", { name: "Done" }));
-    await expect(page).toHaveURL(/\/workout\/?$/);
+    await expect(page).toHaveURL(/\/workout\/?$/u);
     await expect(
       page.getByText("Ready to train?", { exact: true })
     ).toBeVisible();
@@ -196,7 +197,7 @@ test.describe("Training programs", () => {
     await programsPage.getByRole("textbox", { name: "Name" }).fill(programName);
     await programsPage.getByRole("button", { name: "Create Program" }).click();
 
-    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/);
+    await expect(page).toHaveURL(/\/workout\/programs\/\d+$/u);
     await page.getByRole("button", { name: "Add Training Day" }).click();
     await page.getByRole("button", { name: "Save Program" }).click();
     await expect(
@@ -205,7 +206,7 @@ test.describe("Training programs", () => {
 
     await page.getByRole("button", { name: "Remove Day A" }).click();
     await page.getByRole("button", { name: "Start Day B" }).click();
-    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/);
+    await expect(page).toHaveURL(/\/workout\/?\?session=\d+$/u);
 
     await openAppPage(page, "/workout");
     const recentSessions = page.getByRole("table").first();

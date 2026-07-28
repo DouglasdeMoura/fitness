@@ -94,7 +94,7 @@ describe(editableItemFromFood, () => {
     expect(item.food_id).toBe(chicken.id);
     expect(item.servings).toBe(1);
     expect(item.sort_order).toBe(2);
-    expect(item.tempId).toMatch(/^tmp-/);
+    expect(item.tempId).toMatch(/^tmp-/u);
   });
 });
 
@@ -192,7 +192,7 @@ describe(makeTempId, () => {
   it("produces unique client ids prefixed with tmp-", () => {
     const a = makeTempId();
     const b = makeTempId();
-    expect(a).toMatch(/^tmp-/);
+    expect(a).toMatch(/^tmp-/u);
     expect(a).not.toBe(b);
   });
 });

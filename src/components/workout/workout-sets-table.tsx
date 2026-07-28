@@ -8,8 +8,8 @@ import {
   Text,
 } from "@astryxdesign/core";
 
-import { GymStepperInput } from "~/components/GymStepperInput";
-import { ScrollableTable } from "~/components/ScrollableTable";
+import { GymStepperInput } from "~/components/gym-stepper-input";
+import { ScrollableTable } from "~/components/scrollable-table";
 import { formatDisplayInteger } from "~/lib/format-number";
 import { REPS_STEP, WEIGHT_STEP_KG } from "~/lib/gym-input";
 import type { RecordKind } from "~/lib/records";

@@ -4,6 +4,7 @@
  */
 
 import webpush from "web-push";
+
 import type {
   PushNotificationClient,
   PushPayload,

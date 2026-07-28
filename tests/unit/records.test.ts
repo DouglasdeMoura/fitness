@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { ExerciseSetSnapshot } from "~/lib/records";
 import {
   detectPersonalRecords,

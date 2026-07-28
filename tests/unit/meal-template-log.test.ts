@@ -161,6 +161,6 @@ describe("logMealTemplateInDb (issue #56)", () => {
     db.prepare("DELETE FROM meal_template_items WHERE template_id = 10").run();
     expect(() =>
       logMealTemplateInDb(db, USER_ID, 10, DATE, "breakfast")
-    ).toThrow(/has no items to log/);
+    ).toThrow(/has no items to log/u);
   });
 });

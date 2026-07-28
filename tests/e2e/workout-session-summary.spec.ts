@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import {
   finishActiveSessionIfNeeded,
@@ -7,7 +8,7 @@ import {
 } from "./test-helpers";
 
 const MOBILE_VIEWPORT = { height: 844, width: 390 };
-const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/i;
+const BENCH_PRESS_OPTION = /^Barbell Bench Press \(chest\)$/iu;
 
 async function startWorkout(page: Page) {
   await finishActiveSessionIfNeeded(page);
@@ -33,7 +34,7 @@ async function addAndSaveSet(
   await page.locator('input[inputmode="decimal"]').first().fill(String(weight));
   await page.locator('input[inputmode="numeric"]').first().fill(String(reps));
   await page.locator('input[inputmode="numeric"]').nth(1).fill(String(rpe));
-  await page.getByRole("button", { name: /Save set 1/ }).click();
+  await page.getByRole("button", { name: /Save set 1/u }).click();
 }
 
 test.describe("Session summary on finish (issue #62)", () => {
@@ -65,7 +66,7 @@ test.describe("Session summary on finish (issue #62)", () => {
       dialog.getByRole("heading", { name: "Session Summary" })
     ).toBeVisible();
     await expect(page.getByLabel("Session volume comparison")).toContainText(
-      /kg total/
+      /kg total/u
     );
     await expect(dialog.getByText("Total volume")).toBeVisible();
     await expect(dialog.getByText("Sets logged")).toBeVisible();
@@ -92,14 +93,14 @@ test.describe("Session summary on finish (issue #62)", () => {
     ).toBeVisible();
 
     await page
-      .getByRole("link", { name: /View summary Training Session/i })
+      .getByRole("link", { name: /View summary Training Session/iu })
       .first()
       .click();
     await expect(
       page.getByRole("heading", { name: "Session Summary" })
     ).toBeVisible();
     await expect(page.getByLabel("Session volume comparison")).toContainText(
-      /kg total/
+      /kg total/u
     );
   });
 });

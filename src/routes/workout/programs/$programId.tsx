@@ -19,14 +19,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { useState } from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialog";
+import { WorkoutSkeleton } from "~/components/loading/page-skeletons";
 import type {
   RemoveProgramExercise,
   UpdateProgramExercise,
-} from "~/components/workout/ProgramExerciseTable";
-import { ProgramExerciseTable } from "~/components/workout/ProgramExerciseTable";
+} from "~/components/workout/program-exercise-table";
+import { ProgramExerciseTable } from "~/components/workout/program-exercise-table";
 import {
   deleteProgram,
   getExercises,

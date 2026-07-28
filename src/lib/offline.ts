@@ -358,7 +358,7 @@ function isNetworkError(error: unknown): boolean {
     return true;
   }
   const message = error instanceof Error ? error.message : String(error);
-  return /failed to fetch|networkerror|load failed|network request failed/i.test(
+  return /failed to fetch|networkerror|load failed|network request failed/iu.test(
     message
   );
 }

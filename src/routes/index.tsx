@@ -16,15 +16,15 @@ import {
 } from "@astryxdesign/core";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CalorieRing } from "~/components/CalorieRing";
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { CalorieRing } from "~/components/calorie-ring";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
 import {
   NutritionIcon,
   ProgressIcon,
   ReviewIcon,
   WorkoutIcon,
-} from "~/components/icons/FitTrackIcons";
-import { DashboardSkeleton } from "~/components/loading/PageSkeletons";
+} from "~/components/icons/fit-track-icons";
+import { DashboardSkeleton } from "~/components/loading/page-skeletons";
 import {
   getConsistency,
   getDashboardStats,

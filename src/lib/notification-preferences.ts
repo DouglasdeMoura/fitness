@@ -130,7 +130,7 @@ function boolToInt(value: boolean): number {
 
 function normalizeMealTimes(times: string[]): string[] {
   return [
-    ...new Set(times.filter((time) => /^\d{2}:\d{2}$/.test(time))),
+    ...new Set(times.filter((time) => /^\d{2}:\d{2}$/u.test(time))),
   ].sort();
 }
 
@@ -229,7 +229,7 @@ export function minutesSinceMidnight(date: Date): number {
 }
 
 function parseClockTime(time: string): number {
-  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  const match = /^(\d{2}):(\d{2})$/u.exec(time);
   if (!match) {
     throw new Error(`Expected HH:MM time, got ${JSON.stringify(time)}`);
   }

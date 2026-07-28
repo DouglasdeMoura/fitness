@@ -6,7 +6,7 @@ const VALID_GTIN_LENGTHS = new Set([8, 12, 13, 14]);
  * @example normalizeBarcode('0 1234567 89012 3') // '01234567890123'
  */
 export function normalizeBarcode(raw: string): string | null {
-  const digits = raw.replaceAll(/\D/g, "");
+  const digits = raw.replaceAll(/\D/gu, "");
   if (!VALID_GTIN_LENGTHS.has(digits.length)) {
     return null;
   }

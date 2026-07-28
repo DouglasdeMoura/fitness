@@ -19,13 +19,13 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
 import {
   BarChartIcon,
   MealIcon,
   ScaleIcon,
-} from "~/components/icons/FitTrackIcons";
-import { ProgressSkeleton } from "~/components/loading/PageSkeletons";
+} from "~/components/icons/fit-track-icons";
+import { ProgressSkeleton } from "~/components/loading/page-skeletons";
 import type {
   MuscleVolume,
   ProgressHighlights,

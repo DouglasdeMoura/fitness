@@ -28,7 +28,7 @@ import { useStore } from "@tanstack/react-store";
 import type { MutableRefObject } from "react";
 import { useImperativeHandle, useRef, useState } from "react";
 
-import { BarcodeScanner } from "~/components/nutrition/BarcodeScanner";
+import { BarcodeScanner } from "~/components/nutrition/barcode-scanner";
 import { useDebouncedValue } from "~/hooks/use-debounced-value";
 import type { LoggedFoodSummary } from "~/lib/api";
 import {

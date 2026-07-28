@@ -7,7 +7,7 @@ const SCAN_ROOTS = ["src", "public", "tests", "scripts"] as const;
 const IGNORED = new Set(["node_modules", ".output", "dist", "data"]);
 
 const VAPID_LITERAL =
-  /VAPID_(?:PUBLIC|PRIVATE)_KEY\s*=\s*['"]?[A-Za-z0-9_-]{20,}['"]?/;
+  /VAPID_(?:PUBLIC|PRIVATE)_KEY\s*=\s*['"]?[A-Za-z0-9_-]{20,}['"]?/u;
 
 function listTrackedFiles(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -20,7 +20,7 @@ function listTrackedFiles(dir: string, files: string[] = []): string[] {
       listTrackedFiles(fullPath, files);
       continue;
     }
-    if (/\.(ts|tsx|js|mjs|md|json)$/.test(entry)) {
+    if (/\.(ts|tsx|js|mjs|md|json)$/u.test(entry)) {
       files.push(fullPath);
     }
   }

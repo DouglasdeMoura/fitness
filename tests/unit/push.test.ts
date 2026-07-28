@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+
 import type { PushSubscriptionRow } from "~/lib/push";
 import {
   FakePushNotificationClient,

@@ -24,11 +24,11 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { InstallPrompt } from "~/components/InstallPrompt";
-import { SettingsSkeleton } from "~/components/loading/PageSkeletons";
-import { PushNotifications } from "~/components/PushNotifications";
-import { ReminderPreferences } from "~/components/ReminderPreferences";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { InstallPrompt } from "~/components/install-prompt";
+import { SettingsSkeleton } from "~/components/loading/page-skeletons";
+import { PushNotifications } from "~/components/push-notifications";
+import { ReminderPreferences } from "~/components/reminder-preferences";
 import {
   exportData,
   getBodyLogs,

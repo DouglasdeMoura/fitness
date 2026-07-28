@@ -4,14 +4,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { DateNavigationBar } from "~/components/DateNavigationBar";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
-import { FoodLogCard } from "~/components/nutrition/FoodLogCard";
-import { FoodLogDialog } from "~/components/nutrition/FoodLogDialog";
-import { StickyMacroHeader } from "~/components/nutrition/StickyMacroHeader";
-import { ToastUndoButton } from "~/components/ToastUndoButton";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { DateNavigationBar } from "~/components/date-navigation-bar";
+import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialog";
+import { NutritionSkeleton } from "~/components/loading/page-skeletons";
+import { FoodLogCard } from "~/components/nutrition/food-log-card";
+import { FoodLogDialog } from "~/components/nutrition/food-log-dialog";
+import { StickyMacroHeader } from "~/components/nutrition/sticky-macro-header";
+import { ToastUndoButton } from "~/components/toast-undo-button";
 import {
   addFoodLogEntry,
   copyDayFromDate,

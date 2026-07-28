@@ -36,8 +36,8 @@ test.describe("Dashboard consistency tracking", () => {
     await expect(card.getByText("28-day adherence")).toBeVisible();
     await expect(card.getByText("Current streak")).toBeVisible();
     await expect(card.getByText("Longest streak")).toBeVisible();
-    await expect(card.locator("dd").filter({ hasText: /%$/ })).toHaveCount(2);
-    await expect(card.locator("dd").filter({ hasText: /days$/ })).toHaveCount(
+    await expect(card.locator("dd").filter({ hasText: /%$/u })).toHaveCount(2);
+    await expect(card.locator("dd").filter({ hasText: /days$/u })).toHaveCount(
       2
     );
   });

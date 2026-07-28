@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { addDays, todayString } from "../../src/lib/nutrition";
 
@@ -36,7 +37,7 @@ test.describe("Date navigation on nutrition and workout pages", () => {
       main.getByRole("heading", { exact: true, name: "Nutrition" })
     ).toBeVisible();
     await expect(page).toHaveURL(
-      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll("-", "\\-")}`)
     );
     await expect(
       main.getByRole("heading", { name: "Today's Food Log" })
@@ -46,17 +47,17 @@ test.describe("Date navigation on nutrition and workout pages", () => {
       main.getByRole("button", { name: "Previous day" })
     );
     await expect(page).toHaveURL(
-      new RegExp(`date=${dayBeforeEmpty.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${dayBeforeEmpty.replaceAll("-", "\\-")}`)
     );
 
     await clickHydratedButton(main.getByRole("button", { name: "Next day" }));
     await expect(page).toHaveURL(
-      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll("-", "\\-")}`)
     );
 
     await clickHydratedButton(main.getByRole("button", { name: "Today" }));
     await expect(page).toHaveURL(
-      new RegExp(`date=${today.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${today.replaceAll("-", "\\-")}`)
     );
     await expect(main.getByRole("button", { name: "Next day" })).toBeDisabled();
     await expect(main.getByRole("button", { name: "Today" })).toBeDisabled();
@@ -72,7 +73,7 @@ test.describe("Date navigation on nutrition and workout pages", () => {
       page.getByRole("heading", { exact: true, name: "Workout" })
     ).toBeVisible();
     await expect(page).toHaveURL(
-      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${EMPTY_HISTORY_DATE.replaceAll("-", "\\-")}`)
     );
     await expect(
       page.getByRole("heading", { name: "Recent Sessions" })
@@ -92,7 +93,7 @@ test.describe("Date navigation on nutrition and workout pages", () => {
 
     await clickHydratedButton(page.getByRole("button", { name: "Today" }));
     await expect(page).toHaveURL(
-      new RegExp(`date=${today.replaceAll(/-/g, "\\-")}`)
+      new RegExp(`date=${today.replaceAll("-", "\\-")}`)
     );
     await expect(page.getByRole("button", { name: "Next day" })).toBeDisabled();
   });

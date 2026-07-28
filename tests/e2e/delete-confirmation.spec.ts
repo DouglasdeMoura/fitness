@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -85,11 +86,11 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
 
     await clickHydratedButton(page.getByRole("button", { name: "Add set" }));
     await clickHydratedButton(
-      page.getByRole("button", { name: /Save set 1 of/ })
+      page.getByRole("button", { name: /Save set 1 of/u })
     );
 
     await clickHydratedButton(
-      page.getByRole("button", { name: /Delete set 1 of/ })
+      page.getByRole("button", { name: /Delete set 1 of/u })
     );
     const dialog = deleteDialog(page);
     await expect(dialog).toBeVisible();
@@ -113,7 +114,7 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     await clickHydratedButton(deleteButton);
     await expect(dialog).not.toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Save set 1 of/ })
+      page.getByRole("button", { name: /Save set 1 of/u })
     ).toHaveCount(0);
   });
 
@@ -121,11 +122,11 @@ test.describe("Delete confirmation dialogs (issue #25)", () => {
     page,
   }) => {
     await openAppPage(page, "/workout/programs");
-    const deleteButton = page.getByRole("button", { name: /Delete / }).first();
+    const deleteButton = page.getByRole("button", { name: /Delete /u }).first();
     test((await deleteButton.count()) === 0, "No programs seeded");
 
     const programName = await deleteButton.getAttribute("aria-label");
-    const match = programName?.match(/^Delete (.+)$/);
+    const match = programName?.match(/^Delete (.+)$/u);
     test(!match, "Delete button missing program name label");
 
     await clickHydratedButton(deleteButton);

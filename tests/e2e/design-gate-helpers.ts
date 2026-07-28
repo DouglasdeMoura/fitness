@@ -22,7 +22,7 @@ const MIN_SECTION_GAP_PX = 24;
 const MIN_BODY_CONTRAST = 4.5;
 
 function _parseRgb(color: string): [number, number, number] | null {
-  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/u);
   if (!match) {
     return null;
   }
@@ -32,7 +32,7 @@ function _parseRgb(color: string): [number, number, number] | null {
 function relativeLuminance([r, g, b]: [number, number, number]): number {
   const channel = (value: number) => {
     const scaled = value / 255;
-    return scaled <= 0.039_28
+    return scaled <= 0.03928
       ? scaled / 12.92
       : ((scaled + 0.055) / 1.055) ** 2.4;
   };
@@ -124,7 +124,7 @@ export async function measureHeroMetricRatio(
           ) {
             return false;
           }
-          return /\d/.test(text);
+          return /\d/u.test(text);
         }
       );
 
@@ -286,7 +286,7 @@ export async function measureLowBodyContrastSamples(
 ): Promise<BodyContrastSample[]> {
   return page.evaluate((minContrast) => {
     const parseRgb = (color: string): [number, number, number] | null => {
-      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/u);
       if (!match) {
         return null;
       }
@@ -296,7 +296,7 @@ export async function measureLowBodyContrastSamples(
     const luminance = ([r, g, b]: [number, number, number]) => {
       const channel = (value: number) => {
         const scaled = value / 255;
-        return scaled <= 0.039_28
+        return scaled <= 0.03928
           ? scaled / 12.92
           : ((scaled + 0.055) / 1.055) ** 2.4;
       };

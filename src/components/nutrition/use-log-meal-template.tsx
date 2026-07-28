@@ -1,7 +1,7 @@
 import { useToast } from "@astryxdesign/core/Toast";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { ToastUndoButton } from "~/components/ToastUndoButton";
+import { ToastUndoButton } from "~/components/toast-undo-button";
 import { deleteFoodLogEntries, logMealTemplate } from "~/lib/api";
 import type { MealType } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";

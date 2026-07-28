@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
   installDeterministicClock,
@@ -87,7 +88,7 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
     ).toHaveAttribute("aria-current", "page");
 
     await mobileNav(page).getByRole("link", { name: "Nutrition" }).click();
-    await expect(page).toHaveURL(/\/nutrition/);
+    await expect(page).toHaveURL(/\/nutrition/u);
     await expect(
       mobileNav(page).getByRole("link", { name: "Nutrition" })
     ).toHaveAttribute("aria-current", "page");

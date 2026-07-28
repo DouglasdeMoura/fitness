@@ -25,11 +25,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { useMemo, useState } from "react";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
-import { TemplateIcon } from "~/components/icons/FitTrackIcons";
-import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
-import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { DeleteConfirmationDialog } from "~/components/delete-confirmation-dialog";
+import { TemplateIcon } from "~/components/icons/fit-track-icons";
+import { NutritionSkeleton } from "~/components/loading/page-skeletons";
+import { useLogMealTemplate } from "~/components/nutrition/use-log-meal-template";
 import {
   deleteMealTemplate,
   getMealTemplate,

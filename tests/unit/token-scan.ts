@@ -18,17 +18,17 @@ export type TokenScanResult = Record<string, TokenViolationCounts>;
 const SCAN_ROOTS = ["src/routes", "src/components"] as const;
 
 const RULE_PATTERNS: Record<TokenRule, RegExp> = {
-  className: /\bclassName=/,
-  inlineStyle: /style=\{\{/,
-  layoutDiv: /<div\b/,
-  rawHex: /#[0-9a-fA-F]{3,8}\b/,
+  className: /\bclassName=/u,
+  inlineStyle: /style=\{\{/u,
+  layoutDiv: /<div\b/u,
+  rawHex: /#[0-9a-fA-F]{3,8}\b/u,
 };
 
 /** Browser metadata colours that must stay literal hex (issue #50 allowlist). */
 const HEX_ALLOWLIST: { file: string; pattern: RegExp }[] = [
   {
     file: "src/routes/__root.tsx",
-    pattern: /theme-color/,
+    pattern: /theme-color/u,
   },
 ];
 

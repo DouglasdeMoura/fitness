@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
 
+import { expect, test } from "@playwright/test";
 import Database from "better-sqlite3";
 
 import { FIXED_E2E_DATE, installDeterministicClock } from "./test-helpers";
@@ -76,11 +76,11 @@ async function openNutritionOn(page: Page, date: string) {
 }
 
 function breakfastCollapsible(page: Page) {
-  return page.getByRole("button", { name: /Breakfast/ });
+  return page.getByRole("button", { name: /Breakfast/u });
 }
 
 function lunchCollapsible(page: Page) {
-  return page.getByRole("button", { name: /Lunch/ });
+  return page.getByRole("button", { name: /Lunch/u });
 }
 
 test.describe("Meal-based nutrition layout (issue #31)", () => {
@@ -95,8 +95,8 @@ test.describe("Meal-based nutrition layout (issue #31)", () => {
 
     await expect(breakfastCollapsible(page)).toBeVisible();
     await expect(lunchCollapsible(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Dinner/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Snack/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Dinner/u })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Snack/u })).toBeVisible();
   });
 
   test("each meal section shows its calorie subtotal when entries exist", async ({

@@ -11,8 +11,8 @@ import {
 } from "@astryxdesign/core";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
-import { ReviewSkeleton } from "~/components/loading/PageSkeletons";
+import { DataLoadErrorView } from "~/components/data-load-error-banner";
+import { ReviewSkeleton } from "~/components/loading/page-skeletons";
 import { getWeeklyReview } from "~/lib/api";
 import {
   isDataLoadPending,

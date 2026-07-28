@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import {
   assertFoodLogEntryScrollsInHost,
@@ -111,13 +112,15 @@ test.describe("Gym-grade mobile ergonomics (issue #53)", () => {
 
     const weightBefore = Number(await weightInput.inputValue());
     await page
-      .getByRole("button", { name: /Increase Weight for set 1/ })
+      .getByRole("button", { name: /Increase Weight for set 1/u })
       .click();
     const weightAfter = Number(await weightInput.inputValue());
     expect(weightAfter - weightBefore).toBe(2.5);
 
     const repsBefore = Number(await repsInput.inputValue());
-    await page.getByRole("button", { name: /Increase Reps for set 1/ }).click();
+    await page
+      .getByRole("button", { name: /Increase Reps for set 1/u })
+      .click();
     const repsAfter = Number(await repsInput.inputValue());
     expect(repsAfter - repsBefore).toBe(1);
 

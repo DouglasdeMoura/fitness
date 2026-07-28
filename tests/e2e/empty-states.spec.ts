@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 async function openAppPage(page: Page, path: string) {
   await page.goto(path);
@@ -74,9 +75,9 @@ test.describe("Empty states with call-to-action buttons", () => {
 
     if (await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) {
       await clickHydratedButton(logWeightButton);
-      await expect(page).toHaveURL(/\/settings/);
+      await expect(page).toHaveURL(/\/settings/u);
       await expect(
-        page.getByRole("heading", { name: /Log Today/ })
+        page.getByRole("heading", { name: /Log Today/u })
       ).toBeVisible();
     } else {
       test.info().annotations.push({

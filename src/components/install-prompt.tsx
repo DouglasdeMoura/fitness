@@ -8,6 +8,7 @@ import {
   VStack,
 } from "@astryxdesign/core";
 import { useEffect, useState } from "react";
+
 import type { InstallMode } from "~/lib/pwa-install";
 import {
   getInstallMode,

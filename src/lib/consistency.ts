@@ -183,8 +183,8 @@ export function assembleConsistencyMetrics(
   asOf: string
 ): ConsistencyMetrics {
   return {
-    adherence7: logAdherence(logDates, 7, asOf),
     adherence28: logAdherence(logDates, 28, asOf),
+    adherence7: logAdherence(logDates, 7, asOf),
     asOf,
     currentStreak: currentStreak(logDates, 1, asOf),
     last7Days: buildLast7Days(logDates, asOf),

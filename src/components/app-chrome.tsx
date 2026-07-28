@@ -4,9 +4,9 @@ import { AppShell } from "@astryxdesign/core/AppShell";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { LinkProvider } from "@astryxdesign/core/Link";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
+import { Theme } from "@astryxdesign/core/theme";
 import { ToastViewport } from "@astryxdesign/core/Toast";
 import { TopNav, TopNavHeading } from "@astryxdesign/core/TopNav";
-import { Theme } from "@astryxdesign/core/theme";
 import { useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -18,11 +18,11 @@ import {
   SettingsIcon,
   ThemeToggleIcon,
   WorkoutIcon,
-} from "~/components/icons/FitTrackIcons";
-import { OfflineStatus } from "~/components/OfflineStatus";
-import { RouterLink } from "~/components/RouterLink";
-import { ShortcutsHelpDialog } from "~/components/ShortcutsHelpDialog";
-import { RestTimer } from "~/components/workout/RestTimer";
+} from "~/components/icons/fit-track-icons";
+import { OfflineStatus } from "~/components/offline-status";
+import { RouterLink } from "~/components/router-link";
+import { ShortcutsHelpDialog } from "~/components/shortcuts-help-dialog";
+import { RestTimer } from "~/components/workout/rest-timer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
 import {
   getStoredTheme,
