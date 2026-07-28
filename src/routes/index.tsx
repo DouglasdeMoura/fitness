@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { CalorieRing } from '~/components/CalorieRing'
 import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
 import {
   isDataLoadPending,
@@ -9,6 +10,8 @@ import {
   Badge,
   Button,
   Card,
+  ClickableCard,
+  EmptyState,
   Grid,
   Heading,
   HStack,
@@ -22,6 +25,7 @@ import {
 import { getConsistency, getDashboardStats, getWeeklyReviewAvailability } from '~/lib/api'
 import {
   calorieRemainingLabel,
+  isFirstTimeUser,
   macroProgress,
   type MacroTone,
 } from '~/lib/dashboard'
@@ -97,7 +101,30 @@ function DashboardPageContent() {
     day: 'numeric',
   })
 
-  const calorieState = macroProgress(consumed.calories, targets.calories, 'accent')
+
+  const showWelcome = isFirstTimeUser(stats)
+
+  if (showWelcome) {
+    return (
+      <VStack as="main" gap={6}>
+        <VStack gap={1}>
+          <Heading level={1}>Dashboard</Heading>
+          <Text type="supporting">{today}</Text>
+        </VStack>
+        <EmptyState
+          title="Welcome to FitTrack"
+          description="Set up your nutrition targets to get started with personalized calorie and macro tracking."
+          actions={
+            <Button
+              label="Set up your targets"
+              href="/settings"
+              variant="primary"
+            />
+          }
+        />
+      </VStack>
+    )
+  }
 
   return (
     <VStack as="main" gap={6}>
@@ -106,57 +133,149 @@ function DashboardPageContent() {
         <Text type="supporting">{today}</Text>
       </VStack>
 
-      <Grid columns={{ minWidth: 320 }} gap={4}>
-        <Card>
-          <VStack gap={3}>
-            <Text type="label">Today&apos;s Calories</Text>
-            <HStack gap={1} vAlign="end">
-              <Text size="4xl" weight="bold">
-                {Math.round(consumed.calories)}
-              </Text>
-              <Text type="supporting">
-                / {targets.calories} kcal
-              </Text>
-            </HStack>
-            <ProgressBar
-              label="Calories consumed today"
-              value={calorieState.value}
-              max={calorieState.max}
-              variant={calorieState.variant}
-              isLabelHidden
-            />
-            <Text type="supporting">
-              {calorieRemainingLabel(consumed.calories, targets.calories)}
+      {/* Calorie ring — hero element */}
+      <Card padding={5}>
+        <VStack gap={4} hAlign="center">
+          <CalorieRing
+            consumed={consumed.calories}
+            target={targets.calories}
+          />
+          <Text
+            size="4xl"
+            weight="bold"
+            hasTabularNumbers
+          >
+            {Math.round(consumed.calories)}
+          </Text>
+          <Text type="supporting">
+            of {targets.calories} kcal
+          </Text>
+          <Text
+            type="body"
+            color={consumed.calories > targets.calories ? 'accent' : undefined}
+          >
+            {calorieRemainingLabel(consumed.calories, targets.calories)}
+          </Text>
+        </VStack>
+      </Card>
+
+      {/* Macro tracking — three compact progress bars */}
+      <Card padding={5}>
+        <VStack gap={3}>
+          <Text type="label">Macros</Text>
+          <MacroBar
+            label="Protein"
+            consumed={Math.round(consumed.protein_g)}
+            target={targets.protein_g}
+            tone="success"
+          />
+          <MacroBar
+            label="Carbs"
+            consumed={Math.round(consumed.carbs_g)}
+            target={targets.carbs_g}
+            tone="warning"
+          />
+          <MacroBar
+            label="Fat"
+            consumed={Math.round(consumed.fat_g)}
+            target={targets.fat_g}
+            tone="accent"
+          />
+        </VStack>
+      </Card>
+
+      {/* Secondary stats grid */}
+      <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
+        <Card padding={4}>
+          <VStack gap={1}>
+            <Text type="label">Current Weight</Text>
+            <Text size="2xl" weight="bold" hasTabularNumbers>
+              {targets.weightKg ? `${targets.weightKg} kg` : '\u2014'}
             </Text>
           </VStack>
         </Card>
-
-        <Card>
-          <VStack gap={3}>
-            <Text type="label">Macros</Text>
-            <MacroBar
-              label="Protein"
-              consumed={Math.round(consumed.protein_g)}
-              target={targets.protein_g}
-              tone="success"
-            />
-            <MacroBar
-              label="Carbs"
-              consumed={Math.round(consumed.carbs_g)}
-              target={targets.carbs_g}
-              tone="warning"
-            />
-            <MacroBar
-              label="Fat"
-              consumed={Math.round(consumed.fat_g)}
-              target={targets.fat_g}
-              tone="accent"
-            />
+        <Card padding={4}>
+          <VStack gap={1}>
+            <Text type="label">TDEE</Text>
+            <Text size="2xl" weight="bold" hasTabularNumbers>
+              {targets.tdee ? `${targets.tdee} kcal` : '\u2014'}
+            </Text>
+          </VStack>
+        </Card>
+        <Card padding={4}>
+          <VStack gap={1}>
+            <Text type="label">Workouts (30d)</Text>
+            <Text size="2xl" weight="bold" hasTabularNumbers>
+              {workoutDaysThisMonth}
+            </Text>
+            <Text type="supporting">sessions logged</Text>
           </VStack>
         </Card>
       </Grid>
 
-      <Card aria-label="Consistency tracking">
+      {/* Quick Actions — prominent ClickableCards */}
+      <VStack gap={3}>
+        <Text type="label">Quick Actions</Text>
+        <Grid columns={{ minWidth: 180, max: 2 }} gap={4}>
+          <ClickableCard
+            href="/nutrition"
+            label="Log your meals"
+            padding={4}
+          >
+            <HStack gap={3} vAlign="center">
+              <Text size="2xl">{'\u{1F34E}'}</Text>
+              <VStack gap={0.5}>
+                <Text weight="semibold">Log Food</Text>
+                <Text type="supporting">Track your daily nutrition</Text>
+              </VStack>
+            </HStack>
+          </ClickableCard>
+          <ClickableCard
+            href="/workout"
+            label="Start a workout"
+            padding={4}
+          >
+            <HStack gap={3} vAlign="center">
+              <Text size="2xl">{'\u{1F3CB}\uFE0F'}</Text>
+              <VStack gap={0.5}>
+                <Text weight="semibold">Start Workout</Text>
+                <Text type="supporting">Log your training session</Text>
+              </VStack>
+            </HStack>
+          </ClickableCard>
+          <ClickableCard
+            href="/progress"
+            label="View your progress"
+            padding={4}
+          >
+            <HStack gap={3} vAlign="center">
+              <Text size="2xl">{'\u{1F4C8}'}</Text>
+              <VStack gap={0.5}>
+                <Text weight="semibold">View Progress</Text>
+                <Text type="supporting">Weight trends and volume</Text>
+              </VStack>
+            </HStack>
+          </ClickableCard>
+          {weeklyReview.available ? (
+            <ClickableCard
+              href={`/review?date=${asOf}`}
+              label="Weekly review"
+              padding={4}
+            >
+              <HStack gap={3} vAlign="center">
+                <Text size="2xl">{'\u{1F4CB}'}</Text>
+                <VStack gap={0.5}>
+                  <Text weight="semibold">Weekly Review</Text>
+                  <Text type="supporting">See how your week went</Text>
+                </VStack>
+              </HStack>
+            </ClickableCard>
+          ) : null}
+        </Grid>
+      </VStack>
+
+      {/* Consistency tracking */}
+      <Card padding={4} aria-label="Consistency tracking">
         <VStack gap={3}>
           <Text type="label">Consistency</Text>
           <MetadataList>
@@ -191,55 +310,16 @@ function DashboardPageContent() {
         </VStack>
       </Card>
 
-      <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
-        <Card>
-          <VStack gap={1}>
-            <Text type="label">Current Weight</Text>
-            <Text size="2xl" weight="bold">
-              {targets.weightKg ? `${targets.weightKg} kg` : '—'}
-            </Text>
-          </VStack>
-        </Card>
-        <Card>
-          <VStack gap={1}>
-            <Text type="label">TDEE</Text>
-            <Text size="2xl" weight="bold">
-              {targets.tdee ? `${targets.tdee} kcal` : '—'}
-            </Text>
-            <Text type="supporting">BMR: {targets.bmr} kcal</Text>
-          </VStack>
-        </Card>
-        <Card>
-          <VStack gap={1}>
-            <Text type="label">Workouts (30d)</Text>
-            <Text size="2xl" weight="bold">
-              {workoutDaysThisMonth}
-            </Text>
-            <Text type="supporting">sessions logged</Text>
-          </VStack>
-        </Card>
-      </Grid>
-
-      <Card>
-        <VStack gap={3}>
-          <Text type="label">Quick Actions</Text>
-          <HStack gap={2} wrap="wrap">
-            <Button label="Log Food" href="/nutrition" variant="primary" />
-            <Button label="Start Workout" href="/workout" variant="secondary" />
-            <Button label="View Progress" href="/progress" variant="secondary" />
-            {weeklyReview.available ? (
-              <Button label="Weekly Review" href={`/review?date=${asOf}`} variant="secondary" />
-            ) : null}
-          </HStack>
-        </VStack>
-      </Card>
-
-      <Card>
+      {/* Goal summary */}
+      <Card padding={4}>
         <VStack gap={3}>
           <Text type="label">Your Goal</Text>
           <MetadataList>
             <MetadataListItem label="Goal Type">
-              <Badge variant="purple" label={user.goal_type.replace(/_/g, ' ')} />
+              <Badge
+                variant="purple"
+                label={user.goal_type.replace(/_/g, ' ')}
+              />
             </MetadataListItem>
             <MetadataListItem label="Activity Level">
               {user.activity_level.replace(/_/g, ' ')}

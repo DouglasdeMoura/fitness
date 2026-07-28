@@ -23,45 +23,47 @@ function SkeletonTableRows({ rows = 4 }: { rows?: number }) {
 
 export function DashboardSkeleton() {
   return (
-    <VStack as="main" gap={4} aria-busy="true" aria-label="Loading dashboard">
+    <VStack as="main" gap={6} aria-busy="true" aria-label="Loading dashboard">
       <VStack gap={1}>
         <Skeleton width={180} height={28} index={0} />
         <Skeleton width={220} height={14} index={1} />
       </VStack>
 
-      <Grid columns={{ minWidth: 320 }} gap={4}>
-        <Card>
-          <VStack gap={3}>
-            <Skeleton width={140} height={14} index={2} />
-            <Skeleton width={120} height={32} index={3} />
-            <Skeleton width="100%" height={8} index={4} />
-            <Skeleton width="70%" height={12} index={5} />
-          </VStack>
-        </Card>
-        <Card>
-          <VStack gap={3}>
-            <Skeleton width={80} height={14} index={6} />
-            <Skeleton width="100%" height={8} index={7} />
-            <Skeleton width="100%" height={8} index={8} />
-            <Skeleton width="100%" height={8} index={9} />
-          </VStack>
-        </Card>
-      </Grid>
+      {/* Calorie ring + hero number card */}
+      <Card padding={5}>
+        <VStack gap={4} hAlign="center">
+          <Skeleton width={180} height={180} radius="rounded" index={2} />
+          <Skeleton width={100} height={42} index={3} />
+          <Skeleton width={140} height={14} index={4} />
+          <Skeleton width="70%" height={16} index={5} />
+        </VStack>
+      </Card>
 
+      {/* Macro bars card */}
+      <Card padding={5}>
+        <VStack gap={3}>
+          <Skeleton width={80} height={14} index={6} />
+          <Skeleton width="100%" height={8} index={7} />
+          <Skeleton width="100%" height={8} index={8} />
+          <Skeleton width="100%" height={8} index={9} />
+        </VStack>
+      </Card>
+
+      {/* Secondary stats */}
       <Grid columns={{ minWidth: 200, max: 3 }} gap={4}>
-        <Card>
+        <Card padding={4}>
           <VStack gap={1}>
             <Skeleton width={120} height={14} index={10} />
             <Skeleton width={80} height={28} index={11} />
           </VStack>
         </Card>
-        <Card>
+        <Card padding={4}>
           <VStack gap={1}>
             <Skeleton width={60} height={14} index={12} />
             <Skeleton width={100} height={28} index={13} />
           </VStack>
         </Card>
-        <Card>
+        <Card padding={4}>
           <VStack gap={1}>
             <Skeleton width={120} height={14} index={14} />
             <Skeleton width={40} height={28} index={15} />
@@ -69,13 +71,57 @@ export function DashboardSkeleton() {
         </Card>
       </Grid>
 
-      <Card>
+      {/* Quick Actions skeleton — card-shaped placeholders */}
+      <VStack gap={3}>
+        <Skeleton width={120} height={14} index={16} />
+        <Grid columns={{ minWidth: 180, max: 2 }} gap={4}>
+          <Card padding={4}>
+            <HStack gap={3} vAlign="center">
+              <Skeleton width={32} height={32} radius="rounded" index={17} />
+              <VStack gap={1}>
+                <Skeleton width={100} height={16} index={18} />
+                <Skeleton width={140} height={12} index={19} />
+              </VStack>
+            </HStack>
+          </Card>
+          <Card padding={4}>
+            <HStack gap={3} vAlign="center">
+              <Skeleton width={32} height={32} radius="rounded" index={20} />
+              <VStack gap={1}>
+                <Skeleton width={120} height={16} index={21} />
+                <Skeleton width={140} height={12} index={22} />
+              </VStack>
+            </HStack>
+          </Card>
+          <Card padding={4}>
+            <HStack gap={3} vAlign="center">
+              <Skeleton width={32} height={32} radius="rounded" index={23} />
+              <VStack gap={1}>
+                <Skeleton width={110} height={16} index={24} />
+                <Skeleton width={140} height={12} index={25} />
+              </VStack>
+            </HStack>
+          </Card>
+        </Grid>
+      </VStack>
+
+      {/* Consistency */}
+      <Card padding={4}>
         <VStack gap={3}>
-          <Skeleton width={120} height={14} index={16} />
+          <Skeleton width={120} height={14} index={26} />
+          <VStack gap={2}>
+            <Skeleton width="100%" height={14} index={27} />
+            <Skeleton width="100%" height={14} index={28} />
+            <Skeleton width="100%" height={14} index={29} />
+            <Skeleton width="100%" height={14} index={30} />
+          </VStack>
           <HStack gap={2} wrap="wrap">
-            <Skeleton width={100} height={36} index={17} />
-            <Skeleton width={120} height={36} index={18} />
-            <Skeleton width={120} height={36} index={19} />
+            {Array.from({ length: 7 }).map((_, idx) => (
+              <VStack key={idx} gap={1} hAlign="center">
+                <Skeleton width={12} height={12} radius="rounded" index={31 + idx * 2} />
+                <Skeleton width={28} height={10} index={32 + idx * 2} />
+              </VStack>
+            ))}
           </HStack>
         </VStack>
       </Card>

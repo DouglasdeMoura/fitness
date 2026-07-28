@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { macroProgress, calorieRemainingLabel } from '~/lib/dashboard'
+import { macroProgress, calorieRemainingLabel, isFirstTimeUser } from '~/lib/dashboard'
 
 describe('macroProgress', () => {
   it('clamps the fill to the target so the bar never overflows', () => {
@@ -45,5 +45,47 @@ describe('calorieRemainingLabel', () => {
   it('rounds fractional calories to whole numbers for display', () => {
     expect(calorieRemainingLabel(1499.6, 2000)).toBe('500 kcal remaining')
     expect(calorieRemainingLabel(2000.4, 2000)).toBe('0 kcal over target')
+  })
+})
+
+describe('isFirstTimeUser', () => {
+  it('returns true when there is zero activity across all dimensions', () => {
+    expect(
+      isFirstTimeUser({
+        consumed: { calories: 0 },
+        workoutDaysThisMonth: 0,
+        recentBodyweight: [],
+      }),
+    ).toBe(true)
+  })
+
+  it('returns false when any food has been logged today', () => {
+    expect(
+      isFirstTimeUser({
+        consumed: { calories: 500 },
+        workoutDaysThisMonth: 0,
+        recentBodyweight: [],
+      }),
+    ).toBe(false)
+  })
+
+  it('returns false when workouts exist in the past 30 days', () => {
+    expect(
+      isFirstTimeUser({
+        consumed: { calories: 0 },
+        workoutDaysThisMonth: 3,
+        recentBodyweight: [],
+      }),
+    ).toBe(false)
+  })
+
+  it('returns false when body weight has been logged', () => {
+    expect(
+      isFirstTimeUser({
+        consumed: { calories: 0 },
+        workoutDaysThisMonth: 0,
+        recentBodyweight: [{ id: 1 }],
+      }),
+    ).toBe(false)
   })
 })

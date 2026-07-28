@@ -55,3 +55,24 @@ export function calorieRemainingLabel(consumed: number, target: number): string 
   const magnitude = Math.abs(Math.round(diff))
   return diff >= 0 ? `${magnitude} kcal remaining` : `${magnitude} kcal over target`
 }
+
+/**
+ * Whether the dashboard should show the first-time welcome state instead of
+ * zeroed-out metrics. True when the user has no food logged today, no
+ * workouts in the past 30 days, and no body weight logs.
+ *
+ * This prevents a "wall of zeros" for genuinely new users while still
+ * showing real data for returning users who just haven't logged today yet
+ * (they'll have workout or weight history).
+ */
+export function isFirstTimeUser(stats: {
+  consumed: { calories: number }
+  workoutDaysThisMonth: number
+  recentBodyweight: ReadonlyArray<unknown>
+}): boolean {
+  return (
+    stats.consumed.calories === 0 &&
+    stats.workoutDaysThisMonth === 0 &&
+    stats.recentBodyweight.length === 0
+  )
+}
