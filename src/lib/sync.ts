@@ -4,8 +4,8 @@
 // the browser outbox agree on payload shapes without importing one another
 // (api.ts pulls in Drizzle database layer, offline.ts pulls in IndexedDB globals).
 
-import { tryParsePersistedValue } from "./parse-persisted";
 import type { MealType } from "./schemas/common";
+import { tryParsePersistedValue } from "./schemas/persistence";
 import { queuedMutationSchema } from "./schemas/user";
 import type { QueuedMutation } from "./schemas/user";
 

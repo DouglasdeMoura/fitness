@@ -10,8 +10,8 @@ import {
 } from "~/db/notification-queries";
 import type { NotificationPreferencesRow } from "~/db/types";
 
-import { parsePersistedJson } from "./parse-persisted";
 import {
+  parsePersistedJson,
   storedIsoTimeArraySchema,
   storedWeekdayArraySchema,
 } from "./schemas/persistence";

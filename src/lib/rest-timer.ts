@@ -9,9 +9,9 @@
 
 import {
   logPersistedValidationFailure,
+  restTimerSnapshotSchema,
   tryParsePersistedValue,
-} from "./parse-persisted";
-import { restTimerSnapshotSchema } from "./schemas/persistence";
+} from "./schemas/persistence";
 import type { RestTimerSnapshot } from "./schemas/persistence";
 
 const MS_PER_MINUTE = 60_000;
