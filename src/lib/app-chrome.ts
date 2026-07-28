@@ -63,7 +63,16 @@ export function isPublicMarketingRoute(pathname: string): boolean {
   return pathname === "/";
 }
 
+/** Public blog index and articles use the marketing shell (issue #46). */
+export function isBlogRoute(pathname: string): boolean {
+  return pathname === "/blog" || pathname.startsWith("/blog/");
+}
+
 /** Auth and marketing pages share the minimal chrome wrapper. */
 export function isMinimalChromeRoute(pathname: string): boolean {
-  return isAuthRoute(pathname) || isPublicMarketingRoute(pathname);
+  return (
+    isAuthRoute(pathname) ||
+    isPublicMarketingRoute(pathname) ||
+    isBlogRoute(pathname)
+  );
 }

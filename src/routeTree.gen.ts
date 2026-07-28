@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as NutritionIndexRouteImport } from './routes/nutrition/index'
 import { Route as ProgressIndexRouteImport } from './routes/progress/index'
@@ -29,6 +31,16 @@ import { Route as WorkoutProgramsProgramIdRouteImport } from './routes/workout/p
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -111,6 +123,8 @@ const WorkoutProgramsProgramIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
@@ -129,6 +143,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog': typeof BlogIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/nutrition': typeof NutritionIndexRoute
   '/progress': typeof ProgressIndexRoute
@@ -148,6 +164,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
@@ -168,6 +186,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/blog/$slug'
+    | '/blog/'
     | '/dashboard/'
     | '/nutrition/'
     | '/progress/'
@@ -186,6 +206,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/blog/$slug'
+    | '/blog'
     | '/dashboard'
     | '/nutrition'
     | '/progress'
@@ -204,6 +226,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/blog/$slug'
+    | '/blog/'
     | '/dashboard/'
     | '/nutrition/'
     | '/progress/'
@@ -223,6 +247,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   NutritionIndexRoute: typeof NutritionIndexRoute
   ProgressIndexRoute: typeof ProgressIndexRoute
@@ -247,6 +273,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -359,6 +399,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   NutritionIndexRoute: NutritionIndexRoute,
   ProgressIndexRoute: ProgressIndexRoute,

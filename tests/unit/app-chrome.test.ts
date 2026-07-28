@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getStoredTheme,
   isAuthRoute,
+  isBlogRoute,
   isMinimalChromeRoute,
   isNavSelected,
   isPublicMarketingRoute,
@@ -107,10 +108,20 @@ describe(isPublicMarketingRoute, () => {
   });
 });
 
+describe(isBlogRoute, () => {
+  it("matches the blog index and article pages", () => {
+    expect(isBlogRoute("/blog")).toBe(true);
+    expect(isBlogRoute("/blog/protein-for-hypertrophy")).toBe(true);
+    expect(isBlogRoute("/dashboard")).toBe(false);
+  });
+});
+
 describe(isMinimalChromeRoute, () => {
-  it("includes auth and marketing pages", () => {
+  it("includes auth, marketing, and blog pages", () => {
     expect(isMinimalChromeRoute("/sign-in")).toBe(true);
     expect(isMinimalChromeRoute("/")).toBe(true);
+    expect(isMinimalChromeRoute("/blog")).toBe(true);
+    expect(isMinimalChromeRoute("/blog/macros-101")).toBe(true);
     expect(isMinimalChromeRoute("/dashboard")).toBe(false);
   });
 });
