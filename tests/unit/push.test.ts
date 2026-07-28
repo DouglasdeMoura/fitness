@@ -30,6 +30,9 @@ const SAMPLE_SUBSCRIPTION = {
   },
 };
 
+const VALID_VAPID_PUBLIC_KEY = `B${"A".repeat(86)}`;
+const VALID_VAPID_PRIVATE_KEY = "A".repeat(43);
+
 function createTestDb(): FitTrackDatabase {
   const migrationSql = readAllMigrationSql();
   const sqlite = new Database(":memory:");
@@ -56,6 +59,36 @@ describe(readVapidConfig, () => {
     ).toThrow(/VAPID_PRIVATE_KEY/);
   });
 
+  it("throws naming a malformed VAPID public key", () => {
+    expect(() =>
+      readVapidConfig({
+        VAPID_PRIVATE_KEY: VALID_VAPID_PRIVATE_KEY,
+        VAPID_PUBLIC_KEY: "not-a-vapid-key",
+        VAPID_SUBJECT: "mailto:test@fittrack.test",
+      })
+    ).toThrow(/VAPID_PUBLIC_KEY/);
+  });
+
+  it("throws naming a malformed VAPID private key", () => {
+    expect(() =>
+      readVapidConfig({
+        VAPID_PRIVATE_KEY: "not-a-vapid-key",
+        VAPID_PUBLIC_KEY: VALID_VAPID_PUBLIC_KEY,
+        VAPID_SUBJECT: "mailto:test@fittrack.test",
+      })
+    ).toThrow(/VAPID_PRIVATE_KEY/);
+  });
+
+  it("throws naming a malformed VAPID subject", () => {
+    expect(() =>
+      readVapidConfig({
+        VAPID_PRIVATE_KEY: VALID_VAPID_PRIVATE_KEY,
+        VAPID_PUBLIC_KEY: VALID_VAPID_PUBLIC_KEY,
+        VAPID_SUBJECT: "mailto:",
+      })
+    ).toThrow(/VAPID_SUBJECT/);
+  });
+
   it("returns null when push is not configured", () => {
     expect(readVapidConfig({})).toBeNull();
   });
@@ -68,7 +101,25 @@ describe(readVapidPublicKey, () => {
   });
 
   it("returns the trimmed public key when configured", () => {
-    expect(readVapidPublicKey({ VAPID_PUBLIC_KEY: " abc " })).toBe("abc");
+    expect(
+      readVapidPublicKey({
+        VAPID_PRIVATE_KEY: VALID_VAPID_PRIVATE_KEY,
+        VAPID_PUBLIC_KEY: ` ${VALID_VAPID_PUBLIC_KEY} `,
+        VAPID_SUBJECT: "mailto:test@fittrack.test",
+      })
+    ).toBe(VALID_VAPID_PUBLIC_KEY);
+  });
+
+  it("throws naming a missing field when VAPID is partially configured", () => {
+    expect(() =>
+      readVapidPublicKey({ VAPID_PUBLIC_KEY: VALID_VAPID_PUBLIC_KEY })
+    ).toThrow(/VAPID_PRIVATE_KEY/);
+  });
+
+  it("throws naming a malformed configured public key", () => {
+    expect(() =>
+      readVapidPublicKey({ VAPID_PUBLIC_KEY: "not-a-vapid-key" })
+    ).toThrow(/VAPID_PUBLIC_KEY/);
   });
 });
 

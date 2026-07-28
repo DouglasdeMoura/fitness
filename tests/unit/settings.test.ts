@@ -21,6 +21,7 @@ import {
   toISODate,
   weightChartPolyline,
 } from "~/lib/settings";
+import { mutationFailedBody } from "~/lib/toasts";
 
 import { foodLog } from "../../src/db/schema";
 import { createDrizzleTestDb } from "./drizzle-test-db";
@@ -41,11 +42,34 @@ const validFoodLogEntry = {
   user_id: 1,
 };
 
+const validImportFixture = {
+  body_logs: [],
+  food_log: [],
+  program_days: [],
+  program_exercises: [],
+  programs: [],
+  workout_sets: [],
+  workouts: [],
+};
+
 function validExportFixture(overrides: Record<string, unknown> = {}) {
   return {
+    ...validImportFixture,
     app: "FitTrack",
     exported_at: "2026-01-01T00:00:00.000Z",
-    user: { id: 1, name: "Test User" },
+    user: {
+      activityLevel: "moderate",
+      authUserId: null,
+      birthDate: "1990-01-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      email: "test@example.com",
+      goalType: "maintain",
+      heightCm: 175,
+      id: 1,
+      name: "Test User",
+      sex: "male",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
     version: "0.1.0",
     ...overrides,
   };
@@ -371,7 +395,20 @@ describe(parseImportFile, () => {
 
     expect("error" in result).toBe(true);
     if ("error" in result) {
-      expect(result.error).toContain("food_log[0].calories");
+      expect(mutationFailedBody(result.error)).toContain(
+        "food_log[0].calories"
+      );
+    }
+  });
+
+  it("rejects a truncated export and names the missing collection", () => {
+    const result = parseImportFile(
+      JSON.stringify(validExportFixture({ workouts: undefined }))
+    );
+
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("workouts");
     }
   });
 });
@@ -380,8 +417,8 @@ describe("import validation (issue #73)", () => {
   it("rejects malformed import server-side before the database changes", () => {
     const fixture = createDrizzleTestDb();
     const countBefore = fixture.db.select().from(foodLog).all().length;
-
     const malformed = {
+      ...validImportFixture,
       food_log: [{ ...validFoodLogEntry, calories: -1 }],
     };
 

@@ -18,8 +18,11 @@ import {
 
 import type { NotificationType } from "./notification-preferences";
 import { isIosDevice } from "./pwa-install";
-import { requireEnvString } from "./schemas/env";
+import { parseVapidConfig, parseVapidPublicKey } from "./schemas/env";
+import type { VapidConfig } from "./schemas/env";
 import type { PushSubscriptionInput } from "./schemas/user";
+
+export type { VapidConfig } from "./schemas/env";
 
 // --- Types ---
 
@@ -30,12 +33,6 @@ export interface PushSubscriptionRow {
   id: number;
   p256dh: string;
   user_id: number;
-}
-
-export interface VapidConfig {
-  privateKey: string;
-  publicKey: string;
-  subject: string;
 }
 
 export interface PushPayload {
@@ -104,27 +101,14 @@ type EnvLike = Record<string, string | undefined>;
 
 /** Public key for the client, or null when push is not configured. */
 export function readVapidPublicKey(env: EnvLike = process.env): string | null {
-  const key = env.VAPID_PUBLIC_KEY?.trim();
-  return key || null;
+  return parseVapidPublicKey(env);
 }
 
 /** Full VAPID config for signing pushes, or null when keys are missing. */
 export function readVapidConfig(
   env: EnvLike = process.env
 ): VapidConfig | null {
-  const publicKey = env.VAPID_PUBLIC_KEY?.trim();
-  const privateKey = env.VAPID_PRIVATE_KEY?.trim();
-  const subject = env.VAPID_SUBJECT?.trim();
-
-  if (!publicKey && !privateKey && !subject) {
-    return null;
-  }
-
-  return {
-    privateKey: requireEnvString(env, "VAPID_PRIVATE_KEY"),
-    publicKey: requireEnvString(env, "VAPID_PUBLIC_KEY"),
-    subject: requireEnvString(env, "VAPID_SUBJECT"),
-  };
+  return parseVapidConfig(env);
 }
 
 // --- Database ---

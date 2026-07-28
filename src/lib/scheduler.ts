@@ -3,8 +3,6 @@
  * Burke et al. 2011: timely prompts support self-monitoring adherence.
  */
 
-import { z } from "zod";
-
 import type { FitTrackDatabase } from "~/db";
 
 import type {
@@ -23,7 +21,8 @@ import {
   shouldDeliver,
   tryClaimNotificationDelivery,
 } from "./push";
-import { requireEnvString } from "./schemas/env";
+import { parseServerInput } from "./schemas/common";
+import { parseSchedulerSecret } from "./schemas/env";
 import { schedulerCronRequestBodySchema } from "./schemas/scheduler";
 
 type EnvLike = Record<string, string | undefined>;
@@ -51,7 +50,7 @@ export function readSchedulerSecret(env: EnvLike = process.env): string | null {
 
 /** Require the scheduler secret, naming the variable when absent. */
 export function requireSchedulerSecret(env: EnvLike = process.env): string {
-  return requireEnvString(env, "SCHEDULER_SECRET");
+  return parseSchedulerSecret(env);
 }
 
 async function parseSchedulerCronBody(
@@ -69,9 +68,12 @@ async function parseSchedulerCronBody(
     return { error: "Invalid JSON body.", ok: false };
   }
 
-  const result = schedulerCronRequestBodySchema.safeParse(parsed);
-  if (!result.success) {
-    return { error: z.prettifyError(result.error), ok: false };
+  try {
+    parseServerInput(schedulerCronRequestBodySchema, parsed);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Invalid scheduler request body";
+    return { error: message, ok: false };
   }
 
   return { ok: true };

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { isoTimeSchema, nonNegativeIntSchema } from "./common";
-import { importDataInputSchema } from "./user";
+import { importDataInputSchema, userExportSchema } from "./user";
 import type { ImportDataInput } from "./user";
 
 const nullableFiniteNumberSchema = z.number().finite().nullable();
@@ -25,9 +25,9 @@ export const storedWeekdayArraySchema = z.array(nonNegativeIntSchema);
 export const fitTrackExportFileSchema = z
   .object({
     app: z.literal("FitTrack"),
-    exported_at: z.string().min(1),
-    user: z.record(z.string(), z.unknown()),
-    version: z.string().min(1),
+    exported_at: z.string().datetime(),
+    user: userExportSchema,
+    version: z.string().regex(/^\d+\.\d+\.\d+$/, "semantic version"),
   })
   .merge(importDataInputSchema);
 

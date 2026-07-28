@@ -236,14 +236,28 @@ export const getSyncedClientIdsInputSchema = z.object({
   client_ids: z.array(z.string().min(1)),
 });
 
+export const userExportSchema = z.object({
+  activityLevel: activityLevelSchema,
+  authUserId: z.string().nullable(),
+  birthDate: isoDateSchema.nullable(),
+  createdAt: z.string().min(1),
+  email: z.string().email().nullable(),
+  goalType: goalTypeSchema,
+  heightCm: nonNegativeFiniteSchema.nullable(),
+  id: rowIdSchema,
+  name: z.string().min(1),
+  sex: sexSchema,
+  updatedAt: z.string().min(1),
+});
+
 export const importDataInputSchema = z.object({
-  body_logs: z.array(bodyLogImportSchema).optional(),
-  food_log: z.array(foodLogEntryImportSchema).optional(),
-  program_days: z.array(programDayImportSchema).optional(),
-  program_exercises: z.array(programExerciseImportSchema).optional(),
-  programs: z.array(programImportSchema).optional(),
-  workout_sets: z.array(workoutSetImportSchema).optional(),
-  workouts: z.array(workoutSessionImportSchema).optional(),
+  body_logs: z.array(bodyLogImportSchema),
+  food_log: z.array(foodLogEntryImportSchema),
+  program_days: z.array(programDayImportSchema),
+  program_exercises: z.array(programExerciseImportSchema),
+  programs: z.array(programImportSchema),
+  workout_sets: z.array(workoutSetImportSchema),
+  workouts: z.array(workoutSessionImportSchema),
 });
 
 export type ImportDataInput = z.infer<typeof importDataInputSchema>;

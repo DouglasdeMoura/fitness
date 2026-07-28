@@ -273,7 +273,10 @@ describe(handleSchedulerCronRequest, () => {
     });
 
     expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain("unexpected");
     expect(client.calls).toHaveLength(0);
+    expect(db.select().from(dbSchema.notificationDeliveries).all()).toEqual([]);
   });
 
   it("runs delivery when the cron secret matches", async () => {
