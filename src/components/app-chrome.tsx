@@ -26,6 +26,7 @@ import { RestTimer } from "~/components/workout/rest-timer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
 import {
   getStoredTheme,
+  isAuthRoute,
   isWorkoutRoute,
   navValueFromPath,
   THEME_CHANGE_EVENT,
@@ -161,6 +162,14 @@ export function AppChrome({ children }: { children: ReactNode }) {
   // Page transition: use pathname as key to trigger CSS animation on navigation.
   // A <section> wraps the children so the CSS [data-page-transition] animation
   // fires on every mount (React unmounts/remounts when the key changes).
+  if (isAuthRoute(pathname)) {
+    return (
+      <Theme mode={colorMode} theme={fittrackTheme}>
+        <LinkProvider component={RouterLink}>{children}</LinkProvider>
+      </Theme>
+    );
+  }
+
   const pageContent = (
     <section data-page-transition key={pathname}>
       <OfflineStatus />

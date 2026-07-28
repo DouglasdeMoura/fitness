@@ -52,3 +52,8 @@ export function navValueFromPath(
 export function isWorkoutRoute(pathname: string): boolean {
   return pathname === "/workout" || pathname.startsWith("/workout/");
 }
+
+/** Auth pages render without the main app shell (issue #43). */
+export function isAuthRoute(pathname: string): boolean {
+  return pathname === "/sign-in" || pathname === "/sign-up";
+}

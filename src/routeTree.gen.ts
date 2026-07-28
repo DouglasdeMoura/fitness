@@ -10,10 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as NutritionIndexRouteImport } from './routes/nutrition/index'
 import { Route as ProgressIndexRouteImport } from './routes/progress/index'
 import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
+import { Route as SignUpIndexRouteImport } from './routes/sign-up/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronNotificationsRouteImport } from './routes/api/cron/notifications'
@@ -26,6 +29,11 @@ import { Route as WorkoutProgramsProgramIdRouteImport } from './routes/workout/p
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NutritionIndexRoute = NutritionIndexRouteImport.update({
@@ -46,6 +54,16 @@ const ReviewIndexRoute = ReviewIndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInIndexRoute = SignInIndexRouteImport.update({
+  id: '/sign-in/',
+  path: '/sign-in/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpIndexRoute = SignUpIndexRouteImport.update({
+  id: '/sign-up/',
+  path: '/sign-up/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkoutIndexRoute = WorkoutIndexRouteImport.update({
@@ -93,10 +111,13 @@ const WorkoutProgramsProgramIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/sign-up/': typeof SignUpIndexRoute
   '/workout/': typeof WorkoutIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
@@ -108,10 +129,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/nutrition': typeof NutritionIndexRoute
   '/progress': typeof ProgressIndexRoute
   '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/sign-in': typeof SignInIndexRoute
+  '/sign-up': typeof SignUpIndexRoute
   '/workout': typeof WorkoutIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
@@ -124,10 +148,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/nutrition/': typeof NutritionIndexRoute
   '/progress/': typeof ProgressIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/sign-up/': typeof SignUpIndexRoute
   '/workout/': typeof WorkoutIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
@@ -141,10 +168,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashboard/'
     | '/nutrition/'
     | '/progress/'
     | '/review/'
     | '/settings/'
+    | '/sign-in/'
+    | '/sign-up/'
     | '/workout/'
     | '/api/auth/$'
     | '/api/cron/notifications'
@@ -156,10 +186,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/dashboard'
     | '/nutrition'
     | '/progress'
     | '/review'
     | '/settings'
+    | '/sign-in'
+    | '/sign-up'
     | '/workout'
     | '/api/auth/$'
     | '/api/cron/notifications'
@@ -171,10 +204,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/dashboard/'
     | '/nutrition/'
     | '/progress/'
     | '/review/'
     | '/settings/'
+    | '/sign-in/'
+    | '/sign-up/'
     | '/workout/'
     | '/api/auth/$'
     | '/api/cron/notifications'
@@ -187,10 +223,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   NutritionIndexRoute: typeof NutritionIndexRoute
   ProgressIndexRoute: typeof ProgressIndexRoute
   ReviewIndexRoute: typeof ReviewIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  SignInIndexRoute: typeof SignInIndexRoute
+  SignUpIndexRoute: typeof SignUpIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronNotificationsRoute: typeof ApiCronNotificationsRoute
@@ -208,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nutrition/': {
@@ -236,6 +282,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/': {
+      id: '/sign-in/'
+      path: '/sign-in'
+      fullPath: '/sign-in/'
+      preLoaderRoute: typeof SignInIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up/': {
+      id: '/sign-up/'
+      path: '/sign-up'
+      fullPath: '/sign-up/'
+      preLoaderRoute: typeof SignUpIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workout/': {
@@ -299,10 +359,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   NutritionIndexRoute: NutritionIndexRoute,
   ProgressIndexRoute: ProgressIndexRoute,
   ReviewIndexRoute: ReviewIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  SignInIndexRoute: SignInIndexRoute,
+  SignUpIndexRoute: SignUpIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronNotificationsRoute: ApiCronNotificationsRoute,

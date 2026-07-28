@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getStoredTheme,
+  isAuthRoute,
   isNavSelected,
   isWorkoutRoute,
   navValueFromPath,
@@ -45,6 +46,14 @@ describe(navValueFromPath, () => {
 
   it("defaults unknown paths to dashboard", () => {
     expect(navValueFromPath("/unknown", NAV_ITEMS)).toBe("/");
+  });
+});
+
+describe(isAuthRoute, () => {
+  it("matches sign-in and sign-up only", () => {
+    expect(isAuthRoute("/sign-in")).toBeTruthy();
+    expect(isAuthRoute("/sign-up")).toBeTruthy();
+    expect(isAuthRoute("/")).toBeFalsy();
   });
 });
 

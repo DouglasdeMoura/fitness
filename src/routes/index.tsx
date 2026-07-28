@@ -37,6 +37,11 @@ import {
   macroProgress,
 } from "~/lib/dashboard";
 import {
+  dashboardLoaderDeps,
+  loadDashboardRouteData,
+  parseDashboardSearch,
+} from "~/lib/dashboard-route";
+import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
@@ -45,36 +50,17 @@ import {
   formatDisplayDecimal,
   formatDisplayInteger,
 } from "~/lib/format-number";
-import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
-
-interface DashboardSearch {
-  date?: string;
-}
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
   head: () => ({ meta: [{ title: "Dashboard - FitTrack" }] }),
-  loader: async ({ deps }) => {
-    const asOf = resolveSelectedDate((deps as DashboardSearch).date);
-    const [stats, consistency, weeklyReview] = await Promise.all([
-      getDashboardStats(),
-      getConsistency({ data: { asOf } }),
-      getWeeklyReviewAvailability({ data: { asOf } }),
-    ]);
-    return { asOf, consistency, stats, weeklyReview };
-  },
-  loaderDeps: ({ search }) => ({
-    date: (search as DashboardSearch).date,
-  }),
+  loader: async ({ deps }) => loadDashboardRouteData(dashboardLoaderDeps(deps)),
+  loaderDeps: ({ search }) => parseDashboardSearch(search),
   pendingComponent: DashboardSkeleton,
-  validateSearch: (search: Record<string, unknown>): DashboardSearch => ({
-    date: parseSearchDate(
-      typeof search.date === "string" ? search.date : undefined
-    ),
-  }),
+  validateSearch: parseDashboardSearch,
 });
 
-function DashboardPage() {
+export function DashboardPage() {
   return <DashboardPageContent />;
 }
 
