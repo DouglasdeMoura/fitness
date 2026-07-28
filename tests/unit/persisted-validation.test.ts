@@ -18,6 +18,9 @@ import type { FitTrackDatabase } from "../../src/db";
 import { upsertNotificationPreferencesRow } from "../../src/db/notification-queries";
 import * as relations from "../../src/db/relations";
 import * as dbSchema from "../../src/db/schema";
+import { foodLog } from "../../src/db/schema";
+import { parseServerInput } from "../../src/lib/schemas/common";
+import { importDataInputSchema } from "../../src/lib/schemas/user";
 import { readAllMigrationSql } from "./migration-sql";
 
 const SESSION_KEY = "fittrack-rest-timer";
@@ -199,5 +202,73 @@ describe("offline outbox rehydration (issue #72)", () => {
     const queued = readQueuedMutations([validEntry]);
     expect(queued).toHaveLength(1);
     expect(queued[0]?.client_id).toBe("valid-entry");
+  });
+});
+
+// --- Import validation (issue #73) ---
+
+const VALID_EXPORT_WITH_MALFORMED_FOOD_LOG_ENTRY = JSON.stringify({
+  app: "FitTrack",
+  exported_at: "2026-07-28T00:00:00Z",
+  food_log: [
+    {
+      calories: -100,
+      carbs_g: 10,
+      created_at: "2026-07-28T00:00:00Z",
+      custom_name: null,
+      date: "2026-07-28",
+      fat_g: 2,
+      food_id: null,
+      id: 1,
+      meal_type: "breakfast",
+      notes: null,
+      protein_g: 8,
+      servings: 1,
+      user_id: 1,
+    },
+  ],
+  user: {},
+  version: "1.0.0",
+});
+
+describe("import validation (issue #73)", () => {
+  it("rejects a malformed record and names the offending field", () => {
+    const result = parseImportFile(VALID_EXPORT_WITH_MALFORMED_FOOD_LOG_ENTRY);
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toMatch(/food_log\[0\]\.calories/);
+    }
+  });
+
+  it("rejects a malformed import payload server-side without changing the database", () => {
+    const db = createTestDb();
+    const preCount = db.select().from(foodLog).all().length;
+
+    const malformed = {
+      food_log: [
+        {
+          calories: -100,
+          carbs_g: 10,
+          created_at: "2026-07-28T00:00:00Z",
+          custom_name: null,
+          date: "2026-07-28",
+          fat_g: 2,
+          food_id: null,
+          id: 1,
+          meal_type: "breakfast",
+          notes: null,
+          protein_g: 8,
+          servings: 1,
+          user_id: 1,
+        },
+      ],
+    };
+
+    expect(() => parseServerInput(importDataInputSchema, malformed)).toThrow(
+      /food_log\[0\]\.calories/
+    );
+
+    const postCount = db.select().from(foodLog).all().length;
+    expect(postCount).toBe(preCount);
   });
 });
