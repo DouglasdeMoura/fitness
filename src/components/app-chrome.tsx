@@ -36,7 +36,7 @@ import {
   toggleColorMode,
 } from "~/lib/app-chrome";
 import type { ColorMode } from "~/lib/app-chrome";
-import { fittrackTheme } from "~/lib/fittrack-theme";
+import { fittrackNeutralTheme } from "~/lib/generated/fittrack-neutral/fittrack-neutral";
 import {
   getRestTimerSnapshot,
   shouldMountRestTimer,
@@ -161,7 +161,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   // fires on every mount (React unmounts/remounts when the key changes).
   if (isMinimalChromeRoute(pathname)) {
     return (
-      <Theme mode={colorMode} theme={fittrackTheme}>
+      <Theme mode={colorMode} theme={fittrackNeutralTheme}>
         <LinkProvider component={RouterLink}>{children}</LinkProvider>
       </Theme>
     );
@@ -177,7 +177,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Theme mode={colorMode} theme={fittrackTheme}>
+    <Theme mode={colorMode} theme={fittrackNeutralTheme}>
       <LinkProvider component={RouterLink}>
         <ToastViewport maxVisible={3} position="bottomEnd">
           <AppShell
