@@ -11,6 +11,9 @@ import type { UserRecord } from "~/db/user-body-queries";
 import type { ActivityLevel, GoalType, Sex } from "~/lib/nutrition";
 import { ACTIVITY_LABELS } from "~/lib/nutrition";
 
+import { tryParsePersistedValue } from "./parse-persisted";
+import { fitTrackExportFileSchema } from "./schemas/persistence";
+
 export interface ProfileFormState {
   activity: ActivityLevel;
   birthDate: string;
@@ -289,9 +292,15 @@ export function parseImportFile(
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return { error: "File must contain a JSON object, not an array." };
   }
-  const obj = parsed as Record<string, unknown>;
-  if (obj.app !== "FitTrack") {
+
+  const data = tryParsePersistedValue(
+    fitTrackExportFileSchema,
+    parsed,
+    "settings.import_file"
+  );
+  if (!data) {
     return { error: "Not a valid FitTrack export file." };
   }
-  return { data: obj };
+
+  return { data };
 }

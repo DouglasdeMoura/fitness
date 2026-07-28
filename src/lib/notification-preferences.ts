@@ -10,6 +10,11 @@ import {
 } from "~/db/notification-queries";
 import type { NotificationPreferencesRow } from "~/db/types";
 
+import { parsePersistedJson } from "./parse-persisted";
+import {
+  storedIsoTimeArraySchema,
+  storedWeekdayArraySchema,
+} from "./schemas/persistence";
 import type {
   NotificationPreferences,
   NotificationPreferencesUpdate,
@@ -61,33 +66,21 @@ export function defaultNotificationPreferences(): NotificationPreferences {
 }
 
 function parseJsonStringArray(raw: string | null): string[] {
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter((value): value is string => typeof value === "string");
-  } catch {
-    return [];
-  }
+  return parsePersistedJson(
+    storedIsoTimeArraySchema,
+    raw,
+    [],
+    "notification_preferences.meal_times"
+  );
 }
 
 function parseJsonNumberArray(raw: string | null): number[] {
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter((value): value is number => typeof value === "number");
-  } catch {
-    return [];
-  }
+  return parsePersistedJson(
+    storedWeekdayArraySchema,
+    raw,
+    [],
+    "notification_preferences.workout_days"
+  );
 }
 
 function rowToPreferences(

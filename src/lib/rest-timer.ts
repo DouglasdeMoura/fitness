@@ -7,6 +7,13 @@
  * resistance-trained men." J Strength Cond Res. 2016;30(7):1805-12.
  */
 
+import {
+  logPersistedValidationFailure,
+  tryParsePersistedValue,
+} from "./parse-persisted";
+import { restTimerSnapshotSchema } from "./schemas/persistence";
+import type { RestTimerSnapshot } from "./schemas/persistence";
+
 const MS_PER_MINUTE = 60_000;
 
 /** RPE 6-7: submaximal — shorter rest sufficient. */
@@ -25,11 +32,7 @@ export interface RestTimerUrlState {
   restEnd?: number;
 }
 
-export interface RestTimerSnapshot {
-  durationMs: number | null;
-  endAtMs: number | null;
-  lastRpe: number | null;
-}
+export type { RestTimerSnapshot } from "./schemas/persistence";
 
 type RestTimerListener = () => void;
 
@@ -51,20 +54,16 @@ function readPersistedSnapshot(): RestTimerSnapshot | null {
   if (!raw) {
     return null;
   }
+
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as RestTimerSnapshot;
-    if (
-      typeof parsed === "object" &&
-      (parsed.endAtMs === null || typeof parsed.endAtMs === "number") &&
-      (parsed.durationMs === null || typeof parsed.durationMs === "number") &&
-      (parsed.lastRpe === null || typeof parsed.lastRpe === "number")
-    ) {
-      return parsed;
-    }
+    parsed = JSON.parse(raw);
   } catch {
+    logPersistedValidationFailure(SESSION_KEY, raw, "invalid JSON");
     return null;
   }
-  return null;
+
+  return tryParsePersistedValue(restTimerSnapshotSchema, parsed, SESSION_KEY);
 }
 
 function persistSnapshot(): void {

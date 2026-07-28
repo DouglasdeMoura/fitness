@@ -12,7 +12,7 @@ import type {
   QueuedMutationKind,
   QueuedMutationPayloads,
 } from "./sync";
-import { MAX_SYNC_ATTEMPTS, makeClientId } from "./sync";
+import { MAX_SYNC_ATTEMPTS, makeClientId, readQueuedMutations } from "./sync";
 
 export type OfflineBundle = Awaited<ReturnType<typeof getOfflineBundle>>;
 
@@ -175,13 +175,13 @@ export async function getQueuedMutations(): Promise<QueuedMutation[]> {
     return [];
   }
   try {
-    const all = await request<QueuedMutation[]>(
-      OUTBOX_STORE,
-      "readonly",
-      (store) => store.getAll()
+    const all = await request<unknown[]>(OUTBOX_STORE, "readonly", (store) =>
+      store.getAll()
     );
     // Oldest first: a workout session must be replayed before its sets.
-    return all.sort((a, b) => a.queued_at.localeCompare(b.queued_at));
+    return readQueuedMutations(all).sort((a, b) =>
+      a.queued_at.localeCompare(b.queued_at)
+    );
   } catch {
     return [];
   }

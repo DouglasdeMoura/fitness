@@ -4,7 +4,10 @@
 // the browser outbox agree on payload shapes without importing one another
 // (api.ts pulls in Drizzle database layer, offline.ts pulls in IndexedDB globals).
 
+import { tryParsePersistedValue } from "./parse-persisted";
 import type { MealType } from "./schemas/common";
+import { queuedMutationSchema } from "./schemas/user";
+import type { QueuedMutation } from "./schemas/user";
 
 export type { MealType } from "./schemas/common";
 export type { QueuedMutation } from "./schemas/user";
@@ -124,4 +127,23 @@ export function makeClientId(): string {
 
 export function makeTempRef(): string {
   return `temp:${makeClientId()}`;
+}
+
+/**
+ * Validate outbox entries on read. Entries from an older app version may carry
+ * a stale payload shape — drop them with a structured log rather than replay.
+ */
+export function readQueuedMutations(entries: unknown[]): QueuedMutation[] {
+  const valid: QueuedMutation[] = [];
+  for (const entry of entries) {
+    const parsed = tryParsePersistedValue(
+      queuedMutationSchema,
+      entry,
+      "offline-outbox-entry"
+    );
+    if (parsed) {
+      valid.push(parsed);
+    }
+  }
+  return valid;
 }
