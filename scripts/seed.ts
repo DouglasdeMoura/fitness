@@ -12,6 +12,7 @@ import {
   programs,
   users,
 } from "../src/db/schema.ts";
+import { linkSeedDemoAccount } from "../src/lib/seed-auth.ts";
 
 const dbPath =
   process.env.DATABASE_PATH ?? join(process.cwd(), "data", "fittrack.db");
@@ -755,3 +756,6 @@ console.log(
 );
 
 console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`);
+
+await linkSeedDemoAccount(db);
+console.log("Linked legacy seed data to demo auth account.");

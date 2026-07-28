@@ -78,7 +78,6 @@ import {
 } from "../db/schema";
 import type { BodyLogRecord, UserProfileUpdate } from "../db/user-body-queries";
 import {
-  ensureDefaultUserRecord,
   findLatestBodyweightRecord,
   listBodyLogRecords,
   updateUserRecord,
@@ -147,6 +146,7 @@ import {
   upsertPushSubscription,
 } from "./push";
 import { recordKindsBySetId } from "./records";
+import { requireAuth } from "./require-auth";
 import type { QueuedMutation, SyncResult } from "./sync";
 import type { WeeklyReviewPayload } from "./weekly-review";
 import {
@@ -163,22 +163,17 @@ import {
   resolveProgramTargets,
 } from "./workout";
 
-// --- Ensure default user exists ---
-
-export const ensureDefaultUser = createServerFn({ method: "GET" }).handler(
-  async () => ensureDefaultUserRecord(drizzleDb)
-);
-
 // --- User ---
 
-export const getUser = createServerFn({ method: "GET" }).handler(async () =>
-  ensureDefaultUserRecord(drizzleDb)
-);
+export const getUser = createServerFn({ method: "GET" }).handler(async () => {
+  const { user } = await requireAuth();
+  return user;
+});
 
 export const updateUser = createServerFn({ method: "POST" })
   .validator((profileUpdate: UserProfileUpdate) => profileUpdate)
   .handler(async (ctx) => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     const hasChanges = Object.values(ctx.data).some(
       (fieldValue) => fieldValue !== undefined
     );
@@ -193,7 +188,7 @@ export const updateUser = createServerFn({ method: "POST" })
 export const getBodyLogs = createServerFn({ method: "GET" })
   .validator((query: { limit?: number }) => query)
   .handler(async (ctx) => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     return listBodyLogRecords(drizzleDb, user.id, ctx.data?.limit || 90);
   });
 
@@ -207,7 +202,7 @@ export const logBodyweight = createServerFn({ method: "POST" })
     }) => input
   )
   .handler(async (ctx) => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     return upsertBodyweightRecord(drizzleDb, user.id, {
       bodyFatPct: ctx.data.body_fat_pct,
       date: ctx.data.date || todayString(),
@@ -218,7 +213,7 @@ export const logBodyweight = createServerFn({ method: "POST" })
 
 export const getLatestBodyweight = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     return findLatestBodyweightRecord(drizzleDb, user.id);
   }
 );
@@ -233,8 +228,8 @@ export type DailyTargets = MacroTargets & {
 
 export const getDailyTargets = createServerFn({ method: "GET" }).handler(
   async (): Promise<DailyTargets> => {
-    const user = await getUser();
-    const bodyweight = await getLatestBodyweight();
+    const { user } = await requireAuth();
+    const bodyweight = await findLatestBodyweightRecord(drizzleDb, user.id);
     const weightKg = bodyweight?.weightKg || 75;
 
     let bmr = 0;
@@ -298,6 +293,7 @@ function toLegacyFoodLogEntry(entry: FoodLogRecord): FoodLogEntry {
 export const searchFoods = createServerFn({ method: "GET" })
   .validator((data: { query: string; limit?: number }) => data)
   .handler(async (ctx) => {
+    await requireAuth();
     const records = await searchFoodRecords(
       drizzleDb,
       ctx.data.query,
@@ -309,6 +305,7 @@ export const searchFoods = createServerFn({ method: "GET" })
 export const getAllFoods = createServerFn({ method: "GET" })
   .validator((data: { limit?: number } | undefined) => data ?? {})
   .handler(async (ctx) => {
+    await requireAuth();
     const records = await listFoodRecords(drizzleDb, ctx.data?.limit || 100);
     return records.map(toLegacyFoodRecord);
   });
@@ -317,6 +314,7 @@ export const getAllFoods = createServerFn({ method: "GET" })
 export const getFoodByBarcode = createServerFn({ method: "GET" })
   .validator((data: { barcode: string }) => data)
   .handler(async (ctx) => {
+    await requireAuth();
     const normalized = normalizeBarcode(ctx.data.barcode);
     if (!normalized) {
       return null;
@@ -333,6 +331,7 @@ export const addFood = createServerFn({ method: "POST" })
       data
   )
   .handler(async (ctx) => {
+    await requireAuth();
     const food = ctx.data;
     const record = await insertFoodRecord(drizzleDb, {
       barcode: food.barcode ?? null,
@@ -392,7 +391,7 @@ function toLegacyLoggedFood(
 /** Distinct foods ordered by most recent log date (derived, not denormalised). */
 export const getRecentFoods = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const records = await listRecentFoodRecords(
       drizzleDb,
       user.id,
@@ -405,7 +404,7 @@ export const getRecentFoods = createServerFn({ method: "GET" }).handler(
 /** Distinct foods ordered by log count over the trailing 90 days. */
 export const getFrequentFoods = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     // Computed here rather than as SQL date('now', ...) so the window is
     // pinned by the caller's clock and the query stays repeatable in tests.
     const sinceDate = addDays(todayString(), -FREQUENT_FOOD_WINDOW_DAYS);
@@ -422,7 +421,7 @@ export const getFrequentFoods = createServerFn({ method: "GET" }).handler(
 /** All-time log counts plus last-used servings/meal for search ranking. */
 export const getLoggedFoodStats = createServerFn({ method: "GET" }).handler(
   async (): Promise<FoodLogStats[]> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const records = await listFoodLogStatsRecords(drizzleDb, user.id);
     // foodId is nullable on the column (quick-add rows carry none), but the
     // query filters those out; this narrows the type without a cast.
@@ -446,7 +445,7 @@ export const getLoggedFoodStats = createServerFn({ method: "GET" }).handler(
 export const getFoodLog = createServerFn({ method: "GET" })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const date = ctx.data?.date || todayString();
     const entries = await listFoodLogRecords(drizzleDb, user.id, date);
     return entries.map(toLegacyFoodLogEntry);
@@ -468,7 +467,7 @@ export const addFoodLogEntry = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const entry = ctx.data;
     const record = await insertFoodLogRecord(drizzleDb, {
       calories: entry.calories,
@@ -489,7 +488,7 @@ export const addFoodLogEntry = createServerFn({ method: "POST" })
 export const deleteFoodLogEntry = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await deleteFoodLogRecord(drizzleDb, user.id, ctx.data.id);
     return { success: true };
   });
@@ -497,7 +496,7 @@ export const deleteFoodLogEntry = createServerFn({ method: "POST" })
 export const deleteFoodLogEntries = createServerFn({ method: "POST" })
   .validator((data: { ids: number[] }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return deleteFoodLogEntriesInDb(drizzleDb, user.id, ctx.data.ids);
   });
 
@@ -506,7 +505,7 @@ export const copyMealFromDate = createServerFn({ method: "POST" })
     (data: { fromDate: string; toDate: string; mealType: MealType }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const { fromDate, toDate, mealType } = ctx.data;
     return copyMealEntriesInDb(
       drizzleDb,
@@ -522,7 +521,7 @@ export const copyMealFromDate = createServerFn({ method: "POST" })
 export const copyDayFromDate = createServerFn({ method: "POST" })
   .validator((data: { fromDate: string; toDate: string }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const { fromDate, toDate } = ctx.data;
     return copyDayEntriesInDb(
       drizzleDb,
@@ -538,7 +537,7 @@ export const logMealTemplate = createServerFn({ method: "POST" })
     (data: { templateId: number; date: string; mealType: MealType }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const { templateId, date, mealType } = ctx.data;
     return logMealTemplateInDb(drizzleDb, user.id, templateId, date, mealType);
   });
@@ -546,7 +545,7 @@ export const logMealTemplate = createServerFn({ method: "POST" })
 export const getNutritionSummary = createServerFn({ method: "GET" })
   .validator((data: { date?: string }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const date = ctx.data?.date || todayString();
     const records = await listFoodLogSummaryRecords(drizzleDb, user.id, date);
     const entries = records.map((record) => ({
@@ -561,6 +560,7 @@ export const getNutritionSummary = createServerFn({ method: "GET" })
 export const getExercises = createServerFn({ method: "GET" })
   .validator((data: { muscle_group?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
+    await requireAuth();
     const records = await listExerciseRecords(
       drizzleDb,
       ctx.data?.muscle_group
@@ -575,7 +575,7 @@ export const getWorkoutSessions = createServerFn({ method: "GET" })
     (data: { limit?: number; date?: string } | undefined) => data ?? {}
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const records = await listWorkoutSessionRecords(drizzleDb, user.id, {
       date: ctx.data?.date,
       limit: ctx.data?.limit || 30,
@@ -585,7 +585,18 @@ export const getWorkoutSessions = createServerFn({ method: "GET" })
 
 export const getWorkoutSession = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
-  .handler(async (ctx) => findWorkoutSessionWithSets(drizzleDb, ctx.data.id));
+  .handler(async (ctx) => {
+    const { user } = await requireAuth();
+    const owned = await findWorkoutSessionForUser(
+      drizzleDb,
+      ctx.data.id,
+      user.id
+    );
+    if (!owned) {
+      return null;
+    }
+    return findWorkoutSessionWithSets(drizzleDb, ctx.data.id);
+  });
 
 export const createWorkoutSession = createServerFn({ method: "POST" })
   .validator(
@@ -597,7 +608,7 @@ export const createWorkoutSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const date = ctx.data.date || todayString();
     const id = await insertWorkoutSessionRecord(drizzleDb, {
       date,
@@ -721,7 +732,7 @@ async function buildWorkoutSessionSummary(
 export const finishWorkoutSession = createServerFn({ method: "POST" })
   .validator((data: { id: number; finishedAt?: string }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const session = await findWorkoutSessionForUser(
       drizzleDb,
       ctx.data.id,
@@ -751,7 +762,7 @@ export const finishWorkoutSession = createServerFn({ method: "POST" })
 export const getWorkoutSessionSummary = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const session = await findWorkoutSessionForUser(
       drizzleDb,
       ctx.data.id,
@@ -778,7 +789,7 @@ export const getLastPerformance = createServerFn({ method: "GET" })
     (data: { exerciseId: number; excludeSessionId?: number | null }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return findLastPerformanceRow(
       drizzleDb,
       user.id,
@@ -798,7 +809,7 @@ export interface ExerciseSetHistoryRow {
 export const getExerciseSetHistory = createServerFn({ method: "GET" })
   .validator((data: { exerciseId: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const sets = await listExerciseSetHistoryRows(
       drizzleDb,
       user.id,
@@ -819,7 +830,7 @@ export type {
 
 export const getPrograms = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return listProgramSummaries(drizzleDb, user.id);
   }
 );
@@ -827,7 +838,7 @@ export const getPrograms = createServerFn({ method: "GET" }).handler(
 export const getProgram = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return findProgramDetail(drizzleDb, ctx.data.id, user.id);
   });
 
@@ -845,7 +856,7 @@ export const saveProgram = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const programId = await saveProgramRecord(
       drizzleDb,
       user.id,
@@ -857,7 +868,7 @@ export const saveProgram = createServerFn({ method: "POST" })
 export const deleteProgram = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await deleteProgramRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
@@ -865,7 +876,7 @@ export const deleteProgram = createServerFn({ method: "POST" })
 export const setActiveProgram = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await setActiveProgramRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
@@ -873,7 +884,7 @@ export const setActiveProgram = createServerFn({ method: "POST" })
 export const getProgramDayTargets = createServerFn({ method: "GET" })
   .validator((data: { programId: number; programDayId: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const context = await findProgramDayContext(
       drizzleDb,
       ctx.data.programId,
@@ -940,7 +951,7 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
 export const startWorkoutFromProgram = createServerFn({ method: "POST" })
   .validator((data: { programId: number; programDayId: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const day = await findProgramDayRecord(
       drizzleDb,
       ctx.data.programDayId,
@@ -1005,7 +1016,7 @@ export interface WeekMealPlan {
 
 export const getMealTemplates = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return listMealTemplateSummaries(drizzleDb, user.id);
   }
 );
@@ -1013,7 +1024,7 @@ export const getMealTemplates = createServerFn({ method: "GET" }).handler(
 export const getMealTemplate = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return findMealTemplateDetail(drizzleDb, ctx.data.id, user.id);
   });
 
@@ -1028,7 +1039,7 @@ export const saveMealTemplate = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const templateId = await saveMealTemplateRecord(
       drizzleDb,
       user.id,
@@ -1040,7 +1051,7 @@ export const saveMealTemplate = createServerFn({ method: "POST" })
 export const deleteMealTemplate = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await deleteMealTemplateRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
@@ -1048,7 +1059,7 @@ export const deleteMealTemplate = createServerFn({ method: "POST" })
 export const getWeekMealPlan = createServerFn({ method: "GET" })
   .validator((data: { start_date?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const startDate = getWeekStart(ctx.data?.start_date || todayString());
     const endDate = addDays(startDate, 6);
     const targets = await getDailyTargets();
@@ -1114,7 +1125,7 @@ export const setMealPlan = createServerFn({ method: "POST" })
     (data: { date: string; meal_type: MealType; template_id: number }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await upsertMealPlanRecord(drizzleDb, user.id, ctx.data);
     return { success: true };
   });
@@ -1122,7 +1133,7 @@ export const setMealPlan = createServerFn({ method: "POST" })
 export const clearMealPlan = createServerFn({ method: "POST" })
   .validator((data: { date: string; meal_type: MealType }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     await deleteMealPlanRecord(
       drizzleDb,
       user.id,
@@ -1135,7 +1146,7 @@ export const clearMealPlan = createServerFn({ method: "POST" })
 export const logMealFromPlan = createServerFn({ method: "POST" })
   .validator((data: { date: string; meal_type: MealType }) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const plan = await findMealPlanRecord(
       drizzleDb,
       user.id,
@@ -1194,7 +1205,7 @@ export interface MuscleVolume {
 
 export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const rows = await listWeeklyVolumeRows(drizzleDb, user.id);
 
     const guidelines: Record<string, { min: number; max: number }> = {
@@ -1250,7 +1261,7 @@ export interface WeeklyNutritionReport {
 
 export const getWeeklyNutrition = createServerFn({ method: "GET" }).handler(
   async (): Promise<WeeklyNutritionReport> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const sinceDate = addDays(todayString(), -7);
     const records = await listWeeklyNutritionRows(
       drizzleDb,
@@ -1307,7 +1318,7 @@ export interface ProgressHighlights {
  */
 export const getProgressHighlights = createServerFn({ method: "GET" }).handler(
   async (): Promise<ProgressHighlights> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return loadProgressHighlights(drizzleDb, user.id);
   }
 );
@@ -1316,7 +1327,7 @@ export const getProgressHighlights = createServerFn({ method: "GET" }).handler(
 
 export const exportData = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const [nutritionRecords, trainingRecords] = await Promise.all([
       exportNutritionRecords(drizzleDb, user.id),
       exportTrainingRecords(drizzleDb, user.id),
@@ -1350,7 +1361,7 @@ export const importData = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const result = importUserData(drizzleDb, user.id, ctx.data);
     return { success: true, ...result };
   });
@@ -1359,7 +1370,7 @@ export const importData = createServerFn({ method: "POST" })
 
 export const getDashboardStats = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     const targets = await getDailyTargets();
 
     const today = todayString();
@@ -1411,7 +1422,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
 export const getConsistency = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
   .handler(async (ctx): Promise<ConsistencyMetrics> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
     const windowStart = addDays(asOf, -27);
 
@@ -1563,7 +1574,7 @@ async function loadWeeklyReviewFromDb(
 export const getWeeklyReviewAvailability = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
     const activityDates = await collectActivityDates(drizzleDb, user.id);
     return { available: hasReviewableWeek(asOf, activityDates) };
@@ -1573,7 +1584,7 @@ export const getWeeklyReviewAvailability = createServerFn({ method: "GET" })
 export const getWeeklyReview = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
   .handler(async (ctx): Promise<WeeklyReview | null> => {
-    const user = await getUser();
+    const { user } = await requireAuth();
     const asOf = ctx.data.asOf ?? todayString();
     const targets = await getDailyTargets();
     return loadWeeklyReviewFromDb(
@@ -1603,7 +1614,7 @@ const OFFLINE_HISTORY_DAYS = 14;
  */
 export const getOfflineBundle = createServerFn({ method: "GET" }).handler(
   async () => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const targets = await getDailyTargets();
     const sinceDate = addDays(todayString(), -OFFLINE_HISTORY_DAYS);
     const exercises = await getExercises();
@@ -1668,7 +1679,7 @@ export const getOfflineBundle = createServerFn({ method: "GET" }).handler(
 export const syncQueuedMutations = createServerFn({ method: "POST" })
   .validator((data: { mutations: QueuedMutation[] }) => data)
   .handler(async (ctx): Promise<SyncResult> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return processSyncMutations(drizzleDb, user.id, ctx.data?.mutations ?? []);
   });
 
@@ -1697,7 +1708,7 @@ export interface PushStatus {
 export const getPushStatus = createServerFn({ method: "GET" }).handler(
   async (): Promise<PushStatus> => {
     const publicKey = readVapidPublicKey();
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return {
       configured: publicKey !== null,
       publicKey,
@@ -1713,7 +1724,7 @@ export const subscribePush = createServerFn({ method: "POST" })
     if (!publicKey) {
       return { ok: false as const, reason: "not-configured" as const };
     }
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     upsertPushSubscription(drizzleDb, user.id, ctx.data);
     return { ok: true as const };
   });
@@ -1731,7 +1742,7 @@ export const sendTestPush = createServerFn({ method: "POST" }).handler(
     if (!vapid) {
       return { ok: false as const, reason: "not-configured" as const };
     }
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     const subscriptions = listPushSubscriptionsForUser(drizzleDb, user.id);
     if (subscriptions.length === 0) {
       return { ok: false as const, reason: "no-subscription" as const };
@@ -1757,7 +1768,7 @@ export const sendTestPush = createServerFn({ method: "POST" }).handler(
 
 export const getReminderPreferences = createServerFn({ method: "GET" }).handler(
   async (): Promise<NotificationPreferences> => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return getNotificationPreferences(drizzleDb, user.id);
   }
 );
@@ -1765,6 +1776,6 @@ export const getReminderPreferences = createServerFn({ method: "GET" }).handler(
 export const updateNotificationPreferences = createServerFn({ method: "POST" })
   .validator((data: NotificationPreferencesUpdate) => data)
   .handler(async (ctx) => {
-    const user = await ensureDefaultUser();
+    const { user } = await requireAuth();
     return upsertNotificationPreferences(drizzleDb, user.id, ctx.data);
   });

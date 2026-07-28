@@ -37,8 +37,10 @@ import {
 import { formatDisplayInteger } from "~/lib/format-number";
 import type { MealType } from "~/lib/nutrition";
 import { addDays, MEAL_TYPE_LABELS, MEAL_TYPES } from "~/lib/nutrition";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 
 export const Route = createFileRoute("/nutrition/planning/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: MealPlanningPage,
   head: () => ({ meta: [{ title: "Meal Planning - FitTrack" }] }),
 });

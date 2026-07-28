@@ -18,8 +18,10 @@ import {
   validateAuthEmail,
   validateSignInPassword,
 } from "~/lib/auth-form";
+import { redirectAuthenticatedToDashboard } from "~/lib/route-auth";
 
 export const Route = createFileRoute("/sign-in/")({
+  beforeLoad: redirectAuthenticatedToDashboard,
   component: SignInPage,
   head: () => ({ meta: [{ title: "Sign in - FitTrack" }] }),
   loader: async () => getAuthPageConfig(),

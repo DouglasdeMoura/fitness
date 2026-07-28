@@ -68,6 +68,7 @@ import {
   restTimerSearchFromState,
   startRestTimer,
 } from "~/lib/rest-timer";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import { makeTempRef } from "~/lib/sync";
 import {
   mutationFailedBody,
@@ -97,6 +98,7 @@ interface WorkoutSearch {
 type WorkoutSessionTableRow = WorkoutSession & Record<string, unknown>;
 
 export const Route = createFileRoute("/workout/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: WorkoutPage,
   head: () => ({ meta: [{ title: "Workout - FitTrack" }] }),
   loader: async ({ deps }) => {

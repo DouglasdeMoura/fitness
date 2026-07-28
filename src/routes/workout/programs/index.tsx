@@ -48,8 +48,10 @@ import {
   CREATE_PROGRAM_FORM_DEFAULTS,
   validateCreateProgramName,
 } from "~/lib/program-form";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 
 export const Route = createFileRoute("/workout/programs/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: ProgramsPage,
   head: () => ({ meta: [{ title: "Training Programs - FitTrack" }] }),
 });

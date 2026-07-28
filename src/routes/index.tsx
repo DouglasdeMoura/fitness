@@ -14,7 +14,7 @@ import {
   Text,
   VStack,
 } from "@astryxdesign/core";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 
 import { CalorieRing } from "~/components/calorie-ring";
 import { DataLoadErrorView } from "~/components/data-load-error-banner";
@@ -24,6 +24,7 @@ import {
   ReviewIcon,
   WorkoutIcon,
 } from "~/components/icons/fit-track-icons";
+import { LandingPage } from "~/components/landing/landing-page";
 import { DashboardSkeleton } from "~/components/loading/page-skeletons";
 import {
   getConsistency,
@@ -37,11 +38,6 @@ import {
   macroProgress,
 } from "~/lib/dashboard";
 import {
-  dashboardLoaderDeps,
-  loadDashboardRouteData,
-  parseDashboardSearch,
-} from "~/lib/dashboard-route";
-import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
   useDataLoadQuery,
@@ -50,22 +46,24 @@ import {
   formatDisplayDecimal,
   formatDisplayInteger,
 } from "~/lib/format-number";
+import { redirectAuthenticatedToDashboard } from "~/lib/route-auth";
 
 export const Route = createFileRoute("/")({
-  component: DashboardPage,
-  head: () => ({ meta: [{ title: "Dashboard - FitTrack" }] }),
-  loader: async ({ deps }) => loadDashboardRouteData(dashboardLoaderDeps(deps)),
-  loaderDeps: ({ search }) => parseDashboardSearch(search),
-  pendingComponent: DashboardSkeleton,
-  validateSearch: parseDashboardSearch,
+  beforeLoad: redirectAuthenticatedToDashboard,
+  component: LandingPage,
+  head: () => ({
+    meta: [{ title: "FitTrack - Nutrition & Workout Companion" }],
+  }),
 });
+
+const dashboardRouteApi = getRouteApi("/dashboard/");
 
 export function DashboardPage() {
   return <DashboardPageContent />;
 }
 
 function DashboardPageContent() {
-  const loaderData = Route.useLoaderData();
+  const loaderData = dashboardRouteApi.useLoaderData();
   const { asOf } = loaderData;
   const dashboardQuery = useDataLoadQuery({
     initialData: {

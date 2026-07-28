@@ -31,6 +31,7 @@ import { deleteFoodEntryTitle } from "~/lib/delete-confirmation";
 import { canCopyDayFromDate, previousDay } from "~/lib/food-log-copy";
 import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import {
   copyCompletedBody,
   entryDeletedBody,
@@ -43,6 +44,7 @@ interface NutritionSearch {
 }
 
 export const Route = createFileRoute("/nutrition/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: NutritionPage,
   head: () => ({ meta: [{ title: "Nutrition - FitTrack" }] }),
   loader: async ({ deps }) => {

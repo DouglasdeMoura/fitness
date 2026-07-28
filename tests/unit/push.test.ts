@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -22,6 +19,7 @@ import type { FitTrackDatabase } from "../../src/db";
 import * as relations from "../../src/db/relations";
 import * as dbSchema from "../../src/db/schema";
 import { pushSubscriptions } from "../../src/db/schema";
+import { readAllMigrationSql } from "./migration-sql";
 
 const SAMPLE_SUBSCRIPTION = {
   endpoint: "https://push.example.test/device-1",
@@ -32,10 +30,7 @@ const SAMPLE_SUBSCRIPTION = {
 };
 
 function createTestDb(): FitTrackDatabase {
-  const migrationSql = readFileSync(
-    join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
-    "utf-8"
-  );
+  const migrationSql = readAllMigrationSql();
   const sqlite = new Database(":memory:");
   sqlite.exec(migrationSql);
   const db = drizzle(sqlite, { schema: { ...dbSchema, ...relations } });

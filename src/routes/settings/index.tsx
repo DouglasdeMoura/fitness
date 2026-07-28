@@ -47,6 +47,7 @@ import {
 } from "~/lib/data-load-query";
 import type { ActivityLevel } from "~/lib/nutrition";
 import { runOrQueue } from "~/lib/offline";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import type { GoalCardOption, WeightChartPoint } from "~/lib/settings";
 import {
   activityOptions,
@@ -77,6 +78,7 @@ const WEIGHT_CHART_HEIGHT = 80;
 const WEIGHT_CHART_PADDING = 8;
 
 export const Route = createFileRoute("/settings/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: SettingsPage,
   head: () => ({ meta: [{ title: "Settings - FitTrack" }] }),
   loader: async () => {

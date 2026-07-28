@@ -21,6 +21,7 @@ import {
 } from "~/lib/data-load-query";
 import { formatDisplayInteger } from "~/lib/format-number";
 import { parseSearchDate, resolveSelectedDate } from "~/lib/nutrition";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import {
   formatCalorieAverageVersusTarget,
   formatVolumeWeekDelta,
@@ -32,6 +33,7 @@ interface ReviewSearch {
 }
 
 export const Route = createFileRoute("/review/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: ReviewPage,
   head: () => ({ meta: [{ title: "Weekly Review - FitTrack" }] }),
   loader: async ({ deps }) => {
@@ -91,7 +93,11 @@ function ReviewPageContent() {
               Log food, workouts, or weight during a full week to unlock your
               review.
             </Text>
-            <Button href="/" label="Back to dashboard" variant="secondary" />
+            <Button
+              href="/dashboard"
+              label="Back to dashboard"
+              variant="secondary"
+            />
           </VStack>
         </Card>
       </VStack>
@@ -190,7 +196,7 @@ function ReviewPageContent() {
         </Card>
       </Grid>
 
-      <Button href="/" label="Back to dashboard" variant="secondary" />
+      <Button href="/dashboard" label="Back to dashboard" variant="secondary" />
     </VStack>
   );
 }

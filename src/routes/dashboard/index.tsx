@@ -6,10 +6,12 @@ import {
   loadDashboardRouteData,
   parseDashboardSearch,
 } from "~/lib/dashboard-route";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 
 import { DashboardPage } from "../index";
 
 export const Route = createFileRoute("/dashboard/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: DashboardPage,
   head: () => ({ meta: [{ title: "Dashboard - FitTrack" }] }),
   loader: async ({ deps }) => loadDashboardRouteData(dashboardLoaderDeps(deps)),

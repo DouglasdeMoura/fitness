@@ -1,5 +1,6 @@
 "use client";
 
+import { HStack } from "@astryxdesign/core";
 import { AppShell } from "@astryxdesign/core/AppShell";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { LinkProvider } from "@astryxdesign/core/Link";
@@ -22,11 +23,12 @@ import {
 import { OfflineStatus } from "~/components/offline-status";
 import { RouterLink } from "~/components/router-link";
 import { ShortcutsHelpDialog } from "~/components/shortcuts-help-dialog";
+import { UserMenu } from "~/components/user-menu";
 import { RestTimer } from "~/components/workout/rest-timer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
 import {
   getStoredTheme,
-  isAuthRoute,
+  isMinimalChromeRoute,
   isWorkoutRoute,
   navValueFromPath,
   THEME_CHANGE_EVENT,
@@ -40,7 +42,7 @@ import {
 } from "~/lib/rest-timer";
 
 const NAV_ITEMS = [
-  { exact: true, href: "/", icon: DashboardIcon, label: "Dashboard" },
+  { exact: true, href: "/dashboard", icon: DashboardIcon, label: "Dashboard" },
   { href: "/nutrition", icon: NutritionIcon, label: "Nutrition" },
   { href: "/workout", icon: WorkoutIcon, label: "Workout" },
   { href: "/progress", icon: ProgressIcon, label: "Progress" },
@@ -162,7 +164,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   // Page transition: use pathname as key to trigger CSS animation on navigation.
   // A <section> wraps the children so the CSS [data-page-transition] animation
   // fires on every mount (React unmounts/remounts when the key changes).
-  if (isAuthRoute(pathname)) {
+  if (isMinimalChromeRoute(pathname)) {
     return (
       <Theme mode={colorMode} theme={fittrackTheme}>
         <LinkProvider component={RouterLink}>{children}</LinkProvider>
@@ -190,18 +192,23 @@ export function AppChrome({ children }: { children: ReactNode }) {
             topNav={
               <TopNav
                 endContent={
-                  <IconButton
-                    icon={<ThemeToggleIcon />}
-                    label="Toggle dark mode"
-                    onClick={() => {
-                      setColorMode((mode) => toggleColorMode(mode));
-                    }}
-                    size="lg"
-                    tooltip="Toggle dark mode"
-                    variant="ghost"
-                  />
+                  <HStack align="center" gap={2}>
+                    <UserMenu />
+                    <IconButton
+                      icon={<ThemeToggleIcon />}
+                      label="Toggle dark mode"
+                      onClick={() => {
+                        setColorMode((mode) => toggleColorMode(mode));
+                      }}
+                      size="lg"
+                      tooltip="Toggle dark mode"
+                      variant="ghost"
+                    />
+                  </HStack>
                 }
-                heading={<TopNavHeading heading="FitTrack" headingHref="/" />}
+                heading={
+                  <TopNavHeading heading="FitTrack" headingHref="/dashboard" />
+                }
                 label="FitTrack navigation"
               />
             }

@@ -55,6 +55,7 @@ import {
   weightChartPoints,
   weightTrend,
 } from "~/lib/progress";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 
 /** 90-day window the progress page analyses (matches the data fetch limit). */
 const PROGRESS_WINDOW_DAYS = 90;
@@ -65,6 +66,7 @@ const SMA_WINDOW = 7;
 type TabView = "weight" | "volume" | "nutrition";
 
 export const Route = createFileRoute("/progress/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: ProgressPage,
   head: () => ({ meta: [{ title: "Progress - FitTrack" }] }),
   loader: async () => {

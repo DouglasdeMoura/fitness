@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +21,7 @@ import {
   searchFoodRecords,
 } from "../../src/db/food-nutrition-queries";
 import * as schema from "../../src/db/schema";
+import { readAllMigrationSql } from "./migration-sql";
 
 let sqlite: Database.Database;
 let testDb: FitTrackDatabase;
@@ -31,12 +29,7 @@ let userId: number;
 
 beforeEach(() => {
   sqlite = new Database(":memory:");
-  sqlite.exec(
-    readFileSync(
-      join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
-      "utf-8"
-    )
-  );
+  sqlite.exec(readAllMigrationSql());
   testDb = drizzle(sqlite, { schema });
   userId = testDb.insert(schema.users).values({}).returning().get().id;
 });

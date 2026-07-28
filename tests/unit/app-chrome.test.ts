@@ -3,13 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getStoredTheme,
   isAuthRoute,
+  isMinimalChromeRoute,
   isNavSelected,
+  isPublicMarketingRoute,
   isWorkoutRoute,
   navValueFromPath,
 } from "~/lib/app-chrome";
 
 const NAV_ITEMS = [
-  { href: "/" },
+  { href: "/dashboard" },
   { href: "/nutrition" },
   { href: "/workout" },
   { href: "/progress" },
@@ -45,7 +47,7 @@ describe(navValueFromPath, () => {
   });
 
   it("defaults unknown paths to dashboard", () => {
-    expect(navValueFromPath("/unknown", NAV_ITEMS)).toBe("/");
+    expect(navValueFromPath("/unknown", NAV_ITEMS)).toBe("/dashboard");
   });
 });
 
@@ -95,5 +97,20 @@ describe(getStoredTheme, () => {
   it("treats unknown values as light", () => {
     localStorage.setItem("fittrack-theme", "sepia");
     expect(getStoredTheme()).toBe("light");
+  });
+});
+
+describe(isPublicMarketingRoute, () => {
+  it("matches the landing page only", () => {
+    expect(isPublicMarketingRoute("/")).toBe(true);
+    expect(isPublicMarketingRoute("/dashboard")).toBe(false);
+  });
+});
+
+describe(isMinimalChromeRoute, () => {
+  it("includes auth and marketing pages", () => {
+    expect(isMinimalChromeRoute("/sign-in")).toBe(true);
+    expect(isMinimalChromeRoute("/")).toBe(true);
+    expect(isMinimalChromeRoute("/dashboard")).toBe(false);
   });
 });

@@ -55,6 +55,7 @@ import {
   todayString,
 } from "~/lib/nutrition";
 import { searchCachedFoods } from "~/lib/offline";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import type { EditableItem, TemplateFormValues } from "~/lib/template-form";
 import {
   buildTemplateSavePayload,
@@ -65,6 +66,7 @@ import {
 } from "~/lib/template-form";
 
 export const Route = createFileRoute("/nutrition/templates/$templateId")({
+  beforeLoad: requireAuthenticatedRoute,
   component: MealTemplateDetailPage,
   head: () => ({ meta: [{ title: "Edit Meal Template - FitTrack" }] }),
 });

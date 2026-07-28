@@ -18,6 +18,17 @@ export type UserProfileUpdate = Partial<
   >
 >;
 
+export interface AuthSessionUser {
+  activityLevel?: string | null;
+  birthDate?: string | null;
+  email: string;
+  goalType?: string | null;
+  heightCm?: number | null;
+  id: string;
+  name: string;
+  sex?: string | null;
+}
+
 export interface BodyweightRecordInput {
   bodyFatPct?: number;
   date: string;
@@ -25,15 +36,51 @@ export interface BodyweightRecordInput {
   weightKg: number;
 }
 
-/** Find or create FitTrack's single local user. Example: `await ensureDefaultUserRecord(db)`. */
-export async function ensureDefaultUserRecord(
-  database: FitTrackDatabase
+/** Link a Better Auth user to a legacy FitTrack profile row (issue #44). */
+export async function ensureSessionUserRecord(
+  database: FitTrackDatabase,
+  authUser: AuthSessionUser
 ): Promise<UserRecord> {
-  const existingUser = await database.query.users.findFirst();
-  if (existingUser) {
-    return existingUser;
+  const linkedUser = await database.query.users.findFirst({
+    where: eq(users.authUserId, authUser.id),
+  });
+  if (linkedUser) {
+    return linkedUser;
   }
-  return database.insert(users).values({ heightCm: 178 }).returning().get();
+
+  return database
+    .insert(users)
+    .values({
+      activityLevel:
+        (authUser.activityLevel as UserRecord["activityLevel"] | undefined) ??
+        "moderate",
+      authUserId: authUser.id,
+      birthDate: authUser.birthDate ?? null,
+      email: authUser.email,
+      goalType:
+        (authUser.goalType as UserRecord["goalType"] | undefined) ??
+        "build_muscle",
+      heightCm: authUser.heightCm ?? null,
+      name: authUser.name,
+      sex: (authUser.sex as UserRecord["sex"] | undefined) ?? "male",
+    })
+    .returning()
+    .get();
+}
+
+/** Attach legacy seed rows to a demo auth account during migration (issue #44). */
+export async function linkLegacyUserToAuthAccount(
+  database: FitTrackDatabase,
+  legacyUserId: number,
+  authUserId: string,
+  email: string
+): Promise<UserRecord> {
+  return database
+    .update(users)
+    .set({ authUserId, email })
+    .where(eq(users.id, legacyUserId))
+    .returning()
+    .get();
 }
 
 /** Update one user's mutable profile fields. Example: `await updateUserRecord(db, 1, { name: "A" })`. */

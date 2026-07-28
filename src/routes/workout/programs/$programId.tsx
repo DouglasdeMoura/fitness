@@ -53,9 +53,11 @@ import {
   programFormDefaults,
   validateProgramDays,
 } from "~/lib/program-form";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import { getDupDayEmphasis } from "~/lib/workout";
 
 export const Route = createFileRoute("/workout/programs/$programId")({
+  beforeLoad: requireAuthenticatedRoute,
   component: ProgramDetailPage,
   head: () => ({ meta: [{ title: "Edit Program - FitTrack" }] }),
 });

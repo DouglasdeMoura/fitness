@@ -44,6 +44,7 @@ import {
 import { formatDisplayInteger } from "~/lib/format-number";
 import type { MealType } from "~/lib/nutrition";
 import { MEAL_TYPE_LABELS, todayString } from "~/lib/nutrition";
+import { requireAuthenticatedRoute } from "~/lib/route-auth";
 import {
   buildCreateTemplatePayload,
   CREATE_TEMPLATE_FORM_DEFAULTS,
@@ -51,6 +52,7 @@ import {
 } from "~/lib/template-form";
 
 export const Route = createFileRoute("/nutrition/templates/")({
+  beforeLoad: requireAuthenticatedRoute,
   component: MealTemplatesPage,
   head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
 });

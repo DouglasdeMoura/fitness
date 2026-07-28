@@ -37,15 +37,15 @@ export function navValueFromPath(
   pathname: string,
   items: readonly { href: string }[]
 ): string {
-  if (pathname === "/") {
-    return "/";
+  if (pathname === "/" || pathname === "/dashboard") {
+    return "/dashboard";
   }
   const match = items.find(
     (item) =>
       item.href !== "/" &&
       (pathname === item.href || pathname.startsWith(`${item.href}/`))
   );
-  return match?.href ?? "/";
+  return match?.href ?? "/dashboard";
 }
 
 /** Workout routes reserve space for the PRD 10 Batch 2 rest timer. */
@@ -56,4 +56,14 @@ export function isWorkoutRoute(pathname: string): boolean {
 /** Auth pages render without the main app shell (issue #43). */
 export function isAuthRoute(pathname: string): boolean {
   return pathname === "/sign-in" || pathname === "/sign-up";
+}
+
+/** Public landing page renders without the authenticated app shell (issue #44). */
+export function isPublicMarketingRoute(pathname: string): boolean {
+  return pathname === "/";
+}
+
+/** Auth and marketing pages share the minimal chrome wrapper. */
+export function isMinimalChromeRoute(pathname: string): boolean {
+  return isAuthRoute(pathname) || isPublicMarketingRoute(pathname);
 }

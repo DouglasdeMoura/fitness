@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,47 +5,47 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FitTrackDatabase } from "../../src/db";
 import * as schema from "../../src/db/schema";
 import {
-  ensureDefaultUserRecord,
+  ensureSessionUserRecord,
   findLatestBodyweightRecord,
   listBodyLogRecords,
   updateUserRecord,
   upsertBodyweightRecord,
 } from "../../src/db/user-body-queries";
+import { readAllMigrationSql } from "./migration-sql";
 
 let sqlite: Database.Database;
 let testDb: FitTrackDatabase;
 
 beforeEach(() => {
   sqlite = new Database(":memory:");
-  sqlite.exec(
-    readFileSync(
-      join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
-      "utf-8"
-    )
-  );
+  sqlite.exec(readAllMigrationSql());
   testDb = drizzle(sqlite, { schema });
 });
 
 afterEach(() => sqlite.close());
 
 describe("Drizzle user queries", () => {
-  it("creates the default user once and returns the existing record", async () => {
-    const createdUser = await ensureDefaultUserRecord(testDb);
-    const existingUser = await ensureDefaultUserRecord(testDb);
+  it("creates one legacy profile per auth user id", async () => {
+    const authUser = {
+      email: "runner@example.com",
+      id: "auth-user-1",
+      name: "Runner",
+    };
+    const createdUser = await ensureSessionUserRecord(testDb, authUser);
+    const existingUser = await ensureSessionUserRecord(testDb, authUser);
 
-    expect(createdUser).toMatchObject({
-      activityLevel: "moderate",
-      goalType: "build_muscle",
-      heightCm: 178,
-      name: "Athlete",
-      sex: "male",
-    });
-    expect(existingUser.id).toBe(createdUser.id);
+    expect(createdUser.id).toBe(existingUser.id);
+    expect(createdUser.authUserId).toBe("auth-user-1");
+    expect(createdUser.email).toBe("runner@example.com");
     expect(await testDb.query.users.findMany()).toHaveLength(1);
   });
 
   it("updates only the supplied profile fields", async () => {
-    const user = await ensureDefaultUserRecord(testDb);
+    const user = await ensureSessionUserRecord(testDb, {
+      email: "athlete@example.com",
+      id: "auth-athlete",
+      name: "Athlete",
+    });
 
     const updatedUser = await updateUserRecord(testDb, user.id, {
       activityLevel: "active",
@@ -69,7 +66,11 @@ describe("Drizzle user queries", () => {
 
 describe("Drizzle body-log queries", () => {
   it("lists newest records first and applies the requested limit", async () => {
-    const user = await ensureDefaultUserRecord(testDb);
+    const user = await ensureSessionUserRecord(testDb, {
+      email: "athlete@example.com",
+      id: "auth-athlete",
+      name: "Athlete",
+    });
     await testDb.insert(schema.bodyLogs).values([
       { date: "2026-07-26", userId: user.id, weightKg: 81 },
       { date: "2026-07-28", userId: user.id, weightKg: 79 },
@@ -85,7 +86,11 @@ describe("Drizzle body-log queries", () => {
   });
 
   it("upserts a daily weight while retaining an omitted body-fat value", async () => {
-    const user = await ensureDefaultUserRecord(testDb);
+    const user = await ensureSessionUserRecord(testDb, {
+      email: "athlete@example.com",
+      id: "auth-athlete",
+      name: "Athlete",
+    });
     await upsertBodyweightRecord(testDb, user.id, {
       bodyFatPct: 18,
       date: "2026-07-28",
@@ -108,7 +113,11 @@ describe("Drizzle body-log queries", () => {
   });
 
   it("returns the latest record that contains a weight", async () => {
-    const user = await ensureDefaultUserRecord(testDb);
+    const user = await ensureSessionUserRecord(testDb, {
+      email: "athlete@example.com",
+      id: "auth-athlete",
+      name: "Athlete",
+    });
     await testDb.insert(schema.bodyLogs).values([
       { date: "2026-07-27", userId: user.id, weightKg: 80 },
       { date: "2026-07-28", userId: user.id, waistCm: 82 },

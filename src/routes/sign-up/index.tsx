@@ -19,8 +19,10 @@ import {
   validateAuthName,
   validateSignUpPassword,
 } from "~/lib/auth-form";
+import { redirectAuthenticatedToDashboard } from "~/lib/route-auth";
 
 export const Route = createFileRoute("/sign-up/")({
+  beforeLoad: redirectAuthenticatedToDashboard,
   component: SignUpPage,
   head: () => ({ meta: [{ title: "Sign up - FitTrack" }] }),
   loader: async () => getAuthPageConfig(),

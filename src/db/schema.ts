@@ -42,6 +42,7 @@ export const users = sqliteTable(
     activityLevel: text("activity_level", { enum: ACTIVITY_LEVEL_VALUES })
       .notNull()
       .default("moderate"),
+    authUserId: text("auth_user_id").unique(),
     birthDate: text("birth_date"),
     createdAt: text("created_at").notNull().default(CURRENT_TIMESTAMP),
     email: text("email").unique(),
