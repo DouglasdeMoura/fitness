@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { vi, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { FoodLogEntry } from "~/db/types";
 import {
@@ -203,5 +203,32 @@ describe("food log copy transactions (issue #55)", () => {
       )
     ).toThrow();
     expect(entriesOnDate(fixture, TO_DATE)).toHaveLength(1);
+  });
+
+  it("rolls back mid-copy with no partial rows on failure", () => {
+    let callCount = 0;
+    const originalInsert = fixture.db.insert;
+
+    vi.spyOn(fixture.db, "insert").mockImplementation(
+      (...args: Parameters<typeof fixture.db.insert>) => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error("Simulated mid-copy crash");
+        }
+        return originalInsert.apply(fixture.db, args);
+      }
+    );
+
+    expect(() =>
+      copyDayEntriesInDb(
+        fixture.db,
+        fixture.userId,
+        FROM_DATE,
+        TO_DATE,
+        canCopyDayFromDate
+      )
+    ).toThrow("Simulated mid-copy crash");
+
+    expect(entriesOnDate(fixture, TO_DATE)).toHaveLength(0);
   });
 });

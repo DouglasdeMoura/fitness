@@ -516,7 +516,7 @@ export const copyMealFromDate = createServerFn({ method: "POST" })
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { fromDate, toDate, mealType } = ctx.data;
-    return copyMealEntriesInDb(
+    const result = copyMealEntriesInDb(
       drizzleDb,
       user.id,
       fromDate,
@@ -525,6 +525,7 @@ export const copyMealFromDate = createServerFn({ method: "POST" })
       canCopyMealFromDate,
       entriesForMeal
     );
+    return { entries: result.entries.map(toLegacyFoodLogEntry) };
   });
 
 export const copyDayFromDate = createServerFn({ method: "POST" })
@@ -532,13 +533,14 @@ export const copyDayFromDate = createServerFn({ method: "POST" })
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { fromDate, toDate } = ctx.data;
-    return copyDayEntriesInDb(
+    const result = copyDayEntriesInDb(
       drizzleDb,
       user.id,
       fromDate,
       toDate,
       canCopyDayFromDate
     );
+    return { entries: result.entries.map(toLegacyFoodLogEntry) };
   });
 
 export const logMealTemplate = createServerFn({ method: "POST" })
@@ -546,7 +548,17 @@ export const logMealTemplate = createServerFn({ method: "POST" })
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const { templateId, date, mealType } = ctx.data;
-    return logMealTemplateInDb(drizzleDb, user.id, templateId, date, mealType);
+    const result = logMealTemplateInDb(
+      drizzleDb,
+      user.id,
+      templateId,
+      date,
+      mealType
+    );
+    return {
+      ...result,
+      entries: result.entries.map(toLegacyFoodLogEntry),
+    };
   });
 
 export const getNutritionSummary = createServerFn({ method: "GET" })

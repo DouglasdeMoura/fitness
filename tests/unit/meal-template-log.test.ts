@@ -98,7 +98,7 @@ describe("logMealTemplateInDb (issue #56)", () => {
     expect(result.template_name).toBe("Morning");
     expect(result.total_calories).toBe(100);
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].meal_type).toBe("breakfast");
+    expect(result.entries[0].mealType).toBe("breakfast");
     expect(result.entries[0].calories).toBe(100);
 
     const rows = fixture.db
@@ -117,7 +117,7 @@ describe("logMealTemplateInDb (issue #56)", () => {
       DATE,
       "lunch"
     );
-    expect(result.entries[0].meal_type).toBe("lunch");
+    expect(result.entries[0].mealType).toBe("lunch");
   });
 
   it("throws when the template has no items", () => {

@@ -26,7 +26,7 @@ export function toLegacyFoodLogEntry(entry: FoodLogRecord): FoodLogEntry {
 }
 
 export interface CopyFoodLogResult {
-  entries: FoodLogEntry[];
+  entries: FoodLogRecord[];
 }
 
 function loadLegacyDayEntries(
@@ -49,8 +49,8 @@ function insertClonedEntry(
   source: FoodLogEntry,
   toDate: string,
   mealType: MealType
-): FoodLogEntry {
-  const record = database
+): FoodLogRecord {
+  return database
     .insert(foodLog)
     .values({
       calories: source.calories,
@@ -67,7 +67,6 @@ function insertClonedEntry(
     })
     .returning()
     .get();
-  return toLegacyFoodLogEntry(record);
 }
 
 export function copyMealEntriesInDb(
@@ -156,7 +155,7 @@ export function deleteFoodLogEntriesInDb(
 }
 
 export interface LogMealTemplateResult {
-  entries: FoodLogEntry[];
+  entries: FoodLogRecord[];
   template_name: string;
   total_calories: number;
 }
@@ -221,7 +220,7 @@ export function logMealTemplateInDb(
   }
 
   const logged = database.transaction(() => {
-    const entries: FoodLogEntry[] = [];
+    const entries: FoodLogRecord[] = [];
     let totalCalories = 0;
     for (const item of items) {
       const macros = calculateFoodMacros(
@@ -252,7 +251,7 @@ export function logMealTemplateInDb(
         })
         .returning()
         .get();
-      entries.push(toLegacyFoodLogEntry(record));
+      entries.push(record);
     }
     return { entries, total_calories: totalCalories };
   });
