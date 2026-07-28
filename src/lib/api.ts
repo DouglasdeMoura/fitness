@@ -30,7 +30,40 @@ import {
   listWeeklyNutritionRows,
   searchFoodRecords,
 } from "../db/food-nutrition-queries";
-import { bodyLogs, foodLog, foods } from "../db/schema";
+import {
+  deleteMealPlanRecord,
+  deleteMealTemplateRecord,
+  findMealPlanRecord,
+  findMealTemplateDetail,
+  listMealPlansForWeek,
+  listMealTemplateSummaries,
+  saveMealTemplateRecord,
+  templateMacroTotals,
+  upsertMealPlanRecord,
+} from "../db/meal-plan-queries";
+import type { MealTemplateItemInput } from "../db/meal-plan-queries";
+import {
+  deleteProgramRecord,
+  findLastProgramExerciseSet,
+  findProgramDayContext,
+  findProgramDayRecord,
+  findProgramDetail,
+  listProgramSummaries,
+  saveProgramRecord,
+  setActiveProgramRecord,
+} from "../db/program-queries";
+import type {
+  ProgramDayInput,
+  ProgramDayTarget,
+  SaveProgramInput,
+} from "../db/program-queries";
+import {
+  bodyLogs,
+  foodLog,
+  foods,
+  workoutSessions,
+  workoutSets,
+} from "../db/schema";
 import type { BodyLogRecord, UserProfileUpdate } from "../db/user-body-queries";
 import {
   ensureDefaultUserRecord,
@@ -39,16 +72,32 @@ import {
   updateUserRecord,
   upsertBodyweightRecord,
 } from "../db/user-body-queries";
+import {
+  deleteWorkoutSetRecord,
+  findLastPerformanceRow,
+  findPreviousNamedSessionRecord,
+  findWorkoutSessionForUser,
+  findWorkoutSessionWithSets,
+  insertWorkoutSessionRecord,
+  insertWorkoutSetRecord,
+  listExerciseHistoryRows,
+  listExerciseRecords,
+  listExerciseSetHistoryRows,
+  listSessionSetRows,
+  listWeeklyVolumeRows,
+  listWorkoutSessionRecords,
+  toLegacyExercise,
+  toLegacyWorkoutSession,
+  toLegacyWorkoutSet,
+  updateWorkoutSessionDuration,
+} from "../db/workout-queries";
+import type { SessionSetRow } from "../db/workout-queries";
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
 import type { ConsistencyMetrics } from "./consistency";
 import { assembleConsistencyMetrics } from "./consistency";
 import type {
-  Exercise,
   Food,
   FoodLogEntry,
-  MealPlan,
-  MealTemplate,
-  MealTemplateItem,
   MealType,
   PeriodizationType,
   Program,
@@ -94,7 +143,6 @@ import {
   upsertNotificationPreferences,
   upsertPushSubscription,
 } from "./push";
-import type { ExerciseSetSnapshot } from "./records";
 import { recordKindsBySetId } from "./records";
 import type { QueuedMutation, SyncOutcome, SyncResult } from "./sync";
 import type { WeeklyReviewPayload } from "./weekly-review";
@@ -500,15 +548,11 @@ export const getNutritionSummary = createServerFn({ method: "GET" })
 export const getExercises = createServerFn({ method: "GET" })
   .validator((data: { muscle_group?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
-    const db = getDb();
-    if (ctx.data?.muscle_group) {
-      return db
-        .prepare("SELECT * FROM exercises WHERE muscle_group = ? ORDER BY name")
-        .all(ctx.data.muscle_group) as Exercise[];
-    }
-    return db
-      .prepare("SELECT * FROM exercises ORDER BY name")
-      .all() as Exercise[];
+    const records = await listExerciseRecords(
+      drizzleDb,
+      ctx.data?.muscle_group
+    );
+    return records.map(toLegacyExercise);
   });
 
 // --- Workouts ---
@@ -518,51 +562,17 @@ export const getWorkoutSessions = createServerFn({ method: "GET" })
     (data: { limit?: number; date?: string } | undefined) => data ?? {}
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const limit = ctx.data?.limit || 30;
-    // `date` is a day string, so every session logged today compares equal and
-    // SQLite is free to return them in any order — the recent-sessions list
-    // could show this morning's workout above the one just finished. The id
-    // tiebreaker makes "most recent first" actually true within a day.
-    if (ctx.data?.date) {
-      return db
-        .prepare(
-          "SELECT * FROM workout_sessions WHERE user_id = ? AND date = ? ORDER BY date DESC, id DESC"
-        )
-        .all(user.id, ctx.data.date) as WorkoutSession[];
-    }
-    return db
-      .prepare(
-        "SELECT * FROM workout_sessions WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?"
-      )
-      .all(user.id, limit) as WorkoutSession[];
+    const records = await listWorkoutSessionRecords(drizzleDb, user.id, {
+      date: ctx.data?.date,
+      limit: ctx.data?.limit || 30,
+    });
+    return records.map(toLegacyWorkoutSession);
   });
 
 export const getWorkoutSession = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
-  .handler(async (ctx) => {
-    const db = getDb();
-    const session = db
-      .prepare("SELECT * FROM workout_sessions WHERE id = ?")
-      .get(ctx.data.id) as WorkoutSession | undefined;
-    if (!session) {
-      return null;
-    }
-    const sets = db
-      .prepare(
-        `SELECT ws.*, e.name as exercise_name, e.muscle_group
-       FROM workout_sets ws
-       JOIN exercises e ON ws.exercise_id = e.id
-       WHERE ws.session_id = ?
-       ORDER BY ws.exercise_id, ws.set_number`
-      )
-      .all(ctx.data.id) as (WorkoutSet & {
-      exercise_name: string;
-      muscle_group: string;
-    })[];
-    return { session, sets };
-  });
+  .handler(async (ctx) => findWorkoutSessionWithSets(drizzleDb, ctx.data.id));
 
 export const createWorkoutSession = createServerFn({ method: "POST" })
   .validator(
@@ -574,21 +584,16 @@ export const createWorkoutSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
     const date = ctx.data.date || todayString();
-    const result = db
-      .prepare(
-        "INSERT INTO workout_sessions (user_id, date, name, program_id, program_day_id) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run(
-        user.id,
-        date,
-        ctx.data.name || "Workout",
-        ctx.data.program_id ?? null,
-        ctx.data.program_day_id ?? null
-      );
-    return { id: result.lastInsertRowid as number };
+    const id = await insertWorkoutSessionRecord(drizzleDb, {
+      date,
+      name: ctx.data.name || "Workout",
+      programDayId: ctx.data.program_day_id ?? null,
+      programId: ctx.data.program_id ?? null,
+      userId: user.id,
+    });
+    return { id };
   });
 
 export const addWorkoutSet = createServerFn({ method: "POST" })
@@ -605,33 +610,24 @@ export const addWorkoutSet = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const d = ctx.data;
-    const result = db
-      .prepare(
-        `INSERT INTO workout_sets (session_id, exercise_id, set_number, reps, weight_kg, rpe, rest_seconds, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        d.session_id,
-        d.exercise_id,
-        d.set_number,
-        d.reps,
-        d.weight_kg,
-        d.rpe ?? 7,
-        d.rest_seconds ?? null,
-        d.notes ?? null
-      );
-    return db
-      .prepare("SELECT * FROM workout_sets WHERE id = ?")
-      .get(result.lastInsertRowid) as WorkoutSet;
+    const record = await insertWorkoutSetRecord(drizzleDb, {
+      exerciseId: d.exercise_id,
+      notes: d.notes ?? null,
+      reps: d.reps,
+      restSeconds: d.rest_seconds ?? null,
+      rpe: d.rpe,
+      sessionId: d.session_id,
+      setNumber: d.set_number,
+      weightKg: d.weight_kg,
+    });
+    return toLegacyWorkoutSet(record);
   });
 
 export const deleteWorkoutSet = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
-    db.prepare("DELETE FROM workout_sets WHERE id = ?").run(ctx.data.id);
+    await deleteWorkoutSetRecord(drizzleDb, ctx.data.id);
     return { success: true };
   });
 
@@ -647,54 +643,19 @@ export interface WorkoutSessionSummary {
   totalVolume: number;
 }
 
-interface SessionSetRow {
-  exercise_id: number;
-  id: number;
-  reps: number | null;
-  weight_kg: number | null;
-}
-
-function loadSessionSets(
-  db: ReturnType<typeof getDb>,
-  sessionId: number
-): SessionSetRow[] {
-  return db
-    .prepare(
-      `SELECT id, exercise_id, reps, weight_kg
-       FROM workout_sets
-       WHERE session_id = ?
-       ORDER BY exercise_id, set_number`
-    )
-    .all(sessionId) as SessionSetRow[];
-}
-
-function loadExerciseHistory(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  exerciseId: number
-): ExerciseSetSnapshot[] {
-  return db
-    .prepare(
-      `SELECT ws.id, ws.session_id, ws.weight_kg, ws.reps
-       FROM workout_sets ws
-       JOIN workout_sessions wse ON ws.session_id = wse.id
-       WHERE wse.user_id = ? AND ws.exercise_id = ?
-         AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
-       ORDER BY wse.date ASC, ws.id ASC`
-    )
-    .all(userId, exerciseId) as ExerciseSetSnapshot[];
-}
-
-function countSessionPersonalRecords(
-  db: ReturnType<typeof getDb>,
+async function countSessionPersonalRecords(
   userId: number,
   sets: SessionSetRow[]
-): number {
+): Promise<number> {
   const exerciseIds = [...new Set(sets.map((set) => set.exercise_id))];
   let prSetCount = 0;
 
   for (const exerciseId of exerciseIds) {
-    const chronological = loadExerciseHistory(db, userId, exerciseId);
+    const chronological = await listExerciseHistoryRows(
+      drizzleDb,
+      userId,
+      exerciseId
+    );
     const kindsBySetId = recordKindsBySetId(chronological);
     for (const set of sets) {
       if (set.exercise_id !== exerciseId) {
@@ -709,35 +670,21 @@ function countSessionPersonalRecords(
   return prSetCount;
 }
 
-function findPreviousNamedSession(
-  db: ReturnType<typeof getDb>,
+async function buildWorkoutSessionSummary(
   userId: number,
   session: WorkoutSession
-): WorkoutSession | null {
-  const sessionName = session.name ?? "Workout";
-  return (
-    (db
-      .prepare(
-        `SELECT * FROM workout_sessions
-         WHERE user_id = ? AND name = ? AND id < ?
-         ORDER BY date DESC, id DESC
-         LIMIT 1`
-      )
-      .get(userId, sessionName, session.id) as WorkoutSession | undefined) ??
-    null
-  );
-}
-
-function buildWorkoutSessionSummary(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  session: WorkoutSession
-): WorkoutSessionSummary {
-  const sets = loadSessionSets(db, session.id);
+): Promise<WorkoutSessionSummary> {
+  const sets = await listSessionSetRows(drizzleDb, session.id);
   const stats = computeSessionVolumeStats(sets);
-  const previousSession = findPreviousNamedSession(db, userId, session);
+  const previousSession = await findPreviousNamedSessionRecord(
+    drizzleDb,
+    userId,
+    session
+  );
   const previousStats = previousSession
-    ? computeSessionVolumeStats(loadSessionSets(db, previousSession.id))
+    ? computeSessionVolumeStats(
+        await listSessionSetRows(drizzleDb, previousSession.id)
+      )
     : null;
   const comparison = compareSessionVolumes(stats, previousStats);
 
@@ -751,7 +698,7 @@ function buildWorkoutSessionSummary(
     durationMinutes: session.duration_minutes,
     exerciseCount: stats.exerciseCount,
     name: session.name ?? "Workout",
-    personalRecordCount: countSessionPersonalRecords(db, userId, sets),
+    personalRecordCount: await countSessionPersonalRecords(userId, sets),
     sessionId: session.id,
     setCount: stats.setCount,
     totalVolume: stats.totalVolume,
@@ -761,11 +708,12 @@ function buildWorkoutSessionSummary(
 export const finishWorkoutSession = createServerFn({ method: "POST" })
   .validator((data: { id: number; finishedAt?: string }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const session = db
-      .prepare("SELECT * FROM workout_sessions WHERE id = ? AND user_id = ?")
-      .get(ctx.data.id, user.id) as WorkoutSession | undefined;
+    const session = await findWorkoutSessionForUser(
+      drizzleDb,
+      ctx.data.id,
+      user.id
+    );
 
     if (!session) {
       throw new Error(
@@ -779,28 +727,29 @@ export const finishWorkoutSession = createServerFn({ method: "POST" })
       finishedAt
     );
 
-    db.prepare(
-      "UPDATE workout_sessions SET duration_minutes = ? WHERE id = ?"
-    ).run(durationMinutes, session.id);
+    await updateWorkoutSessionDuration(drizzleDb, session.id, durationMinutes);
 
-    const updated = { ...session, duration_minutes: durationMinutes };
-    return buildWorkoutSessionSummary(db, user.id, updated);
+    return buildWorkoutSessionSummary(user.id, {
+      ...session,
+      duration_minutes: durationMinutes,
+    });
   });
 
 export const getWorkoutSessionSummary = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const session = db
-      .prepare("SELECT * FROM workout_sessions WHERE id = ? AND user_id = ?")
-      .get(ctx.data.id, user.id) as WorkoutSession | undefined;
+    const session = await findWorkoutSessionForUser(
+      drizzleDb,
+      ctx.data.id,
+      user.id
+    );
 
     if (!session) {
       return null;
     }
 
-    return buildWorkoutSessionSummary(db, user.id, session);
+    return buildWorkoutSessionSummary(user.id, session);
   });
 
 export interface LastPerformanceResult {
@@ -816,26 +765,13 @@ export const getLastPerformance = createServerFn({ method: "GET" })
     (data: { exerciseId: number; excludeSessionId?: number | null }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const excludeSessionId = ctx.data.excludeSessionId ?? null;
-
-    const row = db
-      .prepare(
-        `SELECT ws.weight_kg, ws.reps, ws.rpe, wse.date
-         FROM workout_sets ws
-         JOIN workout_sessions wse ON ws.session_id = wse.id
-         WHERE wse.user_id = ? AND ws.exercise_id = ?
-           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
-           AND (? IS NULL OR ws.session_id != ?)
-         ORDER BY wse.date DESC, ws.id DESC
-         LIMIT 1`
-      )
-      .get(user.id, ctx.data.exerciseId, excludeSessionId, excludeSessionId) as
-      | LastPerformanceResult
-      | undefined;
-
-    return row ?? null;
+    return findLastPerformanceRow(
+      drizzleDb,
+      user.id,
+      ctx.data.exerciseId,
+      ctx.data.excludeSessionId ?? null
+    );
   });
 
 export interface ExerciseSetHistoryRow {
@@ -849,133 +785,37 @@ export interface ExerciseSetHistoryRow {
 export const getExerciseSetHistory = createServerFn({ method: "GET" })
   .validator((data: { exerciseId: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-
-    const sets = db
-      .prepare(
-        `SELECT ws.id, ws.session_id, ws.weight_kg, ws.reps
-         FROM workout_sets ws
-         JOIN workout_sessions wse ON ws.session_id = wse.id
-         WHERE wse.user_id = ? AND ws.exercise_id = ?
-           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
-         ORDER BY wse.date ASC, ws.id ASC`
-      )
-      .all(user.id, ctx.data.exerciseId) as ExerciseSetHistoryRow[];
-
+    const sets = await listExerciseSetHistoryRows(
+      drizzleDb,
+      user.id,
+      ctx.data.exerciseId
+    );
     return { sets };
   });
 
 // --- Training Programs ---
 
-export interface ProgramExerciseInput {
-  exercise_id: number;
-  rest_seconds?: number;
-  sort_order: number;
-  target_reps: string;
-  target_rpe: number;
-  target_sets: number;
-}
-
-export interface ProgramDayInput {
-  day_name: string;
-  exercises: ProgramExerciseInput[];
-  sort_order: number;
-}
-
-export type ProgramDetail = Program & {
-  days: (ProgramDay & {
-    exercises: (ProgramExercise & {
-      exercise_name: string;
-      muscle_group: string;
-    })[];
-  })[];
-};
-
-export type ProgramSummary = Program & {
-  day_count: number;
-};
-
-export interface ProgramDayTarget {
-  dup_emphasis?: "strength" | "hypertrophy" | "endurance";
-  exercise_id: number;
-  exercise_name: string;
-  muscle_group: string;
-  program_exercise_id: number;
-  progression_note: string;
-  rest_seconds: number | null;
-  suggested_weight_kg: number | null;
-  target_reps: string;
-  target_rpe: number;
-  target_sets: number;
-}
-
-function loadProgramDetail(
-  db: ReturnType<typeof getDb>,
-  programId: number,
-  userId: number
-): ProgramDetail | null {
-  const program = db
-    .prepare("SELECT * FROM programs WHERE id = ? AND user_id = ?")
-    .get(programId, userId) as Program | undefined;
-  if (!program) {
-    return null;
-  }
-
-  const days = db
-    .prepare(
-      "SELECT * FROM program_days WHERE program_id = ? ORDER BY sort_order"
-    )
-    .all(programId) as ProgramDay[];
-
-  const exercises = db
-    .prepare(
-      `SELECT pe.*, e.name as exercise_name, e.muscle_group
-     FROM program_exercises pe
-     JOIN exercises e ON pe.exercise_id = e.id
-     JOIN program_days pd ON pe.program_day_id = pd.id
-     WHERE pd.program_id = ?
-     ORDER BY pd.sort_order, pe.sort_order`
-    )
-    .all(programId) as (ProgramExercise & {
-    exercise_name: string;
-    muscle_group: string;
-  })[];
-
-  return {
-    ...program,
-    days: days.map((day) => ({
-      ...day,
-      exercises: exercises.filter(
-        (exercise) => exercise.program_day_id === day.id
-      ),
-    })),
-  };
-}
+export type {
+  ProgramDayInput,
+  ProgramDayTarget,
+  ProgramDetail,
+  ProgramExerciseInput,
+  ProgramSummary,
+} from "../db/program-queries";
 
 export const getPrograms = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    return db
-      .prepare(
-        `SELECT p.*, COUNT(DISTINCT pd.id) as day_count
-     FROM programs p
-     LEFT JOIN program_days pd ON pd.program_id = p.id
-     WHERE p.user_id = ?
-     GROUP BY p.id
-     ORDER BY p.is_active DESC, p.created_at DESC`
-      )
-      .all(user.id) as ProgramSummary[];
+    return listProgramSummaries(drizzleDb, user.id);
   }
 );
 
 export const getProgram = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    return loadProgramDetail(db, ctx.data.id, user.id);
+    return findProgramDetail(drizzleDb, ctx.data.id, user.id);
   });
 
 export const saveProgram = createServerFn({ method: "POST" })
@@ -992,169 +832,55 @@ export const saveProgram = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const d = ctx.data;
-
-    const save = db.transaction(() => {
-      let programId = d.id;
-
-      if (programId) {
-        db.prepare(
-          `UPDATE programs
-           SET name = ?, description = ?, frequency_per_week = ?, periodization_type = ?,
-               progression_increment_pct = ?, is_active = ?
-           WHERE id = ? AND user_id = ?`
-        ).run(
-          d.name,
-          d.description ?? null,
-          d.frequency_per_week,
-          d.periodization_type,
-          d.progression_increment_pct ?? 2.5,
-          d.is_active ? 1 : 0,
-          programId,
-          user.id
-        );
-      } else {
-        const result = db
-          .prepare(
-            `INSERT INTO programs (user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-          )
-          .run(
-            user.id,
-            d.name,
-            d.description ?? null,
-            d.frequency_per_week,
-            d.periodization_type,
-            d.progression_increment_pct ?? 2.5,
-            d.is_active ? 1 : 0
-          );
-        programId = result.lastInsertRowid as number;
-      }
-
-      if (d.is_active) {
-        db.prepare(
-          "UPDATE programs SET is_active = 0 WHERE user_id = ? AND id != ?"
-        ).run(user.id, programId);
-      }
-
-      const existingDays = db
-        .prepare("SELECT id FROM program_days WHERE program_id = ?")
-        .all(programId) as { id: number }[];
-      for (const day of existingDays) {
-        db.prepare(
-          "DELETE FROM program_exercises WHERE program_day_id = ?"
-        ).run(day.id);
-      }
-      db.prepare("DELETE FROM program_days WHERE program_id = ?").run(
-        programId
-      );
-
-      for (const day of d.days) {
-        const dayResult = db
-          .prepare(
-            "INSERT INTO program_days (program_id, day_name, sort_order) VALUES (?, ?, ?)"
-          )
-          .run(programId, day.day_name, day.sort_order);
-
-        const dayId = dayResult.lastInsertRowid as number;
-        for (const exercise of day.exercises) {
-          db.prepare(
-            `INSERT INTO program_exercises
-             (program_day_id, exercise_id, target_sets, target_reps, target_rpe, rest_seconds, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
-          ).run(
-            dayId,
-            exercise.exercise_id,
-            exercise.target_sets,
-            exercise.target_reps,
-            exercise.target_rpe,
-            exercise.rest_seconds ?? null,
-            exercise.sort_order
-          );
-        }
-      }
-
-      return programId;
-    });
-
-    const programId = save();
-    return loadProgramDetail(db, programId, user.id);
+    const programId = await saveProgramRecord(
+      drizzleDb,
+      user.id,
+      ctx.data satisfies SaveProgramInput
+    );
+    return findProgramDetail(drizzleDb, programId, user.id);
   });
 
 export const deleteProgram = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    db.prepare("DELETE FROM programs WHERE id = ? AND user_id = ?").run(
-      ctx.data.id,
-      user.id
-    );
+    await deleteProgramRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
 
 export const setActiveProgram = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    db.prepare("UPDATE programs SET is_active = 0 WHERE user_id = ?").run(
-      user.id
-    );
-    db.prepare(
-      "UPDATE programs SET is_active = 1 WHERE id = ? AND user_id = ?"
-    ).run(ctx.data.id, user.id);
+    await setActiveProgramRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
 
 export const getProgramDayTargets = createServerFn({ method: "GET" })
   .validator((data: { programId: number; programDayId: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const program = db
-      .prepare("SELECT * FROM programs WHERE id = ? AND user_id = ?")
-      .get(ctx.data.programId, user.id) as Program | undefined;
-    if (!program) {
+    const context = await findProgramDayContext(
+      drizzleDb,
+      ctx.data.programId,
+      ctx.data.programDayId,
+      user.id
+    );
+    if (!context) {
       return null;
     }
 
-    const day = db
-      .prepare("SELECT * FROM program_days WHERE id = ? AND program_id = ?")
-      .get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined;
-    if (!day) {
-      return null;
-    }
+    const { day, exercises, program } = context;
+    const targets: ProgramDayTarget[] = [];
 
-    const exercises = db
-      .prepare(
-        `SELECT pe.*, e.name as exercise_name, e.muscle_group
-       FROM program_exercises pe
-       JOIN exercises e ON pe.exercise_id = e.id
-       WHERE pe.program_day_id = ?
-       ORDER BY pe.sort_order`
-      )
-      .all(ctx.data.programDayId) as (ProgramExercise & {
-      exercise_name: string;
-      muscle_group: string;
-    })[];
-
-    const targets: ProgramDayTarget[] = exercises.map((exercise) => {
-      const lastSet = db
-        .prepare(
-          `SELECT ws.weight_kg, ws.reps, ws.rpe
-         FROM workout_sets ws
-         JOIN workout_sessions wse ON ws.session_id = wse.id
-         WHERE wse.user_id = ? AND wse.program_id = ? AND ws.exercise_id = ?
-           AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
-         ORDER BY wse.date DESC, ws.id DESC
-         LIMIT 1`
-        )
-        .get(user.id, program.id, exercise.exercise_id) as
-        | { weight_kg: number; reps: number; rpe: number }
-        | undefined;
+    for (const exercise of exercises) {
+      const lastSet = await findLastProgramExerciseSet(
+        drizzleDb,
+        user.id,
+        program.id,
+        exercise.exercise_id
+      );
 
       const prescription = {
         rest_seconds: exercise.rest_seconds,
@@ -1176,7 +902,7 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
         program.progression_increment_pct
       );
 
-      return {
+      targets.push({
         dup_emphasis: resolved.dup_emphasis,
         exercise_id: exercise.exercise_id,
         exercise_name: exercise.exercise_name,
@@ -1188,8 +914,8 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
         target_reps: prescription.target_reps,
         target_rpe: prescription.target_rpe,
         target_sets: prescription.target_sets,
-      };
-    });
+      });
+    }
 
     return {
       day,
@@ -1201,29 +927,25 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
 export const startWorkoutFromProgram = createServerFn({ method: "POST" })
   .validator((data: { programId: number; programDayId: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const day = db
-      .prepare("SELECT * FROM program_days WHERE id = ? AND program_id = ?")
-      .get(ctx.data.programDayId, ctx.data.programId) as ProgramDay | undefined;
+    const day = await findProgramDayRecord(
+      drizzleDb,
+      ctx.data.programDayId,
+      ctx.data.programId
+    );
     if (!day) {
       throw new Error("Program day not found");
     }
 
     const date = todayString();
-    const result = db
-      .prepare(
-        "INSERT INTO workout_sessions (user_id, date, name, program_id, program_day_id) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run(
-        user.id,
-        date,
-        day.day_name,
-        ctx.data.programId,
-        ctx.data.programDayId
-      );
+    const sessionId = await insertWorkoutSessionRecord(drizzleDb, {
+      date,
+      name: day.day_name,
+      programDayId: ctx.data.programDayId,
+      programId: ctx.data.programId,
+      userId: user.id,
+    });
 
-    const sessionId = result.lastInsertRowid as number;
     const dayTargets = await getProgramDayTargets({
       data: {
         programDayId: ctx.data.programDayId,
@@ -1240,29 +962,11 @@ export const startWorkoutFromProgram = createServerFn({ method: "POST" })
 
 // --- Meal Templates & Planning ---
 
-export interface MealTemplateItemInput {
-  food_id: number;
-  servings: number;
-  sort_order: number;
-}
-
-export type MealTemplateDetail = MealTemplate & {
-  items: (MealTemplateItem & {
-    food_name: string;
-    serving_unit: string;
-    calories_per_serving: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    fiber_g: number;
-  })[];
-  totals: NutritionTotals;
-};
-
-export type MealTemplateSummary = MealTemplate & {
-  item_count: number;
-  totals: NutritionTotals;
-};
+export type {
+  MealTemplateDetail,
+  MealTemplateItemInput,
+  MealTemplateSummary,
+} from "../db/meal-plan-queries";
 
 export interface MealPlanSlot {
   date: string;
@@ -1286,83 +990,18 @@ export interface WeekMealPlan {
   week_totals: NutritionTotals;
 }
 
-function loadMealTemplateDetail(
-  db: ReturnType<typeof getDb>,
-  templateId: number,
-  userId: number
-): MealTemplateDetail | null {
-  const template = db
-    .prepare("SELECT * FROM meal_templates WHERE id = ? AND user_id = ?")
-    .get(templateId, userId) as MealTemplate | undefined;
-  if (!template) {
-    return null;
-  }
-
-  const items = db
-    .prepare(
-      `SELECT mti.*, f.name as food_name, f.serving_unit, f.calories_per_serving, f.protein_g, f.carbs_g, f.fat_g, f.fiber_g
-     FROM meal_template_items mti
-     JOIN foods f ON mti.food_id = f.id
-     WHERE mti.template_id = ?
-     ORDER BY mti.sort_order`
-    )
-    .all(templateId) as MealTemplateDetail["items"];
-
-  const totals = sumNutritionTotals(
-    items.map((item) => calculateFoodMacros(item, item.servings))
-  );
-
-  return { ...template, items, totals };
-}
-
-function templateMacros(
-  db: ReturnType<typeof getDb>,
-  templateId: number
-): NutritionTotals {
-  const items = db
-    .prepare(
-      `SELECT f.calories_per_serving, f.protein_g, f.carbs_g, f.fat_g, f.fiber_g, mti.servings
-     FROM meal_template_items mti
-     JOIN foods f ON mti.food_id = f.id
-     WHERE mti.template_id = ?`
-    )
-    .all(templateId) as (Food & { servings: number })[];
-
-  return sumNutritionTotals(
-    items.map((item) => calculateFoodMacros(item, item.servings))
-  );
-}
-
 export const getMealTemplates = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const templates = db
-      .prepare(
-        "SELECT * FROM meal_templates WHERE user_id = ? ORDER BY created_at DESC"
-      )
-      .all(user.id) as MealTemplate[];
-
-    return templates.map((template) => ({
-      ...template,
-      item_count: (
-        db
-          .prepare(
-            "SELECT COUNT(*) as count FROM meal_template_items WHERE template_id = ?"
-          )
-          .get(template.id) as { count: number }
-      ).count,
-      totals: templateMacros(db, template.id),
-    }));
+    return listMealTemplateSummaries(drizzleDb, user.id);
   }
 );
 
 export const getMealTemplate = createServerFn({ method: "GET" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    return loadMealTemplateDetail(db, ctx.data.id, user.id);
+    return findMealTemplateDetail(drizzleDb, ctx.data.id, user.id);
   });
 
 export const saveMealTemplate = createServerFn({ method: "POST" })
@@ -1376,80 +1015,37 @@ export const saveMealTemplate = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const d = ctx.data;
-
-    const save = db.transaction(() => {
-      let templateId = d.id;
-
-      if (templateId) {
-        db.prepare(
-          "UPDATE meal_templates SET name = ?, description = ?, default_meal_type = ? WHERE id = ? AND user_id = ?"
-        ).run(
-          d.name,
-          d.description ?? null,
-          d.default_meal_type,
-          templateId,
-          user.id
-        );
-      } else {
-        const result = db
-          .prepare(
-            "INSERT INTO meal_templates (user_id, name, description, default_meal_type) VALUES (?, ?, ?, ?)"
-          )
-          .run(user.id, d.name, d.description ?? null, d.default_meal_type);
-        templateId = result.lastInsertRowid as number;
-      }
-
-      db.prepare("DELETE FROM meal_template_items WHERE template_id = ?").run(
-        templateId
-      );
-
-      for (const item of d.items) {
-        db.prepare(
-          "INSERT INTO meal_template_items (template_id, food_id, servings, sort_order) VALUES (?, ?, ?, ?)"
-        ).run(templateId, item.food_id, item.servings, item.sort_order);
-      }
-
-      return templateId;
-    });
-
-    const templateId = save();
-    return loadMealTemplateDetail(db, templateId, user.id);
+    const templateId = await saveMealTemplateRecord(
+      drizzleDb,
+      user.id,
+      ctx.data
+    );
+    return findMealTemplateDetail(drizzleDb, templateId, user.id);
   });
 
 export const deleteMealTemplate = createServerFn({ method: "POST" })
   .validator((data: { id: number }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    db.prepare("DELETE FROM meal_templates WHERE id = ? AND user_id = ?").run(
-      ctx.data.id,
-      user.id
-    );
+    await deleteMealTemplateRecord(drizzleDb, ctx.data.id, user.id);
     return { success: true };
   });
 
 export const getWeekMealPlan = createServerFn({ method: "GET" })
   .validator((data: { start_date?: string } | undefined) => data ?? {})
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
     const startDate = getWeekStart(ctx.data?.start_date || todayString());
     const endDate = addDays(startDate, 6);
     const targets = await getDailyTargets();
 
-    const plans = db
-      .prepare(
-        `SELECT mp.*, mt.name as template_name
-       FROM meal_plans mp
-       JOIN meal_templates mt ON mp.template_id = mt.id
-       WHERE mp.user_id = ? AND mp.date >= ? AND mp.date <= ?`
-      )
-      .all(user.id, startDate, endDate) as (MealPlan & {
-      template_name: string;
-    })[];
+    const plans = await listMealPlansForWeek(
+      drizzleDb,
+      user.id,
+      startDate,
+      endDate
+    );
 
     const mealTypes: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
     const days = [];
@@ -1465,7 +1061,7 @@ export const getWeekMealPlan = createServerFn({ method: "GET" })
           (entry) => entry.date === date && entry.meal_type === mealType
         );
         const macros = plan
-          ? templateMacros(db, plan.template_id)
+          ? await templateMacroTotals(drizzleDb, plan.template_id)
           : emptyTotals();
         dayTotals = sumNutritionTotals([dayTotals, macros]);
         slots.push({
@@ -1505,53 +1101,44 @@ export const setMealPlan = createServerFn({ method: "POST" })
     (data: { date: string; meal_type: MealType; template_id: number }) => data
   )
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const d = ctx.data;
-
-    const template = db
-      .prepare("SELECT id FROM meal_templates WHERE id = ? AND user_id = ?")
-      .get(d.template_id, user.id);
-    if (!template) {
-      throw new Error("Meal template not found");
-    }
-
-    db.prepare(
-      `INSERT INTO meal_plans (user_id, date, meal_type, template_id)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(user_id, date, meal_type) DO UPDATE SET template_id = excluded.template_id`
-    ).run(user.id, d.date, d.meal_type, d.template_id);
-
+    await upsertMealPlanRecord(drizzleDb, user.id, ctx.data);
     return { success: true };
   });
 
 export const clearMealPlan = createServerFn({ method: "POST" })
   .validator((data: { date: string; meal_type: MealType }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    db.prepare(
-      "DELETE FROM meal_plans WHERE user_id = ? AND date = ? AND meal_type = ?"
-    ).run(user.id, ctx.data.date, ctx.data.meal_type);
+    await deleteMealPlanRecord(
+      drizzleDb,
+      user.id,
+      ctx.data.date,
+      ctx.data.meal_type
+    );
     return { success: true };
   });
 
 export const logMealFromPlan = createServerFn({ method: "POST" })
   .validator((data: { date: string; meal_type: MealType }) => data)
   .handler(async (ctx) => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-    const plan = db
-      .prepare(
-        "SELECT * FROM meal_plans WHERE user_id = ? AND date = ? AND meal_type = ?"
-      )
-      .get(user.id, ctx.data.date, ctx.data.meal_type) as MealPlan | undefined;
+    const plan = await findMealPlanRecord(
+      drizzleDb,
+      user.id,
+      ctx.data.date,
+      ctx.data.meal_type
+    );
 
     if (!plan) {
       throw new Error("No meal planned for this slot");
     }
 
-    const template = loadMealTemplateDetail(db, plan.template_id, user.id);
+    const template = await findMealTemplateDetail(
+      drizzleDb,
+      plan.template_id,
+      user.id
+    );
     if (!template) {
       throw new Error("Meal template not found");
     }
@@ -1594,24 +1181,8 @@ export interface MuscleVolume {
 
 export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
   async () => {
-    const db = getDb();
     const user = await ensureDefaultUser();
-
-    const rows = db
-      .prepare(
-        `SELECT e.muscle_group, COUNT(ws.id) as total_sets, COALESCE(SUM(ws.reps * ws.weight_kg), 0) as total_volume
-     FROM workout_sets ws
-     JOIN exercises e ON ws.exercise_id = e.id
-     JOIN workout_sessions wse ON ws.session_id = wse.id
-     WHERE wse.user_id = ? AND wse.date >= date('now', '-7 days')
-     GROUP BY e.muscle_group
-     ORDER BY total_sets DESC`
-      )
-      .all(user.id) as {
-      muscle_group: string;
-      total_sets: number;
-      total_volume: number;
-    }[];
+    const rows = await listWeeklyVolumeRows(drizzleDb, user.id);
 
     const guidelines: Record<string, { min: number; max: number }> = {
       arms: { max: 16, min: 8 },
@@ -1623,16 +1194,21 @@ export const getWeeklyVolume = createServerFn({ method: "GET" }).handler(
       shoulders: { max: 16, min: 8 },
     };
 
-    return rows.map((r) => {
-      const g = guidelines[r.muscle_group] || { max: 16, min: 8 };
+    return rows.map((row) => {
+      const g = guidelines[row.muscle_group] || { max: 16, min: 8 };
       const status: MuscleVolume["status"] =
-        r.total_sets < g.min
+        row.total_sets < g.min
           ? "under"
-          : r.total_sets > g.max
+          : row.total_sets > g.max
             ? "high"
             : "optimal";
-      return { ...r, max_recommended: g.max, min_recommended: g.min, status };
-    }) as MuscleVolume[];
+      return {
+        ...row,
+        max_recommended: g.max,
+        min_recommended: g.min,
+        status,
+      };
+    });
   }
 );
 
@@ -2100,32 +1676,37 @@ async function collectActivityDates(
   return [...foodDates, ...sessionDates, ...bodyDates].map((row) => row.date);
 }
 
-function countPersonalRecordsInRange(
-  db: ReturnType<typeof getDb>,
+async function countPersonalRecordsInRange(
   userId: number,
   range: { start: string; end: string }
-): number {
-  const sets = db
-    .prepare(
-      `SELECT ws.id, ws.exercise_id, ws.weight_kg, ws.reps
-       FROM workout_sets ws
-       JOIN workout_sessions wse ON ws.session_id = wse.id
-       WHERE wse.user_id = ? AND wse.date >= ? AND wse.date <= ?
-         AND ws.weight_kg IS NOT NULL AND ws.reps IS NOT NULL
-       ORDER BY wse.date ASC, ws.id ASC`
+): Promise<number> {
+  const sets = await drizzleDb
+    .select({
+      exercise_id: workoutSets.exerciseId,
+      id: workoutSets.id,
+    })
+    .from(workoutSets)
+    .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        gte(workoutSessions.date, range.start),
+        lte(workoutSessions.date, range.end),
+        isNotNull(workoutSets.weightKg),
+        isNotNull(workoutSets.reps)
+      )
     )
-    .all(userId, range.start, range.end) as {
-    id: number;
-    exercise_id: number;
-    weight_kg: number;
-    reps: number;
-  }[];
+    .orderBy(asc(workoutSessions.date), asc(workoutSets.id));
 
   const exerciseIds = [...new Set(sets.map((set) => set.exercise_id))];
   let prCount = 0;
 
   for (const exerciseId of exerciseIds) {
-    const history = loadExerciseHistory(db, userId, exerciseId);
+    const history = await listExerciseHistoryRows(
+      drizzleDb,
+      userId,
+      exerciseId
+    );
     const kindsBySetId = recordKindsBySetId(history);
     for (const set of sets) {
       if (set.exercise_id !== exerciseId) {
@@ -2205,7 +1786,7 @@ async function loadWeeklyReviewFromDb(
     ),
   });
 
-  const personalRecordCount = countPersonalRecordsInRange(db, userId, week);
+  const personalRecordCount = await countPersonalRecordsInRange(userId, week);
 
   return assembleWeeklyReview({
     asOf,
