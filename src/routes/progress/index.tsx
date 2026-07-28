@@ -45,7 +45,9 @@ import {
   weightChartPoints,
   weightTrend,
 } from '~/lib/progress'
+import { formatDisplayInteger } from '~/lib/format-number'
 import { ProgressSkeleton } from '~/components/loading/PageSkeletons'
+import { ScaleIcon, BarChartIcon, MealIcon } from '~/components/icons/FitTrackIcons'
 
 /** 90-day window the progress page analyses (matches the data fetch limit). */
 const PROGRESS_WINDOW_DAYS = 90
@@ -212,7 +214,7 @@ function HighlightsCard({ highlights }: { highlights: ProgressHighlights }) {
         <VStack gap={1}>
           <Text type="label">Monthly Volume</Text>
           <Heading level={3}>
-            {highlights.monthlyVolumeKg.toLocaleString()}{' '}
+            {formatDisplayInteger(highlights.monthlyVolumeKg)}{' '}
             <Text type="body" size="base" weight="normal">
               kg
             </Text>
@@ -252,8 +254,7 @@ function WeightView({ bodyLogs }: { bodyLogs: BodyLog[] }) {
   if (weighted.length === 0) {
     return (
       <EmptyState
-        isCompact
-        icon={<span aria-hidden>{'\u2696\uFE0F'}</span>}
+        icon={<ScaleIcon />}
         title="No weight logs yet"
         description="Log your weight in Settings to start tracking trends."
         actions={
@@ -431,7 +432,7 @@ function VolumeView({ volume }: { volume: MuscleVolume[] }) {
     return (
       <EmptyState
         isCompact
-        icon={<span aria-hidden>{'\uD83D\uDCCA'}</span>}
+        icon={<BarChartIcon />}
         title="No training data"
         description="No training data in the last 7 days. Log a workout to see volume analysis."
       />
@@ -501,7 +502,7 @@ function AnimatedVolumeRow({
         />
       )}
       <Text type="supporting">
-        Volume: {Math.round(volume.total_volume).toLocaleString()} kg
+        Volume: {formatDisplayInteger(volume.total_volume)} kg
       </Text>
     </VStack>
   )
@@ -538,7 +539,7 @@ function NutritionView({ weekly }: { weekly: WeeklyNutritionReport }) {
       ) : (
         <EmptyState
           isCompact
-          icon={<span aria-hidden>🍽️</span>}
+          icon={<MealIcon />}
           title="No food logged"
           description="No food logged in the last 7 days."
         />

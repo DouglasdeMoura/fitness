@@ -15,6 +15,7 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { TemplateIcon } from '~/components/icons/FitTrackIcons'
 import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
@@ -45,6 +46,7 @@ import {
   CREATE_TEMPLATE_FORM_DEFAULTS,
   validateCreateTemplateName,
 } from "~/lib/template-form";
+import { formatDisplayInteger } from "~/lib/format-number";
 
 export const Route = createFileRoute("/nutrition/templates/")({
   head: () => ({ meta: [{ title: "Meal Templates - FitTrack" }] }),
@@ -101,8 +103,8 @@ function mealTemplateColumns(
       width: proportional(2),
       renderCell: (template) => (
         <Text type="supporting" hasTabularNumbers>
-          {Math.round(template.totals.calories)} kcal · P {Math.round(template.totals.protein_g)}g ·
-          C {Math.round(template.totals.carbs_g)}g · F {Math.round(template.totals.fat_g)}g
+          {formatDisplayInteger(template.totals.calories)} kcal · P {formatDisplayInteger(template.totals.protein_g)}g ·
+          C {formatDisplayInteger(template.totals.carbs_g)}g · F {formatDisplayInteger(template.totals.fat_g)}g
         </Text>
       ),
     },
@@ -294,7 +296,7 @@ function MealTemplatesPage() {
       {templates.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<span aria-hidden>📝</span>}
+            icon={<TemplateIcon />}
             title="No meal templates"
             description="Create a reusable meal to start building your weekly plan."
             actions={

@@ -23,13 +23,24 @@ import {
   THEME_CHANGE_EVENT,
   toggleColorMode,
 } from '~/lib/app-chrome'
+import {
+  DashboardIcon,
+  NutritionIcon,
+  WorkoutIcon,
+  ProgressIcon,
+  SettingsIcon,
+  ThemeToggleIcon,
+} from '~/components/icons/FitTrackIcons'
+import { useKeyboardShortcuts } from '~/hooks/use-keyboard-shortcuts'
+import { ShortcutsHelpDialog } from '~/components/ShortcutsHelpDialog'
+
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/', exact: true, icon: '🏠' },
-  { label: 'Nutrition', href: '/nutrition', icon: '🍎' },
-  { label: 'Workout', href: '/workout', icon: '🏋️' },
-  { label: 'Progress', href: '/progress', icon: '📈' },
-  { label: 'Settings', href: '/settings', icon: '⚙️' },
+  { label: 'Dashboard', href: '/', exact: true, icon: DashboardIcon },
+  { label: 'Nutrition', href: '/nutrition', icon: NutritionIcon },
+  { label: 'Workout', href: '/workout', icon: WorkoutIcon },
+  { label: 'Progress', href: '/progress', icon: ProgressIcon },
+  { label: 'Settings', href: '/settings', icon: SettingsIcon },
 ] as const
 
 function PrimaryRouteToolbar() {
@@ -62,16 +73,19 @@ function MobileBottomNav() {
       size="lg"
       hasDivider
     >
-      {NAV_ITEMS.map((item) => (
-        <Tab
-          key={item.href}
-          value={item.href}
-          label={item.label}
-          href={item.href}
-          isLabelHidden
-          icon={<span aria-hidden>{item.icon}</span>}
-        />
-      ))}
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon
+        return (
+          <Tab
+            key={item.href}
+            value={item.href}
+            label={item.label}
+            href={item.href}
+            isLabelHidden
+            icon={<Icon />}
+          />
+        )
+      })}
     </TabList>
   )
 }
@@ -91,6 +105,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   // Keep SSR + first client render identical; hydrate preference after mount.
   const [colorMode, setColorMode] = useState<'light' | 'dark'>('light')
   const [themeReady, setThemeReady] = useState(false)
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false)
 
   useEffect(() => {
     const stored = getStoredTheme()
@@ -120,10 +135,43 @@ export function AppChrome({ children }: { children: ReactNode }) {
     delete document.body.dataset.fittrackRoute
   }, [pathname])
 
+  // Keyboard shortcuts: / for search, n for new entry, ? for help
+  useKeyboardShortcuts({
+    onFocusSearch: () => {
+      const searchInput = document.querySelector<HTMLInputElement>(
+        '[type="search"], input[placeholder*="search" i], input[aria-label*="search" i], input[aria-label*="Search" i]',
+      )
+      searchInput?.focus()
+    },
+    onNewEntry: () => {
+      // "n" opens the food-log dialog when on /nutrition
+      if (pathname.startsWith('/nutrition')) {
+        const logButton = document.querySelector<HTMLButtonElement>(
+          'button[aria-label*="Log food" i], button:has-text("Log food")',
+        )
+        logButton?.click()
+      }
+    },
+    onToggleHelp: () => {
+      setShortcutsHelpOpen((prev) => !prev)
+    },
+  })
+
+  // Page transition: use pathname as key to trigger CSS animation on navigation.
+  // A <section> wraps the children so the CSS [data-page-transition] animation
+  // fires on every mount (React unmounts/remounts when the key changes).
+  const pageContent = (
+    <section key={pathname} data-page-transition>
+      <OfflineStatus />
+      {children}
+      <RestTimerMount />
+      <MobileBottomNav />
+    </section>
+  )
+
   return (
     <Theme theme={fittrackTheme} mode={colorMode}>
       <LinkProvider component={RouterLink}>
-        {/* ToastViewport hosts useToast() stacks for mutation feedback (issue #24). */}
         <ToastViewport position="bottomEnd" maxVisible={3}>
           <AppShell
             contentPadding={4}
@@ -132,13 +180,13 @@ export function AppChrome({ children }: { children: ReactNode }) {
             topNav={
               <TopNav
                 label="FitTrack navigation"
-                heading={<TopNavHeading heading="💪 FitTrack" headingHref="/" />}
+                heading={<TopNavHeading heading="FitTrack" headingHref="/" />}
                 startContent={<PrimaryRouteToolbar />}
                 endContent={
                   <IconButton
                     label="Toggle dark mode"
                     tooltip="Toggle dark mode"
-                    icon={<span aria-hidden>🌓</span>}
+                    icon={<ThemeToggleIcon />}
                     variant="ghost"
                     size="lg"
                     onClick={() => {
@@ -149,13 +197,14 @@ export function AppChrome({ children }: { children: ReactNode }) {
               />
             }
           >
-            <OfflineStatus />
-            {children}
-            <RestTimerMount />
-            <MobileBottomNav />
+            {pageContent}
           </AppShell>
         </ToastViewport>
       </LinkProvider>
+      <ShortcutsHelpDialog
+        isOpen={shortcutsHelpOpen}
+        onOpenChange={setShortcutsHelpOpen}
+      />
     </Theme>
   )
 }

@@ -1,0 +1,25 @@
+/*
+ * Focus-visible rings for keyboard navigation (issue #35 — Batch 6).
+ *
+ * Uses Astryx --shadow-inset-selected token so the ring adapts to the
+ * active theme. Only applies when the browser determines focus is from a
+ * keyboard (not a mouse click), preserving a clean look for pointer users.
+ *
+ * The !important is intentional: Astryx components may set their own
+ * outline, but we need a single consistent ring everywhere. The token
+ * cascade already handles theme changes.
+ */
+
+/* stylelint-disable declaration-no-important */
+
+:focus-visible {
+  outline: 2px solid var(--color-accent, #0064e0) !important;
+  outline-offset: 2px !important;
+}
+
+/* Skip outline styling for mouse-driven :focus (not :focus-visible). */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* stylelint-enable declaration-no-important */

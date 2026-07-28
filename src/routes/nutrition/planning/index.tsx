@@ -14,9 +14,11 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { formatDisplayInteger } from "~/lib/format-number";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
 import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
 import {
@@ -76,10 +78,10 @@ function mealPlanColumns(
             />
             {slot.template_id ? (
               <VStack gap={1}>
-                <Text hasTabularNumbers>{Math.round(slot.macros.calories)} kcal</Text>
+                <Text hasTabularNumbers>{formatDisplayInteger(slot.macros.calories)} kcal</Text>
                 <Text type="supporting" hasTabularNumbers>
-                  P {Math.round(slot.macros.protein_g)} · C {Math.round(slot.macros.carbs_g)} · F{" "}
-                  {Math.round(slot.macros.fat_g)}
+                  P {formatDisplayInteger(slot.macros.protein_g)} · C {formatDisplayInteger(slot.macros.carbs_g)} · F{" "}
+                  {formatDisplayInteger(slot.macros.fat_g)}
                 </Text>
                 <Button
                   label={`Log ${slot.template_name} for ${day.day_label} ${MEAL_TYPE_LABELS[mealType]}`}
@@ -114,11 +116,11 @@ function mealPlanColumns(
         return (
           <VStack gap={2}>
             <Text weight="bold" hasTabularNumbers>
-              {Math.round(day.day_totals.calories)} kcal
+              {formatDisplayInteger(day.day_totals.calories)} kcal
             </Text>
             <Text type="supporting" hasTabularNumbers>
-              P {Math.round(day.day_totals.protein_g)} · C {Math.round(day.day_totals.carbs_g)} · F{" "}
-              {Math.round(day.day_totals.fat_g)}
+              P {formatDisplayInteger(day.day_totals.protein_g)} · C {formatDisplayInteger(day.day_totals.carbs_g)} · F{" "}
+              {formatDisplayInteger(day.day_totals.fat_g)}
             </Text>
             <ProgressBar
               label={`${day.day_label} calorie target`}
@@ -126,7 +128,7 @@ function mealPlanColumns(
               max={dailyTargetCalories || 1}
               variant={caloriePercent > 100 ? "error" : "accent"}
               hasValueLabel
-              formatValueLabel={() => `${Math.round(caloriePercent)}% of target`}
+              formatValueLabel={() => `${formatDisplayInteger(caloriePercent)}% of target`}
             />
           </VStack>
         );
@@ -233,16 +235,16 @@ function MealPlanningPage() {
           </HStack>
           <MetadataList>
             <MetadataListItem label="Week calories">
-              {Math.round(weekPlan.week_totals.calories)} kcal
+              {formatDisplayInteger(weekPlan.week_totals.calories)} kcal
             </MetadataListItem>
             <MetadataListItem label="Protein">
-              {Math.round(weekPlan.week_totals.protein_g)}g
+              {formatDisplayInteger(weekPlan.week_totals.protein_g)}g
             </MetadataListItem>
             <MetadataListItem label="Carbs">
-              {Math.round(weekPlan.week_totals.carbs_g)}g
+              {formatDisplayInteger(weekPlan.week_totals.carbs_g)}g
             </MetadataListItem>
             <MetadataListItem label="Fat">
-              {Math.round(weekPlan.week_totals.fat_g)}g
+              {formatDisplayInteger(weekPlan.week_totals.fat_g)}g
             </MetadataListItem>
           </MetadataList>
         </VStack>
@@ -252,6 +254,7 @@ function MealPlanningPage() {
         <Card>
           <VStack gap={3}>
             <EmptyState
+              icon={<TemplateIcon />}
               title="Create a meal template first"
               description="Templates provide the foods and macros used by each planned meal."
               headingLevel={2}

@@ -30,6 +30,8 @@ import {
   type MacroTone,
 } from '~/lib/dashboard'
 import { DashboardSkeleton } from '~/components/loading/PageSkeletons'
+import { NutritionIcon, WorkoutIcon, ProgressIcon, ReviewIcon } from '~/components/icons/FitTrackIcons'
+import { formatDisplayInteger, formatDisplayDecimal } from '~/lib/format-number'
 import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
 
 type DashboardSearch = {
@@ -112,6 +114,7 @@ function DashboardPageContent() {
           <Text type="supporting">{today}</Text>
         </VStack>
         <EmptyState
+          icon={<NutritionIcon />}
           title="Welcome to FitTrack"
           description="Set up your nutrition targets to get started with personalized calorie and macro tracking."
           actions={
@@ -145,10 +148,10 @@ function DashboardPageContent() {
             weight="bold"
             hasTabularNumbers
           >
-            {Math.round(consumed.calories)}
+            {formatDisplayInteger(consumed.calories)}
           </Text>
           <Text type="supporting">
-            of {targets.calories} kcal
+            of {formatDisplayInteger(targets.calories)} kcal
           </Text>
           <Text
             type="body"
@@ -190,7 +193,7 @@ function DashboardPageContent() {
           <VStack gap={1}>
             <Text type="label">Current Weight</Text>
             <Text size="2xl" weight="bold" hasTabularNumbers>
-              {targets.weightKg ? `${targets.weightKg} kg` : '\u2014'}
+              {targets.weightKg ? `${formatDisplayDecimal(targets.weightKg)} kg` : '\u2014'}
             </Text>
           </VStack>
         </Card>
@@ -198,7 +201,7 @@ function DashboardPageContent() {
           <VStack gap={1}>
             <Text type="label">TDEE</Text>
             <Text size="2xl" weight="bold" hasTabularNumbers>
-              {targets.tdee ? `${targets.tdee} kcal` : '\u2014'}
+              {targets.tdee ? `${formatDisplayInteger(targets.tdee)} kcal` : '\u2014'}
             </Text>
           </VStack>
         </Card>
@@ -223,7 +226,7 @@ function DashboardPageContent() {
             padding={4}
           >
             <HStack gap={3} vAlign="center">
-              <Text size="2xl">{'\u{1F34E}'}</Text>
+              <NutritionIcon />
               <VStack gap={0.5}>
                 <Text weight="semibold">Log Food</Text>
                 <Text type="supporting">Track your daily nutrition</Text>
@@ -236,7 +239,7 @@ function DashboardPageContent() {
             padding={4}
           >
             <HStack gap={3} vAlign="center">
-              <Text size="2xl">{'\u{1F3CB}\uFE0F'}</Text>
+              <WorkoutIcon />
               <VStack gap={0.5}>
                 <Text weight="semibold">Start Workout</Text>
                 <Text type="supporting">Log your training session</Text>
@@ -249,7 +252,7 @@ function DashboardPageContent() {
             padding={4}
           >
             <HStack gap={3} vAlign="center">
-              <Text size="2xl">{'\u{1F4C8}'}</Text>
+              <ProgressIcon />
               <VStack gap={0.5}>
                 <Text weight="semibold">View Progress</Text>
                 <Text type="supporting">Weight trends and volume</Text>
@@ -263,7 +266,7 @@ function DashboardPageContent() {
               padding={4}
             >
               <HStack gap={3} vAlign="center">
-                <Text size="2xl">{'\u{1F4CB}'}</Text>
+                <ReviewIcon />
                 <VStack gap={0.5}>
                   <Text weight="semibold">Weekly Review</Text>
                   <Text type="supporting">See how your week went</Text>
@@ -351,7 +354,7 @@ function MacroBar({
       <HStack justify="between" vAlign="end">
         <Text type="label">{label}</Text>
         <Text type="body" weight="semibold">
-          {consumed} / {target} g
+          {formatDisplayInteger(consumed)} / {formatDisplayInteger(target)} g
         </Text>
       </HStack>
       <ProgressBar

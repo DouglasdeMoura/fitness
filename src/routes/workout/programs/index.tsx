@@ -16,6 +16,7 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
+import { TemplateIcon } from '~/components/icons/FitTrackIcons'
 import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { useForm } from "@tanstack/react-form";
@@ -330,7 +331,7 @@ function ProgramsPage() {
       {programs.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<span aria-hidden>📋</span>}
+            icon={<TemplateIcon />}
             title="No training programs"
             description="Create your first training program to structure your workouts."
             actions={

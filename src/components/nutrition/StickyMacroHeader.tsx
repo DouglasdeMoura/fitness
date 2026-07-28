@@ -13,6 +13,7 @@ import { macroProgress } from '~/lib/dashboard'
 import type { DailyTargets } from '~/lib/api'
 import type { NutritionTotals } from '~/lib/nutrition'
 import { calorieRemainingLabel } from '~/lib/dashboard'
+import { formatDisplayInteger } from '~/lib/format-number'
 
 /**
  * Sticky macro summary header for the nutrition page.
@@ -45,7 +46,7 @@ export function StickyMacroHeader({
         </HStack>
         <HStack gap={2} vAlign="end">
           <Text size="4xl" weight="bold" hasTabularNumbers data-size="hero">
-            {Math.round(totals.calories)}
+            {formatDisplayInteger(totals.calories)}
           </Text>
           <Text type="supporting">/ {targets.calories} kcal</Text>
         </HStack>
@@ -60,17 +61,17 @@ export function StickyMacroHeader({
         <MetadataList>
           <MetadataListItem label="Protein">
             <Text hasTabularNumbers>
-              {Math.round(totals.protein_g)} / {targets.protein_g} g
+              {formatDisplayInteger(totals.protein_g)} / {targets.protein_g} g
             </Text>
           </MetadataListItem>
           <MetadataListItem label="Carbs">
             <Text hasTabularNumbers>
-              {Math.round(totals.carbs_g)} / {targets.carbs_g} g
+              {formatDisplayInteger(totals.carbs_g)} / {targets.carbs_g} g
             </Text>
           </MetadataListItem>
           <MetadataListItem label="Fat">
             <Text hasTabularNumbers>
-              {Math.round(totals.fat_g)} / {targets.fat_g} g
+              {formatDisplayInteger(totals.fat_g)} / {targets.fat_g} g
             </Text>
           </MetadataListItem>
         </MetadataList>

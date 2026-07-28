@@ -22,6 +22,7 @@ import {
   proportional,
   type TableColumn,
 } from '@astryxdesign/core'
+import { WorkoutIcon } from '~/components/icons/FitTrackIcons'
 import { useToast } from '@astryxdesign/core/Toast'
 import { DeleteConfirmationDialog } from '~/components/DeleteConfirmationDialog'
 import { DateNavigationBar } from '~/components/DateNavigationBar'
@@ -48,6 +49,7 @@ import {
 import { queueMutation, runOrQueue } from '~/lib/offline'
 import { makeTempRef } from '~/lib/sync'
 import type { Exercise, WorkoutSession } from '~/lib/db'
+import { formatDisplayInteger } from '~/lib/format-number'
 import { deleteWorkoutSetTitle } from '~/lib/delete-confirmation'
 import { parseSearchDate, resolveSelectedDate } from '~/lib/nutrition'
 import {
@@ -520,7 +522,7 @@ function WorkoutPageContent() {
         <VStack gap={4}>
           <Card>
             <EmptyState
-              icon={<span aria-hidden>🏋️</span>}
+              icon={<WorkoutIcon />}
               title="Ready to train?"
               description="Start a free-form session or follow a structured training program."
               actions={
@@ -538,7 +540,7 @@ function WorkoutPageContent() {
               <Heading level={2}>Recent Sessions</Heading>
               {sessions.length === 0 ? (
                 <EmptyState
-                  icon={<span aria-hidden>🏋️</span>}
+                  icon={<WorkoutIcon />}
                   title="No workouts yet"
                   description="Start a free-form session or follow a structured training program."
                   actions={
@@ -598,14 +600,14 @@ function WorkoutPageContent() {
                   <VStack gap={1}>
                     <Text type="label">Volume</Text>
                     <Text size="2xl" weight="bold" hasTabularNumbers>
-                      {Math.round(totalVolume)} kg
+                      {formatDisplayInteger(totalVolume)} kg
                     </Text>
                   </VStack>
                   {bestSet ? (
                     <VStack gap={1}>
                       <Text type="label">Est. 1RM</Text>
                       <Text size="2xl" weight="bold" hasTabularNumbers>
-                        {Math.round(estimate1RM(bestSet.weight, bestSet.reps))} kg
+                        {formatDisplayInteger(estimate1RM(bestSet.weight, bestSet.reps))} kg
                       </Text>
                     </VStack>
                   ) : null}
@@ -731,12 +733,12 @@ function WorkoutPageContent() {
               <Card>
                 <MetadataList>
                   <MetadataListItem label="Total volume">
-                    <Text hasTabularNumbers>{Math.round(totalVolume)} kg</Text>
+                    <Text hasTabularNumbers>{formatDisplayInteger(totalVolume)} kg</Text>
                   </MetadataListItem>
                   {bestSet ? (
                     <MetadataListItem label="Est. 1RM">
                       <Text hasTabularNumbers>
-                        {Math.round(estimate1RM(bestSet.weight, bestSet.reps))} kg
+                        {formatDisplayInteger(estimate1RM(bestSet.weight, bestSet.reps))} kg
                       </Text>
                     </MetadataListItem>
                   ) : null}
@@ -777,7 +779,7 @@ function WorkoutPageContent() {
 
             <MetadataList>
               <MetadataListItem label="Total volume">
-                <Text hasTabularNumbers>{String(Math.round(summaryOverride.totalVolume))} kg</Text>
+                <Text hasTabularNumbers>{formatDisplayInteger(summaryOverride.totalVolume)} kg</Text>
               </MetadataListItem>
               <MetadataListItem label="Sets logged">
                 <Text hasTabularNumbers>{String(summaryOverride.setCount)}</Text>

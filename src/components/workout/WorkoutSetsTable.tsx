@@ -11,6 +11,7 @@ import { GymStepperInput } from '~/components/GymStepperInput'
 import { ScrollableTable } from '~/components/ScrollableTable'
 import { REPS_STEP, WEIGHT_STEP_KG } from '~/lib/gym-input'
 import type { RecordKind } from '~/lib/records'
+import { formatDisplayInteger } from '~/lib/format-number'
 import { calculateVolume } from '~/lib/workout'
 
 export type WorkoutSetRow = {
@@ -135,7 +136,7 @@ function workoutSetColumns(
       header: 'Volume',
       width: proportional(1),
       renderCell: (row) => (
-        <Text hasTabularNumbers>{Math.round(calculateVolume(1, row.reps, row.weight))} kg</Text>
+        <Text hasTabularNumbers>{formatDisplayInteger(calculateVolume(1, row.reps, row.weight))} kg</Text>
       ),
     },
     {

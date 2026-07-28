@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppChrome } from '~/components/AppChrome'
 import appCss from '~/styles/app.css?url'
 import reducedMotionCss from '~/styles/reduced-motion.css?url'
+import pageTransitionsCss from '~/styles/page-transitions.css?url'
+import focusVisibleCss from '~/styles/focus-visible.css?url'
 
 const QUERY_CLIENT_OPTIONS = {
   defaultOptions: {
@@ -34,6 +36,8 @@ export const Route = createRootRoute({
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'stylesheet', href: reducedMotionCss },
+      { rel: 'stylesheet', href: pageTransitionsCss },
+      { rel: 'stylesheet', href: focusVisibleCss },
       { rel: 'manifest', href: '/manifest.json' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
     ],

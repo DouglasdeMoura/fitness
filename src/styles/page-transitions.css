@@ -1,0 +1,34 @@
+/*
+ * Page transition animations (issue #35 — Batch 6).
+ *
+ * Uses Astryx CSS custom properties for all durations and easing curves.
+ * The page-content keyframe applies a subtle fade + slide-up entrance
+ * that gives each route a crafted feel without blocking interaction.
+ *
+ * prefers-reduced-motion is handled globally by reduced-motion.css
+ * (loaded from __root.tsx), which zeros all animation/transition durations.
+ * This file delivers the "on" behaviour; reduced-motion.css is the off switch.
+ */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-page-transition] {
+  animation: page-enter var(--duration-medium, 410ms) var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1)) both;
+}
+
+/*
+ * Subtle hover elevation shift on ClickableCard surfaces.
+ * Fast duration (175 ms) so it never feels laggy.
+ */
+[data-clickable-card] {
+  transition: box-shadow var(--duration-fast, 175ms) var(--ease-standard, cubic-bezier(0.24, 1, 0.4, 1));
+}

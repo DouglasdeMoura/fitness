@@ -20,6 +20,7 @@ import {
   TextInput,
   VStack,
 } from '@astryxdesign/core'
+import { Icon } from '@astryxdesign/core/Icon'
 import { useToast } from '@astryxdesign/core/Toast'
 import {
   addFood,
@@ -502,7 +503,7 @@ function FoodSearchResults({
 
   return (
     <EmptyState
-      icon={<span aria-hidden>🔍</span>}
+      icon={<Icon icon="search" size="lg" />}
       title="No foods found"
       description="Try a different search or create a custom food."
       actions={

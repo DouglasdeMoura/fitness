@@ -47,6 +47,8 @@ import {
   type MealType,
 } from "~/lib/nutrition";
 import { searchCachedFoods } from "~/lib/offline";
+import { formatDisplayInteger } from "~/lib/format-number";
+import { TemplateIcon } from "~/components/icons/FitTrackIcons";
 import {
   buildTemplateSavePayload,
   editableItemFromFood,
@@ -109,8 +111,8 @@ function mealTemplateItemColumns(
         const macros = calculateFoodMacros(item, item.servings);
         return (
           <Text type="supporting" hasTabularNumbers>
-            {Math.round(macros.calories)} kcal · P {Math.round(macros.protein_g)} · C{" "}
-            {Math.round(macros.carbs_g)} · F {Math.round(macros.fat_g)}
+            {formatDisplayInteger(macros.calories)} kcal · P {formatDisplayInteger(macros.protein_g)} · C{" "}
+            {formatDisplayInteger(macros.carbs_g)} · F {formatDisplayInteger(macros.fat_g)}
           </Text>
         );
       },
@@ -188,6 +190,7 @@ function MealTemplateDetailPage() {
         <Card>
           <VStack gap={3}>
             <EmptyState
+              icon={<TemplateIcon />}
               title="Meal template not found"
               description={`No meal template exists for id ${templateId}.`}
               headingLevel={1}
@@ -296,16 +299,16 @@ function MealTemplateDetailPage() {
           <VStack gap={3}>
             <Heading level={2}>Macro Preview</Heading>
             <Text size="2xl" weight="bold" hasTabularNumbers>
-              {Math.round(previewTotals.calories)} kcal
+              {formatDisplayInteger(previewTotals.calories)} kcal
             </Text>
             <MetadataList>
               <MetadataListItem label="Protein">
-                {Math.round(previewTotals.protein_g)}g
+                {formatDisplayInteger(previewTotals.protein_g)}g
               </MetadataListItem>
               <MetadataListItem label="Carbs">
-                {Math.round(previewTotals.carbs_g)}g
+                {formatDisplayInteger(previewTotals.carbs_g)}g
               </MetadataListItem>
-              <MetadataListItem label="Fat">{Math.round(previewTotals.fat_g)}g</MetadataListItem>
+              <MetadataListItem label="Fat">{formatDisplayInteger(previewTotals.fat_g)}g</MetadataListItem>
             </MetadataList>
             <Text type="supporting">
               Totals sum per-serving food label values (Atwater factors). Reference: USDA NLEA
@@ -406,7 +409,7 @@ function AddFoodsCard({
             {results.map((food) => (
               <Button
                 key={food.id}
-                label={`Add ${food.name} — ${Math.round(food.calories_per_serving)} kcal per ${food.serving_size}${food.serving_unit}`}
+                label={`Add ${food.name} — ${formatDisplayInteger(food.calories_per_serving)} kcal per ${food.serving_size}${food.serving_unit}`}
                 variant="secondary"
                 clickAction={() => handleAdd(food)}
               />
@@ -416,6 +419,7 @@ function AddFoodsCard({
 
         {items.length === 0 ? (
           <EmptyState
+            icon={<TemplateIcon />}
             title="No foods added yet"
             description="Search above to build this reusable meal."
             headingLevel={3}

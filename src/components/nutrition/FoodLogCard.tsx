@@ -56,6 +56,7 @@ import {
   TOAST_DURATION_MS,
 } from '~/lib/toasts'
 import { runOrQueue } from '~/lib/offline'
+import { formatDisplayInteger } from '~/lib/format-number'
 
 type RequestDeleteFoodEntry = (entry: FoodLogEntry) => void
 type CopyMealFromYesterday = (mealType: MealType) => Promise<void>
@@ -141,7 +142,7 @@ function MealLogSection({
         <Heading level={3}>{mealLabel}</Heading>
         {hasEntries ? (
           <Text type="supporting" hasTabularNumbers>
-            {Math.round(subtotals.calories)} kcal
+            {formatDisplayInteger(subtotals.calories)} kcal
           </Text>
         ) : (
           <Text type="supporting">0 kcal</Text>
@@ -156,16 +157,16 @@ function MealLogSection({
         {hasEntries ? (
           <MetadataList>
             <MetadataListItem label="Calories">
-              <Text hasTabularNumbers>{Math.round(subtotals.calories)} kcal</Text>
+              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.calories)} kcal</Text>
             </MetadataListItem>
             <MetadataListItem label="Protein">
-              <Text hasTabularNumbers>{Math.round(subtotals.protein_g)} g</Text>
+              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.protein_g)} g</Text>
             </MetadataListItem>
             <MetadataListItem label="Carbs">
-              <Text hasTabularNumbers>{Math.round(subtotals.carbs_g)} g</Text>
+              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.carbs_g)} g</Text>
             </MetadataListItem>
             <MetadataListItem label="Fat">
-              <Text hasTabularNumbers>{Math.round(subtotals.fat_g)} g</Text>
+              <Text hasTabularNumbers>{formatDisplayInteger(subtotals.fat_g)} g</Text>
             </MetadataListItem>
           </MetadataList>
         ) : undefined}
@@ -195,7 +196,7 @@ function MealLogSection({
             {sectionTemplates.map((template) => (
               <Button
                 key={template.id}
-                label={`${template.name} — ${Math.round(template.totals.calories)} kcal`}
+                label={`${template.name} — ${formatDisplayInteger(template.totals.calories)} kcal`}
                 variant="ghost"
                 size="lg"
                 clickAction={() =>
@@ -464,7 +465,7 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
     align: 'end',
     width: proportional(1),
     renderCell: (entry) => (
-      <Text hasTabularNumbers>{Math.round(entry.calories)}</Text>
+      <Text hasTabularNumbers>{formatDisplayInteger(entry.calories)}</Text>
     ),
   },
   {
@@ -473,8 +474,8 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
     width: proportional(1),
     renderCell: (entry) => (
       <Text type="supporting" hasTabularNumbers>
-        {Math.round(entry.protein_g)} / {Math.round(entry.carbs_g)} /{' '}
-        {Math.round(entry.fat_g)} g
+        {formatDisplayInteger(entry.protein_g)} / {formatDisplayInteger(entry.carbs_g)} /{' '}
+        {formatDisplayInteger(entry.fat_g)} g
       </Text>
     ),
   },
