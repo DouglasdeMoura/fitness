@@ -1,6 +1,10 @@
-import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from '~/lib/data-load-query'
 import {
   Badge,
   Button,
@@ -42,21 +46,34 @@ export const Route = createFileRoute('/review/')({
 })
 
 function ReviewPage() {
-  return (
-    <Suspense fallback={<ReviewSkeleton />}>
-      <ReviewPageContent />
-    </Suspense>
-  )
+  return <ReviewPageContent />
 }
 
 function ReviewPageContent() {
   const loaderData = Route.useLoaderData()
   const { asOf } = loaderData
-  const { data: review } = useSuspenseQuery({
+  const reviewQuery = useDataLoadQuery({
     queryKey: ['weekly-review', asOf],
     queryFn: () => getWeeklyReview({ data: { asOf } }),
     initialData: loaderData.review,
   })
+
+  if (isDataLoadPending(reviewQuery)) {
+    return <ReviewSkeleton />
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([reviewQuery])
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Weekly Review"
+        title="Failed to load weekly review"
+        query={failedQuery}
+      />
+    )
+  }
+
+  const review = reviewQuery.data
 
   if (!review) {
     return (

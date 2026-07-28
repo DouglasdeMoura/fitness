@@ -1,6 +1,10 @@
-import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from '~/lib/data-load-query'
 import {
   Badge,
   Button,
@@ -48,17 +52,13 @@ export const Route = createFileRoute('/')({
 })
 
 function DashboardPage() {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardPageContent />
-    </Suspense>
-  )
+  return <DashboardPageContent />
 }
 
 function DashboardPageContent() {
   const loaderData = Route.useLoaderData()
   const { asOf } = loaderData
-  const { data: dashboard } = useSuspenseQuery({
+  const dashboardQuery = useDataLoadQuery({
     queryKey: ['dashboard', asOf],
     queryFn: async () => ({
       stats: await getDashboardStats(),
@@ -72,6 +72,22 @@ function DashboardPageContent() {
     },
   })
 
+  if (isDataLoadPending(dashboardQuery)) {
+    return <DashboardSkeleton />
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([dashboardQuery])
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Dashboard"
+        title="Failed to load dashboard"
+        query={failedQuery}
+      />
+    )
+  }
+
+  const dashboard = dashboardQuery.data!
   const { stats, consistency, weeklyReview } = dashboard
   const { consumed, targets, user, workoutDaysThisMonth } = stats
 

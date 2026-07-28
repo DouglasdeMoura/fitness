@@ -1,5 +1,11 @@
-import { Suspense, useRef, useState } from 'react'
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from '~/lib/data-load-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Button,
@@ -73,11 +79,7 @@ export const Route = createFileRoute('/nutrition/')({
 })
 
 function NutritionPage() {
-  return (
-    <Suspense fallback={<NutritionSkeleton />}>
-      <NutritionPageContent />
-    </Suspense>
-  )
+  return <NutritionPageContent />
 }
 
 function NutritionPageContent() {
@@ -90,27 +92,57 @@ function NutritionPageContent() {
   const confirmDeleteEntry = useConfirmDeleteFoodEntry(selectedDate)
 
   const sourceDate = previousDay(selectedDate)
-  const { data: summary } = useSuspenseQuery({
+  const summaryQuery = useDataLoadQuery({
     queryKey: ['food-log', selectedDate],
     queryFn: () => getNutritionSummary({ data: { date: selectedDate } }),
     initialData: loaderData.selectedDate === selectedDate ? loaderData.summary : undefined,
   })
-  const { data: sourceSummary } = useSuspenseQuery({
+  const sourceSummaryQuery = useDataLoadQuery({
     queryKey: ['food-log', sourceDate],
     queryFn: () => getNutritionSummary({ data: { date: sourceDate } }),
     initialData: loaderData.selectedDate === selectedDate ? loaderData.sourceSummary : undefined,
   })
-  const { data: targets } = useSuspenseQuery({
+  const targetsQuery = useDataLoadQuery({
     queryKey: ['targets'],
     queryFn: () => getDailyTargets(),
     initialData: loaderData.targets,
   })
-  const { data: mealTemplates } = useSuspenseQuery({
+  const mealTemplatesQuery = useDataLoadQuery({
     queryKey: ['meal-templates'],
     queryFn: () => getMealTemplates(),
     initialData: loaderData.mealTemplates,
   })
-  const copyDay = useCopyDayFromYesterday(selectedDate, sourceSummary.entries)
+  const copyDay = useCopyDayFromYesterday(selectedDate, sourceSummaryQuery.data?.entries ?? [])
+
+  if (
+    isDataLoadPending(summaryQuery) ||
+    isDataLoadPending(sourceSummaryQuery) ||
+    isDataLoadPending(targetsQuery) ||
+    isDataLoadPending(mealTemplatesQuery)
+  ) {
+    return <NutritionSkeleton />
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([
+    summaryQuery,
+    sourceSummaryQuery,
+    targetsQuery,
+    mealTemplatesQuery,
+  ])
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Nutrition"
+        title="Failed to load nutrition data"
+        query={failedQuery}
+      />
+    )
+  }
+
+  const summary = summaryQuery.data!
+  const sourceSummary = sourceSummaryQuery.data!
+  const targets = targetsQuery.data!
+  const mealTemplates = mealTemplatesQuery.data!
 
   const handleDateChange = (nextDate: string) => {
     navigate({

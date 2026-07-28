@@ -1,6 +1,10 @@
-import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from '~/lib/data-load-query'
 import {
   Badge,
   Button,
@@ -57,38 +61,64 @@ export const Route = createFileRoute('/progress/')({
 })
 
 function ProgressPage() {
-  return (
-    <Suspense fallback={<ProgressSkeleton />}>
-      <ProgressPageContent />
-    </Suspense>
-  )
+  return <ProgressPageContent />
 }
 
 function ProgressPageContent() {
   const loaderData = Route.useLoaderData()
-  const { data: bodyLogs } = useSuspenseQuery({
+  const bodyLogsQuery = useDataLoadQuery({
     queryKey: ['body-logs'],
     queryFn: () => getBodyLogs({ data: { limit: PROGRESS_WINDOW_DAYS } }),
     initialData: loaderData.bodyLogs,
   })
 
-  const { data: sessions } = useSuspenseQuery({
+  const sessionsQuery = useDataLoadQuery({
     queryKey: ['workout-sessions-progress'],
     queryFn: () => getWorkoutSessions({ data: { limit: PROGRESS_WINDOW_DAYS } }),
     initialData: loaderData.sessions,
   })
 
-  const { data: weeklyVolume } = useSuspenseQuery({
+  const weeklyVolumeQuery = useDataLoadQuery({
     queryKey: ['weekly-volume'],
     queryFn: () => getWeeklyVolume(),
     initialData: loaderData.weeklyVolume,
   })
 
-  const { data: weeklyNutrition } = useSuspenseQuery({
+  const weeklyNutritionQuery = useDataLoadQuery({
     queryKey: ['weekly-nutrition'],
     queryFn: () => getWeeklyNutrition(),
     initialData: loaderData.weeklyNutrition,
   })
+
+  if (
+    isDataLoadPending(bodyLogsQuery) ||
+    isDataLoadPending(sessionsQuery) ||
+    isDataLoadPending(weeklyVolumeQuery) ||
+    isDataLoadPending(weeklyNutritionQuery)
+  ) {
+    return <ProgressSkeleton />
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([
+    bodyLogsQuery,
+    sessionsQuery,
+    weeklyVolumeQuery,
+    weeklyNutritionQuery,
+  ])
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Progress"
+        title="Failed to load progress data"
+        query={failedQuery}
+      />
+    )
+  }
+
+  const bodyLogs = bodyLogsQuery.data!
+  const sessions = sessionsQuery.data!
+  const weeklyVolume = weeklyVolumeQuery.data!
+  const weeklyNutrition = weeklyNutritionQuery.data!
 
   return (
     <VStack as="main" gap={6}>

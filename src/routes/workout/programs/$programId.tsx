@@ -13,7 +13,14 @@ import {
   TextInput,
   VStack,
 } from "@astryxdesign/core";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
@@ -59,18 +66,18 @@ function ProgramDetailPage() {
   const id = Number.parseInt(programId, 10);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { data: program } = useSuspenseQuery({
+  const programQuery = useDataLoadQuery({
     queryKey: ["program", id],
     queryFn: () => getProgram({ data: { id } }),
   });
-  const { data: exercises } = useSuspenseQuery({
+  const exercisesQuery = useDataLoadQuery({
     queryKey: ["exercises"],
     queryFn: () => getExercises({ data: {} }),
   });
 
   const form = useForm({
-    defaultValues: (program
-      ? programFormDefaults(program)
+    defaultValues: (programQuery.data
+      ? programFormDefaults(programQuery.data)
       : EMPTY_PROGRAM_FORM) as ProgramFormValues,
     onSubmit: async ({ value, formApi }) => {
       const saved = await saveProgram({ data: buildProgramSavePayload(value, id) });
@@ -90,6 +97,24 @@ function ProgramDetailPage() {
     form.store,
     (state) => state.isSubmitSuccessful,
   );
+
+  if (isDataLoadPending(programQuery) || isDataLoadPending(exercisesQuery)) {
+    return <WorkoutSkeleton />;
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([programQuery, exercisesQuery]);
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Training Program"
+        title="Failed to load program"
+        query={failedQuery}
+      />
+    );
+  }
+
+  const program = programQuery.data;
+  const exercises = exercisesQuery.data!;
 
   if (!program) {
     return (

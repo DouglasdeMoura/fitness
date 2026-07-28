@@ -54,6 +54,12 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(() => new QueryClient(QUERY_CLIENT_OPTIONS))
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__fittrackQueryClient = queryClient
+    }
+  }, [queryClient])
   return (
     <html lang="en">
       <head>

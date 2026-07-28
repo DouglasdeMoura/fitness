@@ -19,7 +19,14 @@ import {
 import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog";
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { WorkoutSkeleton } from "~/components/loading/PageSkeletons";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -151,10 +158,11 @@ function programColumns(
 function ProgramsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: programs } = useSuspenseQuery({
+  const programsQuery = useDataLoadQuery({
     queryKey: ["programs"],
     queryFn: () => getPrograms(),
   });
+
   const [showCreate, setShowCreate] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -164,7 +172,7 @@ function ProgramsPage() {
     onSubmit: async ({ value, formApi }) => {
       const program = await saveProgram({
         data: buildCreateProgramPayload(value, {
-          activateIfFirst: programs.length === 0,
+          activateIfFirst: (programsQuery.data?.length ?? 0) === 0,
         }),
       });
       await queryClient.invalidateQueries({ queryKey: ["programs"] });
@@ -178,6 +186,23 @@ function ProgramsPage() {
       }
     },
   });
+
+  if (isDataLoadPending(programsQuery)) {
+    return <WorkoutSkeleton />;
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([programsQuery]);
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Training Programs"
+        title="Failed to load programs"
+        query={failedQuery}
+      />
+    );
+  }
+
+  const programs = programsQuery.data!;
 
   const openCreate = () => {
     form.reset();

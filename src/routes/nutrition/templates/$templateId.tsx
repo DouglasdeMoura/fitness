@@ -19,7 +19,14 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-store";
@@ -133,13 +140,13 @@ function MealTemplateDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const logTemplate = useLogMealTemplate(todayString());
-  const { data: template } = useSuspenseQuery({
+  const templateQuery = useDataLoadQuery({
     queryKey: ["meal-template", id],
     queryFn: () => getMealTemplate({ data: { id } }),
   });
 
   const form = useForm({
-    defaultValues: (template ? templateFormDefaults(template) : EMPTY_TEMPLATE_FORM) as TemplateFormValues,
+    defaultValues: (templateQuery.data ? templateFormDefaults(templateQuery.data) : EMPTY_TEMPLATE_FORM) as TemplateFormValues,
     onSubmit: async ({ value }) => {
       await saveMealTemplate({ data: buildTemplateSavePayload(value, id) });
       await queryClient.invalidateQueries({ queryKey: ["meal-template", id] });
@@ -156,6 +163,24 @@ function MealTemplateDetailPage() {
     () => sumNutritionTotals(items.map((item) => calculateFoodMacros(item, item.servings))),
     [items],
   );
+
+  if (isDataLoadPending(templateQuery)) {
+    return <NutritionSkeleton />;
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([templateQuery]);
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Meal Template"
+        title="Failed to load meal template"
+        query={failedQuery}
+      />
+    );
+  }
+
+  const template = templateQuery.data;
+
 
   if (!template) {
     return (

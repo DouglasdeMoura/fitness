@@ -19,7 +19,14 @@ import { DeleteConfirmationDialog } from "~/components/DeleteConfirmationDialog"
 import { ScrollableTable } from "~/components/ScrollableTable";
 import { useLogMealTemplate } from "~/components/nutrition/useLogMealTemplate";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -140,10 +147,11 @@ function MealTemplatesPage() {
   const navigate = useNavigate();
   const logDate = todayString();
   const logTemplate = useLogMealTemplate(logDate);
-  const { data: templates } = useSuspenseQuery({
+  const templatesQuery = useDataLoadQuery({
     queryKey: ["meal-templates"],
     queryFn: () => getMealTemplates(),
   });
+
   const [showCreate, setShowCreate] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -165,6 +173,23 @@ function MealTemplatesPage() {
       }
     },
   });
+
+  if (isDataLoadPending(templatesQuery)) {
+    return <NutritionSkeleton />;
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([templatesQuery]);
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Meal Templates"
+        title="Failed to load meal templates"
+        query={failedQuery}
+      />
+    );
+  }
+
+  const templates = templatesQuery.data!;
 
   const openCreate = () => {
     form.reset();

@@ -14,9 +14,16 @@ import {
   proportional,
   type TableColumn,
 } from "@astryxdesign/core";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { DataLoadErrorView } from "~/components/DataLoadErrorBanner";
+import { NutritionSkeleton } from "~/components/loading/PageSkeletons";
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from "~/lib/data-load-query";
 import {
   clearMealPlan,
   getMealTemplates,
@@ -131,14 +138,32 @@ function mealPlanColumns(
 function MealPlanningPage() {
   const queryClient = useQueryClient();
   const [weekStart, setWeekStart] = useState<string | undefined>(undefined);
-  const { data: weekPlan } = useSuspenseQuery({
+  const weekPlanQuery = useDataLoadQuery({
     queryKey: ["week-meal-plan", weekStart],
     queryFn: () => getWeekMealPlan({ data: { start_date: weekStart } }),
   });
-  const { data: templates } = useSuspenseQuery({
+  const templatesQuery = useDataLoadQuery({
     queryKey: ["meal-templates"],
     queryFn: () => getMealTemplates(),
   });
+
+  if (isDataLoadPending(weekPlanQuery) || isDataLoadPending(templatesQuery)) {
+    return <NutritionSkeleton />;
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([weekPlanQuery, templatesQuery]);
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Weekly Meal Plan"
+        title="Failed to load meal plan"
+        query={failedQuery}
+      />
+    );
+  }
+
+  const weekPlan = weekPlanQuery.data!;
+  const templates = templatesQuery.data!;
 
   const shiftWeek = (direction: -1 | 1) => {
     setWeekStart(addDays(weekPlan.start_date, direction * 7));

@@ -1,7 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
-import { Suspense, useState } from 'react'
+import { useState } from 'react'
+import { DataLoadErrorView } from '~/components/DataLoadErrorBanner'
+import {
+  isDataLoadPending,
+  pickFailedDataLoadQuery,
+  useDataLoadQuery,
+} from '~/lib/data-load-query'
 import {
   Button,
   Card,
@@ -72,17 +77,13 @@ async function exportFitTrackData(): Promise<void> {
 }
 
 function SettingsPage() {
-  return (
-    <Suspense fallback={<SettingsSkeleton />}>
-      <SettingsPageContent />
-    </Suspense>
-  )
+  return <SettingsPageContent />
 }
 
 function SettingsPageContent() {
   const toast = useToast()
   const loaderData = Route.useLoaderData()
-  const { data: user } = useSuspenseQuery({
+  const userQuery = useDataLoadQuery({
     queryKey: ['user'],
     queryFn: () => getUser(),
     initialData: loaderData.user,
@@ -91,7 +92,7 @@ function SettingsPageContent() {
   const [weight, setWeight] = useState<number | null>(null)
 
   const form = useForm({
-    defaultValues: profileFormDefaults(user),
+    defaultValues: profileFormDefaults(userQuery.data ?? loaderData.user),
     onSubmit: async ({ value }) => {
       try {
         await updateUser({ data: buildProfileUpdate(value) })
@@ -102,6 +103,23 @@ function SettingsPageContent() {
       }
     },
   })
+
+  if (isDataLoadPending(userQuery)) {
+    return <SettingsSkeleton />
+  }
+
+  const failedQuery = pickFailedDataLoadQuery([userQuery])
+  if (failedQuery) {
+    return (
+      <DataLoadErrorView
+        heading="Settings"
+        title="Failed to load settings"
+        query={failedQuery}
+      />
+    )
+  }
+
+  const user = userQuery.data!
 
   const handleSaveProfile = () => form.handleSubmit()
 
