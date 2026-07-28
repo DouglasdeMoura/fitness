@@ -1,7 +1,32 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Port, server command and database are all env-driven so a run can be fully
+// isolated from anything else on the machine. They default to the previous
+// hardcoded behaviour, so a plain `npm run test:e2e` is unchanged.
+const PORT = process.env.E2E_PORT ?? "3000";
+
+// Default builds first because `node .output/server/index.mjs` needs an
+// artifact that may be absent or stale. The dev loop overrides this with
+// `npm run start` — it has just run `npm run build` as its own gate, so
+// rebuilding here would pay for the same build twice.
+//
+// Serving the build rather than `vite dev` also removes per-route compilation
+// from the measured suite: vite dev compiles each route on first navigation,
+// which is charged to whichever test happens to touch it first.
+const WEB_SERVER_COMMAND =
+  process.env.E2E_WEB_SERVER_COMMAND ?? "npm run build && npm run start";
+
 export default defineConfig({
   forbidOnly: !!process.env.CI,
+  // Both stay off until every spec can be given its own database.
+  //
+  // Six specs seed and clear rows by opening the SQLite file directly, and all
+  // of them share one file and one server, so file-level parallelism alone
+  // would have (say) nutrition-meal-layout deleting the food_log rows that
+  // nutrition-copy just wrote. Real parallelism needs one database AND one
+  // server per shard — openE2eDatabase()/e2eDatabasePath() and the env-driven
+  // PORT above are the groundwork for that; the shard driver is not written
+  // yet. Check .dev-loop/timings.jsonl before deciding it is worth it.
   fullyParallel: false,
   projects: [
     {
@@ -45,18 +70,31 @@ export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 60_000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${PORT}`,
     headless: true,
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npm run dev",
+    command: WEB_SERVER_COMMAND,
     env: {
       E2E_PUSH_MOCK: "1",
+      PORT,
+      // Forwarded explicitly so the server opens the same file the specs seed
+      // through openE2eDatabase(). Without it a run with DATABASE_PATH set
+      // would have the specs writing one database and the app reading another.
+      ...(process.env.DATABASE_PATH
+        ? { DATABASE_PATH: process.env.DATABASE_PATH }
+        : {}),
     },
-    reuseExistingServer: true,
-    timeout: 60_000,
-    url: "http://localhost:3000",
+    // Reuse is convenient locally (keep `npm run dev` open, re-run specs), but
+    // it silently tests whatever is already listening on the port — including a
+    // stale dev server from another checkout serving different code. The dev
+    // loop sets this to "false" so its gate always tests the build it just
+    // produced.
+    reuseExistingServer: process.env.E2E_REUSE_SERVER !== "false",
+    // Generous because the default command builds before serving.
+    timeout: 240_000,
+    url: `http://localhost:${PORT}`,
   },
   workers: 1,
 });

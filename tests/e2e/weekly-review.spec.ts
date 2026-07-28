@@ -1,12 +1,10 @@
-import { join } from "node:path";
-
 import { expect, test } from "@playwright/test";
-import Database from "better-sqlite3";
 
 import {
   FIXED_E2E_DATE,
   installDeterministicClock,
   openAppRoute,
+  openE2eDatabase,
   prepareTheme,
 } from "./test-helpers";
 
@@ -14,9 +12,7 @@ const REVIEW_WEEK_START = "2019-12-23";
 const REVIEW_WEEK_ACTIVITY_DATE = "2019-12-25";
 
 function seedReviewWeekActivity(): void {
-  const dbPath = join(process.cwd(), "data", "fittrack.db");
-  const db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
+  const db = openE2eDatabase();
 
   const user = db.prepare("SELECT id FROM users LIMIT 1").get() as
     | { id: number }
@@ -47,9 +43,7 @@ function seedReviewWeekActivity(): void {
 }
 
 function clearReviewWeekActivity(): void {
-  const dbPath = join(process.cwd(), "data", "fittrack.db");
-  const db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
+  const db = openE2eDatabase();
   const user = db.prepare("SELECT id FROM users LIMIT 1").get() as
     | { id: number }
     | undefined;

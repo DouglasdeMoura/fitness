@@ -1,9 +1,10 @@
-import { join } from "node:path";
-
 import { expect, test } from "@playwright/test";
-import Database from "better-sqlite3";
 
-import { FIXED_E2E_DATE, installDeterministicClock } from "./test-helpers";
+import {
+  FIXED_E2E_DATE,
+  installDeterministicClock,
+  openE2eDatabase,
+} from "./test-helpers";
 
 const TARGET_DATE = FIXED_E2E_DATE;
 
@@ -23,9 +24,7 @@ async function clickHydratedButton(button: Locator) {
 }
 
 function clearTargetDayFoodLog(): void {
-  const dbPath = join(process.cwd(), "data", "fittrack.db");
-  const db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
+  const db = openE2eDatabase();
 
   const user = db.prepare("SELECT id FROM users LIMIT 1").get() as
     | { id: number }
@@ -43,9 +42,7 @@ function clearTargetDayFoodLog(): void {
 }
 
 function seedBreakfastEntries(): void {
-  const dbPath = join(process.cwd(), "data", "fittrack.db");
-  const db = new Database(dbPath);
-  db.pragma("foreign_keys = ON");
+  const db = openE2eDatabase();
 
   const user = db.prepare("SELECT id FROM users LIMIT 1").get() as
     | { id: number }

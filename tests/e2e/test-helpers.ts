@@ -1,5 +1,36 @@
+import { join } from "node:path";
+
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import Database from "better-sqlite3";
+
+/**
+ * Absolute path of the SQLite file the app under test is using.
+ *
+ * Mirrors the resolution order in `getDb()` (src/lib/db.ts): DATABASE_PATH
+ * wins, otherwise data/fittrack.db under the cwd. Specs seed and clear rows by
+ * opening this file directly, so they have to resolve the same database the
+ * server opened. Nine sites across six specs hardcoded the default instead,
+ * which silently pointed them at a different file whenever DATABASE_PATH was
+ * set — and made per-shard database isolation impossible.
+ *
+ * @example
+ * const db = openE2eDatabase();
+ * db.prepare("DELETE FROM food_log WHERE date = ?").run(FIXED_E2E_DATE);
+ * db.close();
+ */
+export function e2eDatabasePath(): string {
+  return (
+    process.env.DATABASE_PATH ?? join(process.cwd(), "data", "fittrack.db")
+  );
+}
+
+/** Open the app's database with the same pragmas the server applies. */
+export function openE2eDatabase(): Database.Database {
+  const db = new Database(e2eDatabasePath());
+  db.pragma("foreign_keys = ON");
+  return db;
+}
 
 /** Main app routes verified for mobile layout and accessibility (issue #49). */
 export const APP_ROUTES = [

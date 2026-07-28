@@ -17,6 +17,9 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   server: {
-    port: 3000,
+    // Env-driven so an e2e run can take its own port instead of colliding with
+    // whatever dev server is already on 3000. Playwright passes PORT through
+    // its webServer.env.
+    port: Number(process.env.PORT ?? 3000),
   },
 });

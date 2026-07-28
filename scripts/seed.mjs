@@ -3,7 +3,11 @@ import { dirname, join } from "node:path";
 
 import Database from "better-sqlite3";
 
-const dbPath = join(process.cwd(), "data", "fittrack.db");
+// Same resolution order as getDb() (src/lib/db.ts) and e2eDatabasePath()
+// (tests/e2e/test-helpers.ts). Honouring DATABASE_PATH is what lets a run seed
+// an isolated database instead of the shared data/fittrack.db.
+const dbPath =
+  process.env.DATABASE_PATH ?? join(process.cwd(), "data", "fittrack.db");
 mkdirSync(dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
