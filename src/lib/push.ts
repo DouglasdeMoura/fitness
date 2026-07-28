@@ -187,7 +187,11 @@ export interface PushNotificationClient {
 export class FakePushNotificationClient implements PushNotificationClient {
   readonly calls: { endpoint: string; payload: PushPayload }[] = [];
 
-  constructor(private readonly statusCode = 200) {}
+  private readonly statusCode: number;
+
+  constructor(statusCode = 200) {
+    this.statusCode = statusCode;
+  }
 
   async sendNotification(
     subscription: PushSubscriptionInput,

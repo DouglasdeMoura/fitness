@@ -5,6 +5,7 @@ A science-backed, installable web app for nutrition and workout tracking. Built 
 ## Features
 
 ### Nutrition Tracking
+
 - Food database with 55+ common foods (proteins, carbs, fats, vegetables)
 - Daily calorie and macro tracking with progress visualization
 - Science-backed macro calculations (Mifflin-St Jeor BMR, evidence-based protein targets)
@@ -12,27 +13,29 @@ A science-backed, installable web app for nutrition and workout tracking. Built 
 - Barcode scanning for packaged foods you have logged before (camera or manual entry)
 
 ### Workout Logging
+
 - Exercise library with 30+ exercises across all muscle groups
 - Set/rep/RPE tracking with autoregulation guidance
 - Volume calculation and estimated 1RM (Epley equation)
 - Progressive overload suggestions based on RPE
 
 ### Progress Analytics
+
 - Weight trend visualization with SVG charts
 - Workout frequency tracking (30/90 day windows)
 - Body composition logging
 
 ### Offline Support
+
 - Service worker caches the app shell, static assets, and reference data
 - Food database, exercise library, and the last 14 days of logs are stored in IndexedDB
 - Meals, sets, and weigh-ins recorded offline are queued and replayed on reconnect
-- Replay is idempotent: every queued change carries a client-generated id, so a
-  retried sync cannot duplicate a meal or a set
+- Replay is idempotent: every queued change carries a client-generated id, so a retried sync cannot duplicate a meal or a set
 
 ## Science References
 
 | Metric | Formula | Reference |
-|--------|---------|-----------|
+| --- | --- | --- |
 | BMR | Mifflin-St Jeor | Mifflin et al. Am J Clin Nutr. 1990 |
 | Protein (hypertrophy) | 1.6-2.2 g/kg | Morton et al. Br J Sports Med. 2018 |
 | Protein (deficit) | 2.2-3.1 g/kg FFM | Helms et al. IJSNEM. 2014 |
@@ -57,7 +60,6 @@ The app runs at http://localhost:3000
 
 Barcode scanning uses the device camera via `getUserMedia`, which requires **HTTPS** in production. Local development on `http://localhost` is exempt from that restriction.
 
-
 ### Push Notifications
 
 Web Push lets the installed PWA reach you when the app is in the background (rest timer complete, future reminders).
@@ -68,11 +70,11 @@ Generate a VAPID keypair once and add both values to `.env` (never commit them):
 npx web-push generate-vapid-keys --json
 ```
 
-| Variable | Purpose |
-|----------|---------|
-| `VAPID_PUBLIC_KEY` | Served to the browser for `PushManager.subscribe` |
-| `VAPID_PRIVATE_KEY` | Signs outgoing pushes — server only |
-| `VAPID_SUBJECT` | Contact URI (`mailto:` or `https:`) for push services |
+| Variable            | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `VAPID_PUBLIC_KEY`  | Served to the browser for `PushManager.subscribe`     |
+| `VAPID_PRIVATE_KEY` | Signs outgoing pushes — server only                   |
+| `VAPID_SUBJECT`     | Contact URI (`mailto:` or `https:`) for push services |
 
 When `VAPID_PUBLIC_KEY` is absent, Settings shows a "push not configured" state instead of throwing. On iOS, Web Push requires installing FitTrack to the Home Screen (iOS 16.4+).
 
@@ -82,11 +84,7 @@ When `VAPID_PUBLIC_KEY` is absent, Settings shows a "push not configured" state 
 2. Click the install icon in the address bar
 3. Or use menu > "Install FitTrack"
 
-The app works offline once installed. The service worker is registered in
-production builds only (`npm run build && npm run start`), so a dev server is
-never shadowed by a cached shell. Anything logged while offline is held on the
-device and syncs automatically once the connection returns; the banner at the
-top of the app shows what is still waiting.
+The app works offline once installed. The service worker is registered in production builds only (`npm run build && npm run start`), so a dev server is never shadowed by a cached shell. Anything logged while offline is held on the device and syncs automatically once the connection returns; the banner at the top of the app shows what is still waiting.
 
 ## Tech Stack
 

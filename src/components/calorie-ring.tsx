@@ -35,7 +35,6 @@ export function CalorieRing({ consumed, target }: CalorieRingProps) {
     <svg
       aria-label={`Calorie progress: ${Math.round(consumed)} of ${target} kcal`}
       height="180"
-      role="img"
       viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
       width="180"
     >

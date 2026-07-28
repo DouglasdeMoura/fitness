@@ -57,7 +57,9 @@ test.describe("Loading states", () => {
     await page.route("**/*", async (route) => {
       const type = route.request().resourceType();
       if (delayFetches && (type === "fetch" || type === "xhr")) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => {
+          setTimeout(resolve, 2000);
+        });
       }
       await route.continue();
     });

@@ -223,10 +223,10 @@ function WorkoutPageContent() {
     queryFn: async () => {
       const entries = await Promise.all(
         historyExerciseIds.map(async (exerciseId) => {
-          const { sets } = await getExerciseSetHistory({
+          const { sets: historySets } = await getExerciseSetHistory({
             data: { exerciseId },
           });
-          return [exerciseId, sets] as const;
+          return [exerciseId, historySets] as const;
         })
       );
       return new Map(entries);
@@ -572,6 +572,297 @@ function WorkoutPageContent() {
   const isActiveSession = activeSession !== null && !isViewingSavedSession;
   const isActiveFreeForm = isActiveSession && isFreeFormSession;
 
+  // Compute main content to avoid deeply nested ternaries.
+  let mainContent: React.ReactNode = null;
+  if (isSummaryView && !showFinishDialog) {
+    if (displayedSummary) {
+      mainContent = (
+        <SessionSummaryCard
+          onDone={dismissSummary}
+          summary={displayedSummary}
+        />
+      );
+    }
+  } else if (activeSession) {
+    if (isViewingSavedSession) {
+      mainContent = (
+        /* Viewing a saved (finished) session */
+        <VStack gap={4}>
+          {sessionHistoryRows.length > 0 ? (
+            <Card>
+              <VStack gap={3}>
+                <Heading level={2}>Session History</Heading>
+                <ScrollableTable scrollLabel="session-history-sets">
+                  <Table
+                    aria-label="Logged sets for this session"
+                    columns={sessionHistoryColumns()}
+                    data={sessionHistoryRows}
+                    density="compact"
+                    hasHover
+                    idKey="id"
+                  />
+                </ScrollableTable>
+              </VStack>
+            </Card>
+          ) : null}
+
+          <Card>
+            <VStack gap={3}>
+              <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
+                <Heading level={2}>Session</Heading>
+              </HStack>
+              {totalVolume > 0 ? (
+                <HStack gap={4} wrap="wrap">
+                  <VStack gap={1}>
+                    <Text type="label">Volume</Text>
+                    <Text hasTabularNumbers size="2xl" weight="bold">
+                      {formatDisplayInteger(totalVolume)} kg
+                    </Text>
+                  </VStack>
+                  {bestSet ? (
+                    <VStack gap={1}>
+                      <Text type="label">Est. 1RM</Text>
+                      <Text hasTabularNumbers size="2xl" weight="bold">
+                        {formatDisplayInteger(
+                          estimate1RM(bestSet.weight, bestSet.reps)
+                        )}{" "}
+                        kg
+                      </Text>
+                    </VStack>
+                  ) : null}
+                </HStack>
+              ) : null}
+            </VStack>
+          </Card>
+        </VStack>
+      );
+    } else {
+      mainContent = (
+        /* Focused active session — the core redesign */
+        <VStack gap={4}>
+          {/* Exercise switcher — SegmentedControl for program, Selector for free-form */}
+          <Card>
+            <VStack gap={3}>
+              <Heading level={2}>Exercise</Heading>
+              {programTargets.length > 0 ? (
+                <SegmentedControl
+                  label="Select exercise"
+                  layout="fill"
+                  onChange={(value) => {
+                    const exercise = filteredExercises.find(
+                      (item) => item.id === Number.parseInt(value, 10)
+                    );
+                    setSelectedExercise(exercise ?? null);
+                    setSets([]);
+                  }}
+                  size="lg"
+                  value={selectedExercise ? String(selectedExercise.id) : ""}
+                >
+                  {filteredExercises.map((ex) => (
+                    <SegmentedControlItem
+                      key={ex.id}
+                      label={ex.name}
+                      value={String(ex.id)}
+                    />
+                  ))}
+                </SegmentedControl>
+              ) : (
+                <Selector
+                  label="Exercise"
+                  onChange={(value) => {
+                    const exercise = filteredExercises.find(
+                      (item) => item.id === Number.parseInt(String(value), 10)
+                    );
+                    setSelectedExercise(exercise ?? null);
+                    setSets([]);
+                  }}
+                  options={exerciseOptions}
+                  placeholder="Choose an exercise..."
+                  value={selectedExercise ? String(selectedExercise.id) : ""}
+                />
+              )}
+            </VStack>
+          </Card>
+
+          {/* Current exercise — the hero of the focused view */}
+          {selectedExercise ? (
+            <Card>
+              <VStack gap={4}>
+                <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
+                  <VStack gap={1}>
+                    <Heading level={2} type="display-2">
+                      {selectedExercise.name}
+                    </Heading>
+                    {activeTarget ? (
+                      <Text type="supporting">
+                        Target: {activeTarget.target_sets} x{" "}
+                        {activeTarget.target_reps} @ RPE{" "}
+                        {activeTarget.target_rpe}
+                        {activeTarget.suggested_weight_kg
+                          ? ` · Suggested ${activeTarget.suggested_weight_kg} kg`
+                          : ""}
+                      </Text>
+                    ) : null}
+                    {/* Previous session context — shown for free-form sessions */}
+                    {isActiveFreeForm && lastPerformance ? (
+                      <Text type="supporting">
+                        {formatLastPerformanceLine(
+                          lastPerformance,
+                          selectedDate
+                        )}
+                      </Text>
+                    ) : null}
+                    {isActiveFreeForm && freeFormSuggestion ? (
+                      <Text type="supporting">{freeFormSuggestion.note}</Text>
+                    ) : null}
+                    {isActiveFreeForm && !lastPerformance ? (
+                      <Text type="supporting">{NO_HISTORY_GUIDANCE}</Text>
+                    ) : null}
+                  </VStack>
+                  <Button
+                    clickAction={handleAddSet}
+                    label="Add set"
+                    size="lg"
+                    variant="primary"
+                  />
+                </HStack>
+
+                {selectedExercise.instructions ? (
+                  <Text type="supporting">{selectedExercise.instructions}</Text>
+                ) : null}
+
+                {/* Sets table — large touch-friendly inputs via GymStepperInput */}
+                {sets.length > 0 ? (
+                  <WorkoutSetsTable
+                    exerciseName={selectedExercise.name}
+                    onChangeSet={(index, patch) => {
+                      setSets((prev) =>
+                        prev.map((row, i) =>
+                          i === index ? { ...row, ...patch } : row
+                        )
+                      );
+                    }}
+                    onDeleteSet={requestDeleteSet}
+                    onSaveSet={handleSaveSet}
+                    sets={sets}
+                  />
+                ) : null}
+
+                <Text type="supporting">
+                  RPE 7 = 3 reps in reserve · RPE 8 = 2 RIR · RPE 9 = 1 RIR ·
+                  RPE 10 = max effort. For hypertrophy, target RPE 7-9.
+                </Text>
+              </VStack>
+            </Card>
+          ) : null}
+
+          {/* Stats panel — Collapsible, not always visible */}
+          {totalVolume > 0 ? (
+            <Collapsible
+              defaultIsOpen={false}
+              trigger={<Text weight="bold">Session stats</Text>}
+            >
+              <Card>
+                <MetadataList>
+                  <MetadataListItem label="Total volume">
+                    <Text hasTabularNumbers>
+                      {formatDisplayInteger(totalVolume)} kg
+                    </Text>
+                  </MetadataListItem>
+                  {bestSet ? (
+                    <MetadataListItem label="Est. 1RM">
+                      <Text hasTabularNumbers>
+                        {formatDisplayInteger(
+                          estimate1RM(bestSet.weight, bestSet.reps)
+                        )}{" "}
+                        kg
+                      </Text>
+                    </MetadataListItem>
+                  ) : null}
+                  <MetadataListItem label="Sets logged">
+                    <Text hasTabularNumbers>{String(sets.length)}</Text>
+                  </MetadataListItem>
+                </MetadataList>
+              </Card>
+            </Collapsible>
+          ) : null}
+
+          {/* Finish button */}
+          <HStack hAlign="end">
+            <Button
+              clickAction={handleFinish}
+              label="Finish workout"
+              size="lg"
+              variant="secondary"
+            />
+          </HStack>
+        </VStack>
+      );
+    }
+  } else {
+    mainContent = (
+      /* Idle state — no active session */
+      <VStack gap={4}>
+        <Card>
+          <EmptyState
+            actions={
+              <HStack gap={2} wrap="wrap">
+                <Button
+                  clickAction={handleStartWorkout}
+                  label="Start Workout"
+                  size="lg"
+                  variant="primary"
+                />
+                <Button
+                  href="/workout/programs"
+                  label="Browse Programs"
+                  size="lg"
+                  variant="secondary"
+                />
+              </HStack>
+            }
+            description="Start a free-form session or follow a structured training program."
+            headingLevel={2}
+            title="Ready to train?"
+          />
+        </Card>
+
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>Recent Sessions</Heading>
+            {sessions.length === 0 ? (
+              <EmptyState
+                actions={
+                  <Button
+                    clickAction={handleStartWorkout}
+                    label="Start your first workout"
+                    size="lg"
+                    variant="primary"
+                  />
+                }
+                description="Start a free-form session or follow a structured training program."
+                headingLevel={3}
+                isCompact
+                title="No workouts yet"
+              />
+            ) : (
+              <ScrollableTable scrollLabel="recent-sessions">
+                <Table
+                  aria-label="Recent workout sessions"
+                  columns={recentSessionColumns(selectedDate)}
+                  data={sessions}
+                  density="compact"
+                  hasHover
+                  idKey="id"
+                />
+              </ScrollableTable>
+            )}
+          </VStack>
+        </Card>
+      </VStack>
+    );
+  }
+
   return (
     <VStack as="main" gap={isActiveSession ? 4 : 6}>
       {/* Page header — hidden during active session (focused mode) */}
@@ -600,290 +891,7 @@ function WorkoutPageContent() {
           />
         </>
       )}
-
-      {/* Summary view (historical, from URL) */}
-      {isSummaryView && !showFinishDialog ? (
-        displayedSummary ? (
-          <SessionSummaryCard
-            onDone={dismissSummary}
-            summary={displayedSummary}
-          />
-        ) : null
-      ) : activeSession ? (
-        isViewingSavedSession ? (
-          /* Viewing a saved (finished) session */
-          <VStack gap={4}>
-            {sessionHistoryRows.length > 0 ? (
-              <Card>
-                <VStack gap={3}>
-                  <Heading level={2}>Session History</Heading>
-                  <ScrollableTable scrollLabel="session-history-sets">
-                    <Table
-                      aria-label="Logged sets for this session"
-                      columns={sessionHistoryColumns()}
-                      data={sessionHistoryRows}
-                      density="compact"
-                      hasHover
-                      idKey="id"
-                    />
-                  </ScrollableTable>
-                </VStack>
-              </Card>
-            ) : null}
-
-            <Card>
-              <VStack gap={3}>
-                <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
-                  <Heading level={2}>Session</Heading>
-                </HStack>
-                {totalVolume > 0 ? (
-                  <HStack gap={4} wrap="wrap">
-                    <VStack gap={1}>
-                      <Text type="label">Volume</Text>
-                      <Text hasTabularNumbers size="2xl" weight="bold">
-                        {formatDisplayInteger(totalVolume)} kg
-                      </Text>
-                    </VStack>
-                    {bestSet ? (
-                      <VStack gap={1}>
-                        <Text type="label">Est. 1RM</Text>
-                        <Text hasTabularNumbers size="2xl" weight="bold">
-                          {formatDisplayInteger(
-                            estimate1RM(bestSet.weight, bestSet.reps)
-                          )}{" "}
-                          kg
-                        </Text>
-                      </VStack>
-                    ) : null}
-                  </HStack>
-                ) : null}
-              </VStack>
-            </Card>
-          </VStack>
-        ) : (
-          /* Focused active session — the core redesign */
-          <VStack gap={4}>
-            {/* Exercise switcher — SegmentedControl for program, Selector for free-form */}
-            <Card>
-              <VStack gap={3}>
-                <Heading level={2}>Exercise</Heading>
-                {programTargets.length > 0 ? (
-                  <SegmentedControl
-                    label="Select exercise"
-                    layout="fill"
-                    onChange={(value) => {
-                      const exercise = filteredExercises.find(
-                        (item) => item.id === Number.parseInt(value, 10)
-                      );
-                      setSelectedExercise(exercise ?? null);
-                      setSets([]);
-                    }}
-                    size="lg"
-                    value={selectedExercise ? String(selectedExercise.id) : ""}
-                  >
-                    {filteredExercises.map((ex) => (
-                      <SegmentedControlItem
-                        key={ex.id}
-                        label={ex.name}
-                        value={String(ex.id)}
-                      />
-                    ))}
-                  </SegmentedControl>
-                ) : (
-                  <Selector
-                    label="Exercise"
-                    onChange={(value) => {
-                      const exercise = filteredExercises.find(
-                        (item) => item.id === Number.parseInt(String(value), 10)
-                      );
-                      setSelectedExercise(exercise ?? null);
-                      setSets([]);
-                    }}
-                    options={exerciseOptions}
-                    placeholder="Choose an exercise..."
-                    value={selectedExercise ? String(selectedExercise.id) : ""}
-                  />
-                )}
-              </VStack>
-            </Card>
-
-            {/* Current exercise — the hero of the focused view */}
-            {selectedExercise ? (
-              <Card>
-                <VStack gap={4}>
-                  <HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
-                    <VStack gap={1}>
-                      <Heading level={2} type="display-2">
-                        {selectedExercise.name}
-                      </Heading>
-                      {activeTarget ? (
-                        <Text type="supporting">
-                          Target: {activeTarget.target_sets} x{" "}
-                          {activeTarget.target_reps} @ RPE{" "}
-                          {activeTarget.target_rpe}
-                          {activeTarget.suggested_weight_kg
-                            ? ` · Suggested ${activeTarget.suggested_weight_kg} kg`
-                            : ""}
-                        </Text>
-                      ) : null}
-                      {/* Previous session context — shown for free-form sessions */}
-                      {isActiveFreeForm && lastPerformance ? (
-                        <Text type="supporting">
-                          {formatLastPerformanceLine(
-                            lastPerformance,
-                            selectedDate
-                          )}
-                        </Text>
-                      ) : null}
-                      {isActiveFreeForm && freeFormSuggestion ? (
-                        <Text type="supporting">{freeFormSuggestion.note}</Text>
-                      ) : null}
-                      {isActiveFreeForm && !lastPerformance ? (
-                        <Text type="supporting">{NO_HISTORY_GUIDANCE}</Text>
-                      ) : null}
-                    </VStack>
-                    <Button
-                      clickAction={handleAddSet}
-                      label="Add set"
-                      size="lg"
-                      variant="primary"
-                    />
-                  </HStack>
-
-                  {selectedExercise.instructions ? (
-                    <Text type="supporting">
-                      {selectedExercise.instructions}
-                    </Text>
-                  ) : null}
-
-                  {/* Sets table — large touch-friendly inputs via GymStepperInput */}
-                  {sets.length > 0 ? (
-                    <WorkoutSetsTable
-                      exerciseName={selectedExercise.name}
-                      onChangeSet={(index, patch) => {
-                        setSets((prev) =>
-                          prev.map((row, i) =>
-                            i === index ? { ...row, ...patch } : row
-                          )
-                        );
-                      }}
-                      onDeleteSet={requestDeleteSet}
-                      onSaveSet={handleSaveSet}
-                      sets={sets}
-                    />
-                  ) : null}
-
-                  <Text type="supporting">
-                    RPE 7 = 3 reps in reserve · RPE 8 = 2 RIR · RPE 9 = 1 RIR ·
-                    RPE 10 = max effort. For hypertrophy, target RPE 7-9.
-                  </Text>
-                </VStack>
-              </Card>
-            ) : null}
-
-            {/* Stats panel — Collapsible, not always visible */}
-            {totalVolume > 0 ? (
-              <Collapsible
-                defaultIsOpen={false}
-                trigger={<Text weight="bold">Session stats</Text>}
-              >
-                <Card>
-                  <MetadataList>
-                    <MetadataListItem label="Total volume">
-                      <Text hasTabularNumbers>
-                        {formatDisplayInteger(totalVolume)} kg
-                      </Text>
-                    </MetadataListItem>
-                    {bestSet ? (
-                      <MetadataListItem label="Est. 1RM">
-                        <Text hasTabularNumbers>
-                          {formatDisplayInteger(
-                            estimate1RM(bestSet.weight, bestSet.reps)
-                          )}{" "}
-                          kg
-                        </Text>
-                      </MetadataListItem>
-                    ) : null}
-                    <MetadataListItem label="Sets logged">
-                      <Text hasTabularNumbers>{String(sets.length)}</Text>
-                    </MetadataListItem>
-                  </MetadataList>
-                </Card>
-              </Collapsible>
-            ) : null}
-
-            {/* Finish button */}
-            <HStack hAlign="end">
-              <Button
-                clickAction={handleFinish}
-                label="Finish workout"
-                size="lg"
-                variant="secondary"
-              />
-            </HStack>
-          </VStack>
-        )
-      ) : (
-        /* Idle state — no active session */
-        <VStack gap={4}>
-          <Card>
-            <EmptyState
-              actions={
-                <HStack gap={2} wrap="wrap">
-                  <Button
-                    clickAction={handleStartWorkout}
-                    label="Start Workout"
-                    size="lg"
-                    variant="primary"
-                  />
-                  <Button
-                    href="/workout/programs"
-                    label="Browse Programs"
-                    size="lg"
-                    variant="secondary"
-                  />
-                </HStack>
-              }
-              description="Start a free-form session or follow a structured training program."
-              headingLevel={2}
-              title="Ready to train?"
-            />
-          </Card>
-
-          <Card>
-            <VStack gap={3}>
-              <Heading level={2}>Recent Sessions</Heading>
-              {sessions.length === 0 ? (
-                <EmptyState
-                  actions={
-                    <Button
-                      clickAction={handleStartWorkout}
-                      label="Start your first workout"
-                      size="lg"
-                      variant="primary"
-                    />
-                  }
-                  description="Start a free-form session or follow a structured training program."
-                  headingLevel={3}
-                  isCompact
-                  title="No workouts yet"
-                />
-              ) : (
-                <ScrollableTable scrollLabel="recent-sessions">
-                  <Table
-                    aria-label="Recent workout sessions"
-                    columns={recentSessionColumns(selectedDate)}
-                    data={sessions}
-                    density="compact"
-                    hasHover
-                    idKey="id"
-                  />
-                </ScrollableTable>
-              )}
-            </VStack>
-          </Card>
-        </VStack>
-      )}
+      {mainContent}
 
       {/* Finish summary Dialog — shown after clicking Finish Workout */}
       {showFinishDialog && summaryOverride ? (

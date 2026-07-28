@@ -69,6 +69,9 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
           h.onToggleHelp();
           break;
         }
+        default: {
+          break;
+        }
       }
     }
 

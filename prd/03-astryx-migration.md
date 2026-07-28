@@ -11,7 +11,7 @@ Replace every custom CSS class and inline `style={{}}` with Astryx DS components
 ## Migration Mapping
 
 | Custom CSS | Astryx Component | Import Path |
-|-----------|-----------------|-------------|
+| --- | --- | --- |
 | `.app-header` + `.app-nav` | `AppShell` + `TopNav` + `TopNavItem` | `@astryxdesign/core/AppShell`, `@astryxdesign/core/TopNav` |
 | `.card` + `.card-title` | `Card` | `@astryxdesign/core/Card` |
 | `.btn` / `.btn-primary` / `.btn-secondary` | `Button` | `@astryxdesign/core/Button` |
@@ -34,28 +34,35 @@ Replace every custom CSS class and inline `style={{}}` with Astryx DS components
 Each batch is independently shippable and testable. Work bottom-up (shared primitives first, then pages).
 
 ### Batch 1: App Shell + Navigation (root layout)
-**Scope:** `src/routes/__root.tsx`
-Replace the custom header/nav with `AppShell` + `TopNav` + `TopNavHeading` + `TopNavItem`. Dark mode toggle moves to `endContent` slot.
+
+**Scope:** `src/routes/__root.tsx` Replace the custom header/nav with `AppShell` + `TopNav` + `TopNavHeading` + `TopNavItem`. Dark mode toggle moves to `endContent` slot.
 
 ### Batch 2: Dashboard Page (`src/routes/index.tsx`)
+
 Replace `.card`, `.card-title`, `.stat-row`, `.stat-label`, `.stat-value`, `.grid-2`, `.grid-3`, `.progress-bar`, `.section-header`, `.section-title` with Astryx components.
 
 ### Batch 3: Settings Page (`src/routes/settings/index.tsx`)
+
 Replace `.card`, `.form-group`, `.input`, `.label`, `.btn`, `select` with `Card`, `Field`, `TextInput`, `NumberInput`, `Button`, Astryx `Select`.
 
 ### Batch 4: Nutrition Page (`src/routes/nutrition/index.tsx`)
+
 Replace `.card`, `.grid-2`, `.stat-row`, `.input`, `.btn`, `table`, `.empty-state` with Astryx `Card`, `Layout`, `MetadataList`, `TextInput`, `Button`, `Table`, `EmptyState`.
 
 ### Batch 5: Workout Page (`src/routes/workout/index.tsx`)
+
 Same mapping as nutrition. Tables for set logging, inputs for weight/reps/RPE.
 
 ### Batch 6: Progress Page (`src/routes/progress/index.tsx`)
+
 Replace custom SVG chart container, `.grid-3`, stat cards, and volume bars with Astryx `Card`, `Layout`, `MetadataList`, `ProgressBar`.
 
 ### Batch 7: Sub-pages (programs, templates, planning)
+
 Migrate the remaining 5 route files: `workout/programs/`, `nutrition/templates/`, `nutrition/planning/`.
 
 ### Batch 8: Cleanup - Remove Custom CSS
+
 After all pages are migrated, remove all custom classes from `src/styles/app.css`. The file should only contain the Astryx CSS imports. Dark mode handled by Astryx `Theme` component.
 
 ## Rules

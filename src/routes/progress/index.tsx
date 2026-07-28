@@ -316,7 +316,6 @@ function WeightAreaChart({
   return (
     <svg
       aria-label="Weight trend area chart with 7-day moving average"
-      role="img"
       viewBox={`0 0 ${geometry.width} ${geometry.viewBoxHeight}`}
       width="100%"
     >

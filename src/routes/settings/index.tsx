@@ -433,7 +433,6 @@ function SettingsPageContent() {
               <svg
                 aria-label="Weight history sparkline chart"
                 height={WEIGHT_CHART_HEIGHT}
-                role="img"
                 viewBox={`0 0 ${WEIGHT_CHART_WIDTH} ${WEIGHT_CHART_HEIGHT}`}
                 width="100%"
               >

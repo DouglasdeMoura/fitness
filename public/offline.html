@@ -1,108 +1,111 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <meta
       content="width=device-width, initial-scale=1, viewport-fit=cover"
       name="viewport"
-    >
-    <meta content="#6741d9" name="theme-color">
+    />
+    <meta content="#6741d9" name="theme-color" />
     <title>Offline - FitTrack</title>
-    <link href="/manifest.json" rel="manifest">
+    <link href="/manifest.json" rel="manifest" />
     <style>
-    /* Inlined rather than linked: the hashed stylesheet may not be cached
+      /* Inlined rather than linked: the hashed stylesheet may not be cached
                when this page is the only thing left to serve. */
-    :root {
-      --surface-background: #f5f5f5;
-      --surface-elevated: #ffffff;
-      --surface-neutral: #f0f0f0;
-      --text-primary: #1c1c1c;
-      --text-secondary: #555;
-      --border-subtle: #e4e4e4;
-      --accent-primary: #6741d9;
-      --accent-primary-hover: #5b34c7;
-    }
+      :root {
+        --surface-background: #f5f5f5;
+        --surface-elevated: #ffffff;
+        --surface-neutral: #f0f0f0;
+        --text-primary: #1c1c1c;
+        --text-secondary: #555;
+        --border-subtle: #e4e4e4;
+        --accent-primary: #6741d9;
+        --accent-primary-hover: #5b34c7;
+      }
 
-    [data-theme="dark"] {
-      --surface-background: #0d0d0d;
-      --surface-elevated: #1a1a1a;
-      --surface-neutral: #2a2a2a;
-      --text-primary: #f0f0f0;
-      --text-secondary: #999;
-      --border-subtle: #333;
-      --accent-primary: #9d7eff;
-      --accent-primary-hover: #8b6eff;
-    }
+      [data-theme="dark"] {
+        --surface-background: #0d0d0d;
+        --surface-elevated: #1a1a1a;
+        --surface-neutral: #2a2a2a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #999;
+        --border-subtle: #333;
+        --accent-primary: #9d7eff;
+        --accent-primary-hover: #8b6eff;
+      }
 
-    * {
-      box-sizing: border-box;
-    }
+      * {
+        box-sizing: border-box;
+      }
 
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-      margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      color: var(--text-primary);
-      background: var(--surface-background);
-    }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 24px;
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--text-primary);
+        background: var(--surface-background);
+      }
 
-    .card {
-      width: 100%;
-      max-width: 460px;
-      padding: 32px;
-      text-align: center;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-    }
+      .card {
+        width: 100%;
+        max-width: 460px;
+        padding: 32px;
+        text-align: center;
+        background: var(--surface-elevated);
+        border: 1px solid var(--border-subtle);
+        border-radius: 12px;
+      }
 
-    .icon {
-      margin-bottom: 12px;
-      font-size: 3rem;
-    }
+      .icon {
+        margin-bottom: 12px;
+        font-size: 3rem;
+      }
 
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
 
-    p {
-      margin: 0 0 20px;
-      line-height: 1.6;
-      color: var(--text-secondary);
-    }
+      p {
+        margin: 0 0 20px;
+        line-height: 1.6;
+        color: var(--text-secondary);
+      }
 
-    .btn {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      padding: 10px 20px;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      color: #fff;
-      text-decoration: none;
-      cursor: pointer;
-      background: var(--accent-primary);
-      border: none;
-      border-radius: 8px;
-    }
+      .btn {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 20px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: #fff;
+        text-decoration: none;
+        cursor: pointer;
+        background: var(--accent-primary);
+        border: none;
+        border-radius: 8px;
+      }
 
-    .btn:hover {
-      background: var(--accent-primary-hover);
-    }
+      .btn:hover {
+        background: var(--accent-primary-hover);
+      }
 
-    .note {
-      padding-top: 16px;
-      margin: 20px 0 0;
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      border-top: 1px solid var(--border-subtle);
-    }
+      .note {
+        padding-top: 16px;
+        margin: 20px 0 0;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        border-top: 1px solid var(--border-subtle);
+      }
     </style>
   </head>
   <body>
@@ -123,16 +126,16 @@
       </p>
     </div>
     <script>
-    "use strict";
-    (() => {
-      var theme = localStorage.getItem("fittrack-theme") || "light";
-      document.documentElement.setAttribute("data-theme", theme);
+      "use strict";
+      (() => {
+        var theme = localStorage.getItem("fittrack-theme") || "light";
+        document.documentElement.setAttribute("data-theme", theme);
 
-      // Leave the fallback as soon as connectivity returns.
-      window.addEventListener("online", () => {
-        window.location.reload();
-      });
-    })();
+        // Leave the fallback as soon as connectivity returns.
+        window.addEventListener("online", () => {
+          window.location.reload();
+        });
+      })();
     </script>
   </body>
 </html>

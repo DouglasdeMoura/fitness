@@ -239,7 +239,7 @@ export function buildWeightChartPoints(
       (e): e is { date: string; weight_kg: number } =>
         e.weight_kg !== null && e.weight_kg > 0
     )
-    .reverse(); // chronological order
+    .toReversed(); // chronological order
 
   if (valid.length < 2) {
     return [];

@@ -65,8 +65,9 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const [queryClient] = React.useState(
-    () => new QueryClient(QUERY_CLIENT_OPTIONS)
+  const queryClient = React.useMemo(
+    () => new QueryClient(QUERY_CLIENT_OPTIONS),
+    []
   );
   React.useEffect(() => {
     if (typeof window !== "undefined") {

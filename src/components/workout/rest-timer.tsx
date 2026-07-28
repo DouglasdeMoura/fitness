@@ -153,7 +153,6 @@ export function RestTimer() {
       data-rest-active={active ? "" : undefined}
       minHeight="var(--app-rest-timer-reserved-height)"
       padding={2}
-      role="region"
       variant="section"
     >
       {showControls ? (

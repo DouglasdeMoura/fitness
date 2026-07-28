@@ -195,23 +195,22 @@ function MealPlanningPage() {
     mealType,
     templateId
   ) => {
-    if (templateId) {
-      await setMealPlan({
-        data: {
-          date,
-          meal_type: mealType,
-          template_id: Number.parseInt(templateId, 10),
-        },
-      });
-    } else {
-      await clearMealPlan({ data: { date, meal_type: mealType } });
-    }
+    await (templateId
+      ? setMealPlan({
+          data: {
+            date,
+            meal_type: mealType,
+            template_id: Number.parseInt(templateId, 10),
+          },
+        })
+      : clearMealPlan({ data: { date, meal_type: mealType } }));
     await queryClient.invalidateQueries({ queryKey: ["week-meal-plan"] });
   };
 
   const handleLogMeal: LogPlannedMeal = async (date, mealType) => {
     await logMealFromPlan({ data: { date, meal_type: mealType } });
     await queryClient.invalidateQueries({ queryKey: ["food-log"] });
+    // eslint-disable-next-line no-alert -- intentional user-facing notification
     window.alert(
       `Logged ${MEAL_TYPE_LABELS[mealType].toLowerCase()} to your food diary.`
     );

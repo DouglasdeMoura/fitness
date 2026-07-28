@@ -42,9 +42,9 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 function openDatabase(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = () => {
-        const db = request.result;
+      const dbRequest = indexedDB.open(DB_NAME, DB_VERSION);
+      dbRequest.onupgradeneeded = () => {
+        const db = dbRequest.result;
         if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
           const outbox = db.createObjectStore(OUTBOX_STORE, {
             keyPath: "client_id",
@@ -55,8 +55,8 @@ function openDatabase(): Promise<IDBDatabase> {
           db.createObjectStore(KV_STORE, { keyPath: "key" });
         }
       };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      dbRequest.onsuccess = () => resolve(dbRequest.result);
+      dbRequest.onerror = () => reject(dbRequest.error);
     });
   }
   return dbPromise;

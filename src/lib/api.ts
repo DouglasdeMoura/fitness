@@ -2143,8 +2143,6 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
 
 // --- Consistency ---
 
-export type { ConsistencyMetrics };
-
 /** Burke et al. 2011: rolling adherence and streak metrics for retention. */
 export const getConsistency = createServerFn({ method: "GET" })
   .validator((data: { asOf?: string } | undefined) => data ?? {})
@@ -2607,6 +2605,9 @@ export const syncQueuedMutations = createServerFn({ method: "POST" })
               d.notes ?? null
             );
           return res.lastInsertRowid as number;
+        }
+        default: {
+          return undefined;
         }
       }
     };

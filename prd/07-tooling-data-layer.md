@@ -85,6 +85,7 @@ All database access uses raw SQL strings via `better-sqlite3` directly:
 ### Solution: Drizzle ORM
 
 **Drizzle** provides:
+
 - **Type-safe queries** — autocomplete for tables, columns, and results
 - **Schema-as-code** — TypeScript definitions are the source of truth
 - **Migration system** — `drizzle-kit` generates and applies SQL migrations
@@ -103,38 +104,46 @@ npm install -D drizzle-kit
 Replace `src/lib/schema.sql` with TypeScript:
 
 ```typescript
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
-import { sql } from 'drizzle-orm'
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull().default('Athlete'),
-  email: text('email').unique(),
-  birthDate: text('birth_date'),
-  sex: text('sex', { enum: ['male', 'female', 'other'] }).notNull().default('male'),
-  heightCm: real('height_cm'),
-  activityLevel: text('activity_level').notNull().default('moderate'),
-  goalType: text('goal_type').notNull().default('build_muscle'),
-  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-})
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().default("Athlete"),
+  email: text("email").unique(),
+  birthDate: text("birth_date"),
+  sex: text("sex", { enum: ["male", "female", "other"] })
+    .notNull()
+    .default("male"),
+  heightCm: real("height_cm"),
+  activityLevel: text("activity_level").notNull().default("moderate"),
+  goalType: text("goal_type").notNull().default("build_muscle"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
 
-export const foods = sqliteTable('foods', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  brand: text('brand'),
-  servingSize: real('serving_size').notNull().default(100),
-  servingUnit: text('serving_unit').notNull().default('g'),
-  caloriesPerServing: real('calories_per_serving').notNull(),
-  proteinG: real('protein_g').notNull().default(0),
-  carbsG: real('carbs_g').notNull().default(0),
-  fatG: real('fat_g').notNull().default(0),
-  fiberG: real('fiber_g').default(0),
-  sugarG: real('sugar_g').default(0),
-  sodiumMg: real('sodium_mg').default(0),
-  source: text('source').notNull().default('user'),
-  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-})
+export const foods = sqliteTable("foods", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  brand: text("brand"),
+  servingSize: real("serving_size").notNull().default(100),
+  servingUnit: text("serving_unit").notNull().default("g"),
+  caloriesPerServing: real("calories_per_serving").notNull(),
+  proteinG: real("protein_g").notNull().default(0),
+  carbsG: real("carbs_g").notNull().default(0),
+  fatG: real("fat_g").notNull().default(0),
+  fiberG: real("fiber_g").default(0),
+  sugarG: real("sugar_g").default(0),
+  sodiumMg: real("sodium_mg").default(0),
+  source: text("source").notNull().default("user"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
 
 // ... (all tables defined in schema.sql)
 ```
@@ -142,15 +151,15 @@ export const foods = sqliteTable('foods', {
 ### Database Connection (`src/db/index.ts`)
 
 ```typescript
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
-import * as schema from './schema'
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import * as schema from "./schema";
 
-const sqlite = new Database('data/fittrack.db')
-sqlite.pragma('journal_mode = WAL')
-sqlite.pragma('foreign_keys = ON')
+const sqlite = new Database("data/fittrack.db");
+sqlite.pragma("journal_mode = WAL");
+sqlite.pragma("foreign_keys = ON");
 
-export const db = drizzle(sqlite, { schema })
+export const db = drizzle(sqlite, { schema });
 ```
 
 ### Migration Workflow
@@ -169,30 +178,34 @@ npx drizzle-kit studio
 ### Drizzle Config (`drizzle.config.ts`)
 
 ```typescript
-import { defineConfig } from 'drizzle-kit'
+import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: './src/db/schema.ts',
-  out: './drizzle',
-  dialect: 'sqlite',
-  dbCredentials: { url: './data/fittrack.db' },
-})
+  schema: "./src/db/schema.ts",
+  out: "./drizzle",
+  dialect: "sqlite",
+  dbCredentials: { url: "./data/fittrack.db" },
+});
 ```
 
 ### Query Migration Examples
 
 **Before (raw SQL):**
+
 ```typescript
-const user = db.prepare('SELECT * FROM users LIMIT 1').get() as User | undefined
+const user = db.prepare("SELECT * FROM users LIMIT 1").get() as
+  User | undefined;
 ```
 
 **After (Drizzle):**
+
 ```typescript
-const result = await db.query.users.findFirst()
+const result = await db.query.users.findFirst();
 // Fully typed — result is { id: number, name: string, ... } | undefined
 ```
 
 **Before:**
+
 ```typescript
 db.prepare(
   `INSERT INTO foods (name, brand, serving_size, ...) VALUES (?, ?, ?, ...)`
@@ -200,28 +213,34 @@ db.prepare(
 ```
 
 **After:**
+
 ```typescript
 await db.insert(foods).values({ name, brand, servingSize: serving, ... })
 // Type-checked — wrong column names are compile errors
 ```
 
 **Before:**
+
 ```typescript
-db.prepare('SELECT * FROM food_log WHERE user_id = ? AND date = ?').all(userId, date) as FoodLogEntry[]
+db
+  .prepare("SELECT * FROM food_log WHERE user_id = ? AND date = ?")
+  .all(userId, date) as FoodLogEntry[];
 ```
 
 **After:**
+
 ```typescript
 await db.query.foodLog.findMany({
   where: and(eq(foodLog.userId, userId), eq(foodLog.date, date)),
   orderBy: [foodLog.mealType, foodLog.createdAt],
-})
+});
 // Result is fully typed — no manual casting
 ```
 
 ## Batches
 
 ### Batch 1: Install and Configure Ultracite + Lefthook
+
 - Install ultracite, oxlint, oxfmt, lefthook
 - Run `npx ultracite init` to generate configs
 - Create `lefthook.yml` with pre-commit hooks
@@ -230,6 +249,7 @@ await db.query.foodLog.findMany({
 - Fix any lint errors
 
 ### Batch 2: Install Drizzle + Define Schema
+
 - Install drizzle-orm, drizzle-kit
 - Create `src/db/schema.ts` with all tables from `schema.sql`
 - Create `src/db/index.ts` with Drizzle connection
@@ -238,17 +258,20 @@ await db.query.foodLog.findMany({
 - Keep existing `schema.sql` as reference during transition
 
 ### Batch 3: Migrate User/Body Log Queries to Drizzle
+
 - Migrate all user-related queries (getUser, updateUser, ensureDefaultUser)
 - Migrate body log queries (getBodyLogs, logBodyweight, getLatestBodyweight)
 - Migrate dashboard stats queries
 - Remove manual TypeScript types (use Drizzle's inferred types instead)
 
 ### Batch 4: Migrate Food/FoodLog Queries to Drizzle
+
 - Migrate food queries (searchFoods, getAllFoods, addFood)
 - Migrate food log queries (getFoodLog, addFoodLogEntry, deleteFoodLogEntry)
 - Migrate nutrition summary and weekly nutrition queries
 
 ### Batch 5: Migrate Workout/Exercise Queries to Drizzle
+
 - Migrate exercise queries
 - Migrate workout session queries (CRUD)
 - Migrate workout set queries (CRUD)
@@ -256,6 +279,7 @@ await db.query.foodLog.findMany({
 - Migrate program-related queries
 
 ### Batch 6: Cleanup — Remove Raw SQL + Schema.sql
+
 - Delete `src/lib/schema.sql` (schema is now TypeScript)
 - Delete `src/lib/db.ts` (replaced by `src/db/index.ts`)
 - Remove all `as Type` casts from api.ts (using Drizzle inferred types)
@@ -265,6 +289,7 @@ await db.query.foodLog.findMany({
 ## Acceptance Criteria
 
 ### Linting & Formatting
+
 - [ ] `npm run format` formats the entire codebase
 - [ ] `npm run lint` passes with zero errors
 - [ ] Lefthook runs format + lint on every commit
@@ -272,6 +297,7 @@ await db.query.foodLog.findMany({
 - [ ] No eslint configs remain (replaced by oxlint)
 
 ### Drizzle ORM
+
 - [ ] All 96 raw SQL queries replaced with Drizzle query builder
 - [ ] Zero `as Type` manual castsings on query results
 - [ ] `src/db/schema.ts` is the single source of truth for schema

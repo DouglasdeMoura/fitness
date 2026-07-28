@@ -133,7 +133,7 @@ export function ReminderPreferences({
               label="Workout days"
               onChange={(values) => {
                 persist({
-                  workout_days: values.map((value) => Number(value)),
+                  workout_days: values.map(Number),
                 });
               }}
               value={workoutDayValues}

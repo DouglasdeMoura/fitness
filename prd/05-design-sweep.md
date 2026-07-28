@@ -25,10 +25,11 @@ Transform the app from "functional but rough" to "polished, professional, and sm
 ## UX Patterns to Implement
 
 ### 1. Toast Notifications via `useToast()`
+
 Every user-initiated mutation gets a toast confirmation:
 
 | Action | Toast | Type | Auto-hide |
-|--------|-------|------|-----------|
+| --- | --- | --- | --- |
 | Save profile | "Profile saved" | info | 5s |
 | Log food | "Food logged — {name}" | info | 5s |
 | Delete food entry | "Entry deleted" + **Undo** button in `endContent` | info | 8s |
@@ -43,29 +44,31 @@ Every user-initiated mutation gets a toast confirmation:
 **Implementation**: Wrap app in `ToastViewport` at the root layout level. Use `useToast()` hook in each page.
 
 ### 2. Confirmation Dialogs for Destructive Actions
+
 Use `Dialog` with `purpose="form"` for all deletes:
 
-| Action | Dialog |
-|--------|--------|
+| Action                | Dialog                                       |
+| --------------------- | -------------------------------------------- |
 | Delete food log entry | "Delete this entry?" + Cancel/Delete buttons |
-| Delete workout set | "Delete this set?" + Cancel/Delete buttons |
-| Delete program | "Delete '{name}'? This cannot be undone." |
-| Delete template | Same pattern |
+| Delete workout set    | "Delete this set?" + Cancel/Delete buttons   |
+| Delete program        | "Delete '{name}'? This cannot be undone."    |
+| Delete template       | Same pattern                                 |
 
 ### 3. Loading States
 
 | Scenario | Component | Implementation |
-|----------|-----------|----------------|
+| --- | --- | --- |
 | Page initial load (SSR pending) | `Skeleton` | Match the shape of cards/content being loaded |
 | Form submitting | `Spinner` inside `Button` | Button shows spinner + disabled while `isSubmitting` |
 | Food search pending | `Spinner` | Small spinner next to search input |
 | Workout saving | `Spinner` | Next to "Save Set" button |
 
 ### 4. Empty States with Call-to-Action
+
 Use `EmptyState` with icon, title, description, and action button:
 
 | Page | Empty State |
-|------|-------------|
+| --- | --- |
 | Nutrition (no food logged) | Icon: 🍽️, Title: "No food logged yet", Action: "Add your first meal" (opens AddFoodCard) |
 | Workout (no sessions) | Icon: 🏋️, Title: "No workouts yet", Action: "Start your first workout" |
 | Progress (no weight data) | Icon: ⚖️, Title: "No weight logs yet", Action: "Log your weight" |
@@ -73,15 +76,17 @@ Use `EmptyState` with icon, title, description, and action button:
 | Food search (no results) | Icon: 🔍, Title: "No foods found", Description: "Try a different search or create a custom food" |
 
 ### 5. Error States
+
 Use `Banner` for persistent errors that need attention:
 
 | Scenario | Banner |
-|----------|--------|
+| --- | --- |
 | Server function fails to load data | `Banner` with `status="error"`, title: "Failed to load", action: "Retry" |
 | Form validation errors | Inline `Field` validation (not banners) |
 | Offline mode | `Banner` with `status="warning"`, title: "You're offline — changes will sync when reconnected" |
 
 ### 6. Date Navigation for Nutrition/Workout
+
 Add a date picker (`DateInput`) and prev/next day buttons to nutrition and workout pages so users can log/view past days:
 
 ```
@@ -89,41 +94,49 @@ Add a date picker (`DateInput`) and prev/next day buttons to nutrition and worko
 ```
 
 ### 7. Mobile Responsive Tables
+
 Wrap tables in horizontally scrollable containers, or use `List` + `ListItem` for mobile card layouts when tables are too wide.
 
 ### 8. Tab Organization on Dashboard
+
 Use `TabList` to organize dashboard into "Today" / "Nutrition" / "Training" / "Progress" tabs instead of one long scroll.
 
 ## Batches
 
 ### Batch 1: Toast Infrastructure + Core Feedback
+
 - Add `ToastViewport` to root layout (`AppChrome.tsx`)
 - Add toasts to: profile save, food log, weight log, workout set save, data export
 - Add error toasts for failed mutations
 - **Files**: `src/components/AppChrome.tsx`, `src/routes/settings/index.tsx`, `src/routes/nutrition/index.tsx`, `src/routes/workout/index.tsx`
 
 ### Batch 2: Confirmation Dialogs for Deletes
+
 - Add `Dialog` confirmation for: food entry delete, workout set delete, program delete, template delete
 - Wire up Undo via toast `endContent` for reversible operations
 - **Files**: all routes with delete operations
 
 ### Batch 3: Loading States (Skeletons + Spinners)
+
 - Replace flash-of-empty-content with `Skeleton` placeholders matching each page layout
 - Add `Spinner` to all submit buttons via `Button`'s loading state
 - Add search spinner in AddFoodCard
 - **Files**: all route components
 
 ### Batch 4: Empty States with CTAs
+
 - Replace all generic "No data" text with Astryx `EmptyState` component
 - Include icon, descriptive title, description, and action button
 - **Files**: nutrition, workout, progress, programs, templates routes
 
 ### Batch 5: Date Navigation
+
 - Add date selector to nutrition and workout pages
 - Persist selected date in URL search params (`?date=2026-07-24`)
 - **Files**: `src/routes/nutrition/index.tsx`, `src/routes/workout/index.tsx`
 
 ### Batch 6: Mobile Polish + Error Banners
+
 - Ensure all tables scroll horizontally on mobile (or switch to card/list layout)
 - Add `Banner` error states for failed data loads
 - Add retry buttons on error banners

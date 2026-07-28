@@ -152,6 +152,9 @@ export function formatRecordKindLabel(kind: RecordKind): string {
     case "volume": {
       return "Volume PR";
     }
+    default: {
+      return kind;
+    }
   }
 }
 
@@ -165,6 +168,9 @@ export function formatPreviousBest(kind: RecordKind, value: number): string {
     }
     case "volume": {
       return `${formatDisplayInteger(value)} kg`;
+    }
+    default: {
+      return `${formatDisplayInteger(value)}`;
     }
   }
 }

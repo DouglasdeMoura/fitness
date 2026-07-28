@@ -62,7 +62,7 @@ describe(getStoredTheme, () => {
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] ?? null,
       removeItem: (key: string) => {
-        delete store[key];
+        store[key] = undefined as unknown as string;
       },
       setItem: (key: string, value: string) => {
         store[key] = value;

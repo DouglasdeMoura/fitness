@@ -17,34 +17,41 @@ Workout logging system with exercise library, set/rep/RPE tracking, volume calcu
 ## Science-Backed Features
 
 ### 1RM Estimation (Epley Equation)
+
 ```
 1RM = weight × (1 + reps/30)
 ```
+
 Reference: Epley B. "Weight Training." Encyclopedia of Sports Medicine. 1985
 
 ### RPE to RIR Conversion
-| RPE | RIR | Interpretation |
-|-----|-----|----------------|
-| 6 | 4 | Very easy, warm-up weight |
-| 7 | 3 | Moderate, 3 reps left |
-| 8 | 2 | Hard, 2 reps left |
-| 9 | 1 | Very hard, 1 rep left |
-| 10 | 0 | Max effort, no reps left |
+
+| RPE | RIR | Interpretation            |
+| --- | --- | ------------------------- |
+| 6   | 4   | Very easy, warm-up weight |
+| 7   | 3   | Moderate, 3 reps left     |
+| 8   | 2   | Hard, 2 reps left         |
+| 9   | 1   | Very hard, 1 rep left     |
+| 10  | 0   | Max effort, no reps left  |
 
 For hypertrophy: target RPE 7-9 (Zourdos et al. 2016)
 
 ### Volume Calculation
+
 ```
 Volume = sets × reps × weight
 ```
+
 Primary driver of hypertrophy (Schoenfeld et al. 2017)
 
 ### Progressive Overload Suggestions
+
 - RPE ≤ 7 with extra reps → increase weight 2.5%
 - RPE ≥ 9 with missed reps → maintain weight
 - RPE 7-9 at target reps → add 1 rep before increasing weight
 
 ## Exercise Library Categories
+
 - **Compound:** Bench Press, Squat, Deadlift, OHP, Rows
 - **Isolation:** Biceps Curl, Triceps Pushdown, Lateral Raise
 - **Bodyweight:** Push-up, Pull-up, Plank, Burpee

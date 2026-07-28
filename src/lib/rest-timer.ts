@@ -291,10 +291,10 @@ export function playRestCompleteCue(): void {
 
 export function shouldMountRestTimer(
   pathname: string,
-  snapshot: RestTimerSnapshot
+  timerSnapshot: RestTimerSnapshot
 ): boolean {
   if (pathname === "/workout" || pathname.startsWith("/workout/")) {
     return true;
   }
-  return snapshot.endAtMs !== null || snapshot.lastRpe !== null;
+  return timerSnapshot.endAtMs !== null || timerSnapshot.lastRpe !== null;
 }

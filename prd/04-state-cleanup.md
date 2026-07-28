@@ -14,8 +14,7 @@ Sweep the codebase file-by-file and eliminate every `useState` and `useEffect` t
 
 ### 1. State that mirrors server data — use TanStack Form
 
-The project uses `@tanstack/react-form` for all form state management.
-Forms should NOT use individual `useState` calls for fields. Instead:
+The project uses `@tanstack/react-form` for all form state management. Forms should NOT use individual `useState` calls for fields. Instead:
 
 ```tsx
 import { useForm } from '@tanstack/react-form'
@@ -52,7 +51,7 @@ const totals = useMemo(() => calculateTotals(entries), [entries])
 
 ```tsx
 // 🔴 Avoid: tracking "saved" state manually
-const [saved, setSaved] = useState(false)
+const [saved, setSaved] = useState(false);
 // ...in handler: setSaved(true); setTimeout(() => setSaved(false), 2000)
 
 // ✅ Better: use TanStack Query's mutation state (isPending, isSuccess)
@@ -63,7 +62,9 @@ const [saved, setSaved] = useState(false)
 
 ```tsx
 // 🔴 Avoid: syncing query data to local state on mount
-useEffect(() => { setName(user.name) }, [user])
+useEffect(() => {
+  setName(user.name);
+}, [user]);
 
 // ✅ Better: use `user.name` directly, or use `useForm` pattern
 // with `key={user.id}` to reset on user change
@@ -72,13 +73,16 @@ useEffect(() => { setName(user.name) }, [user])
 ## Batches
 
 ### Batch 1: Settings page (`src/routes/settings/index.tsx`) — 8 useState
+
 Replace ALL form state with `@tanstack/react-form`'s `useForm` hook:
+
 - Single `useForm` call with `defaultValues` from the `user` query
 - `form.state.isSubmitting` replaces manual `saved` state
 - `form.handleSubmit` calls the `updateUser` server function
 - No `useState` for any form field
 
 ### Batch 2: Workout page (`src/routes/workout/index.tsx`) — 5 useState + 1 useEffect
+
 - `activeSession`: keep (legitimate UI state for current workout)
 - `programTargets`: derive from query data if possible
 - `selectedExercise`: keep (legitimate UI selection state)
@@ -86,24 +90,30 @@ Replace ALL form state with `@tanstack/react-form`'s `useForm` hook:
 - `useEffect` syncing program targets: replace with derived value
 
 ### Batch 3: Program detail (`src/routes/workout/programs/$programId.tsx`) — 9 useState + 1 useEffect
+
 Replace ALL form state with `@tanstack/react-form`:
+
 - Single `useForm` with `defaultValues` from the program query
 - Remove the `useEffect` that syncs query data to local state — TanStack Form handles this via `defaultValues` + `form.reset()` on data change
 - `form.state.isSubmitting` replaces `saved` state
 
 ### Batch 4: Template detail (`src/routes/nutrition/templates/$templateId.tsx`) — 9 useState + 1 useEffect
+
 Replace ALL form state with `@tanstack/react-form`:
+
 - Single `useForm` with `defaultValues` from the template query
 - Remove the `useEffect` syncing query data to local state
 - `form.state.isSubmitting` replaces `saved` state
 
 ### Batch 5: AddFoodCard (`src/components/nutrition/AddFoodCard.tsx`) — 9 useState
+
 - `query`, `results`, `hasSearched`: replace with TanStack Query `useQuery` for search
 - `selectedFood`, `servings`, `mealType`: consolidate into a single `@tanstack/react-form` instance for the food log entry
 - `isOpen`: keep (legitimate UI toggle)
 - `draft` (custom food): use a `@tanstack/react-form` instance for the custom food creation form
 
 ### Batch 6: Remaining files (programs/index, templates/index, planning, AppChrome, OfflineStatus)
+
 - `showCreate`, `name`, `description`, `frequency`, `periodizationType` patterns: replace create forms with `@tanstack/react-form`
 - AppChrome: `colorMode`/`themeReady` Effects are legitimate (syncing localStorage)
 - OfflineStatus: Effects are legitimate (browser API sync)

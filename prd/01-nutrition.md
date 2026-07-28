@@ -16,17 +16,20 @@ Comprehensive nutrition tracking system with a food database, daily logging, and
 ## Science-Backed Calculations
 
 ### Calorie Targets
+
 - **Surplus (build muscle):** TDEE + 10%
 - **Deficit (lose fat):** TDEE - 20%
 - **Maintenance:** TDEE
 - **Recomp:** TDEE (high protein)
 
 ### Macro Distribution
+
 - **Protein:** Goal-dependent (1.6-2.4 g/kg bodyweight)
 - **Fat:** 0.8-1.2 g/kg (endocrine health minimum)
 - **Carbs:** Remaining calories (primary fuel for training)
 
 ### Fiber
+
 - 14g per 1000 kcal (USDA Dietary Guidelines)
 
 ## Data Model

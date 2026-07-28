@@ -300,18 +300,21 @@ function ProgramDetailPage() {
               return;
             }
             const day = days[dayIndex];
-            const exercises = day.exercises.map((exercise) =>
+            const updatedExercises = day.exercises.map((exercise) =>
               exercise.tempId === exerciseTempId
                 ? { ...exercise, ...patch }
                 : exercise
             );
-            daysField.replaceValue(dayIndex, { ...day, exercises });
+            daysField.replaceValue(dayIndex, {
+              ...day,
+              exercises: updatedExercises,
+            });
           };
           const addDay = () => {
             daysField.pushValue(newProgramDay(days.length));
           };
           const addExercise = (dayTempId: string) => {
-            const firstExercise = exercises[0];
+            const [firstExercise] = exercises;
             if (!firstExercise) {
               return;
             }
@@ -345,10 +348,13 @@ function ProgramDetailPage() {
               return;
             }
             const day = days[dayIndex];
-            const exercises = day.exercises.filter(
+            const remainingExercises = day.exercises.filter(
               (exercise) => exercise.tempId !== exerciseTempId
             );
-            daysField.replaceValue(dayIndex, { ...day, exercises });
+            daysField.replaceValue(dayIndex, {
+              ...day,
+              exercises: remainingExercises,
+            });
           };
 
           if (days.length === 0) {

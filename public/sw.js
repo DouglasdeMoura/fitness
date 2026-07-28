@@ -14,7 +14,7 @@ const VERSION = "v1";
 const SHELL_CACHE = `fittrack-shell-${VERSION}`;
 const ASSET_CACHE = `fittrack-assets-${VERSION}`;
 const DATA_CACHE = `fittrack-data-${VERSION}`;
-const OWNED_CACHES = [SHELL_CACHE, ASSET_CACHE, DATA_CACHE];
+const OWNED_CACHES = new Set([SHELL_CACHE, ASSET_CACHE, DATA_CACHE]);
 
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL_ROUTES = [
@@ -67,7 +67,7 @@ self.addEventListener("activate", (event) => {
       await Promise.all(
         keys
           .filter(
-            (key) => key.startsWith("fittrack-") && !OWNED_CACHES.includes(key)
+            (key) => key.startsWith("fittrack-") && !OWNED_CACHES.has(key)
           )
           .map((key) => caches.delete(key))
       );
@@ -82,7 +82,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
+  const {request} = event;
 
   // Mutations belong to the outbox; letting them fall through means a failed
   // POST surfaces as a network error the app can catch and queue.

@@ -27,6 +27,7 @@ After the Astryx migration and state cleanup, the app uses the right components 
 ## Design Principles (Apple-Inspired, Astryx-Powered)
 
 ### 1. Typographic Hierarchy — Numbers Are Heroes
+
 Apple's Fitness app makes the **number** the star. The unit is secondary.
 
 ```
@@ -41,6 +42,7 @@ Apple:    165         (display-2, bold)
 - Use `hasTabularNumbers` on all numeric data so columns align
 
 ### 2. Generous Spacing — Let It Breathe
+
 Apple uses whitespace to create focus. Content shouldn't feel cramped.
 
 - Page padding: `contentPadding={5}` (20px) minimum, not 0
@@ -50,6 +52,7 @@ Apple uses whitespace to create focus. Content shouldn't feel cramped.
 - Use `VStack gap={6}` between major page sections
 
 ### 3. Motion That Guides the Eye
+
 Astryx provides motion tokens (`--duration-fast`, `--ease-standard`). Use them.
 
 - **Page transitions**: Content should subtly fade/slide in (medium duration, 410ms)
@@ -60,6 +63,7 @@ Astryx provides motion tokens (`--duration-fast`, `--ease-standard`). Use them.
 - **Toasts**: Astryx handles entrance animation — just use `useToast()`
 
 ### 4. Color with Intent
+
 - **Accent color**: Reserve for primary actions and key metrics only
 - **Semantic colors**: Green for positive progress (protein hit), amber for warnings (approaching limit), red for over-target
 - **Neutral surfaces**: Let the content pop against muted backgrounds
@@ -67,17 +71,19 @@ Astryx provides motion tokens (`--duration-fast`, `--ease-standard`). Use them.
 - **Charts**: Use accent color sparingly. Multi-series charts should use 3-4 distinguishable, theme-consistent colors.
 
 ### 5. Focused Pages — One Thing Well
+
 Each page should have a clear primary purpose:
 
-| Page | Primary Purpose | Hero Element |
-|------|----------------|--------------|
-| Dashboard | "How am I doing today?" | Calorie ring / remaining number |
-| Nutrition | "What did I eat?" | Macro progress + food log |
-| Workout | "Lift weights and log it" | Active session interface |
-| Progress | "Am I improving?" | Weight trend chart + volume analysis |
-| Settings | "Configure my plan" | Profile form + goal selector |
+| Page      | Primary Purpose           | Hero Element                         |
+| --------- | ------------------------- | ------------------------------------ |
+| Dashboard | "How am I doing today?"   | Calorie ring / remaining number      |
+| Nutrition | "What did I eat?"         | Macro progress + food log            |
+| Workout   | "Lift weights and log it" | Active session interface             |
+| Progress  | "Am I improving?"         | Weight trend chart + volume analysis |
+| Settings  | "Configure my plan"       | Profile form + goal selector         |
 
 ### 6. Onboarding — First Run Experience
+
 Apple apps guide first-time users. Ours shows empty data.
 
 - **Dashboard (first visit)**: Instead of zeros, show a welcoming setup prompt: "Welcome to FitTrack. Let's set up your nutrition targets." with a CTA to settings.
@@ -85,6 +91,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - **Settings**: Highlight the goal selector with a subtle visual emphasis (Card with variant, or Spotlight-like callout).
 
 ### 7. Information Density — Progressive Disclosure
+
 - Dashboard: show the 3-4 most important numbers prominently. Everything else is secondary or in a detail view.
 - Don't show raw "BMR: 1718 kcal" on the dashboard — show "TDEE: 2662 kcal" (the actionable number). BMR is in settings/expanding detail.
 - Workout page: hide advanced metrics (volume, est. 1RM) behind expandable sections until the user wants them.
@@ -92,6 +99,7 @@ Apple apps guide first-time users. Ours shows empty data.
 ## Batches
 
 ### Batch 1: Dashboard Redesign — Calorie Ring + Hero Numbers
+
 **Goal**: Make the dashboard instantly scannable and motivating.
 
 - Replace calorie progress bar with a **circular progress ring** (SVG, using Astryx motion tokens) showing consumed vs. target
@@ -103,6 +111,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - Welcome state for first-time users (EmptyState with "Set up your targets" CTA)
 
 ### Batch 2: Nutrition Page — Meal-Based Layout
+
 **Goal**: Make food logging feel like a natural meal-by-meal flow.
 
 - Organize food log by meal type (Breakfast, Lunch, Dinner, Snack) as collapsible sections
@@ -114,6 +123,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - Use `MetadataList` for per-meal macro breakdowns
 
 ### Batch 3: Workout Page — Focused Session Interface
+
 **Goal**: Make the active workout screen feel like a dedicated training tool.
 
 - When a session is active, hide everything except the current exercise and set logging
@@ -125,6 +135,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - "Finish Workout" button prompts summary dialog with total volume, sets, duration
 
 ### Batch 4: Progress Page — Storytelling Charts
+
 **Goal**: Make progress feel tangible and motivating.
 
 - Weight chart: smooth area chart (not just a line) with gradient fill
@@ -135,6 +146,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - All charts use Astryx color tokens, never raw hex values
 
 ### Batch 5: Settings — Clean Form Experience
+
 **Goal**: Make configuration feel like iOS Settings — calm and organized.
 
 - Group settings into clear sections: Profile, Body Metrics, Goals, Data
@@ -146,6 +158,7 @@ Apple apps guide first-time users. Ours shows empty data.
 - Data export/import in a "Data Management" section at the bottom
 
 ### Batch 6: Cross-Cutting Polish
+
 **Goal**: The details that make it feel crafted.
 
 - Page transitions: subtle fade using Astryx motion tokens

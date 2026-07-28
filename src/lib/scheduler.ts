@@ -167,8 +167,5 @@ export async function handleSchedulerCronRequest(
 }
 
 function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
-    status,
-  });
+  return Response.json(body, { status });
 }

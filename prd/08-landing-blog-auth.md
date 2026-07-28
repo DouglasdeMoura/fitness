@@ -45,6 +45,7 @@ A polished marketing landing page at `/` (authenticated users redirect to `/dash
    - Button: "Create your free account"
 
 ### Components
+
 - `AppShell` with simplified TopNav (no Dashboard/Settings links when not authenticated)
 - `Heading` display-1/2 for hero text
 - `Text` supporting for subheadings
@@ -54,6 +55,7 @@ A polished marketing landing page at `/` (authenticated users redirect to `/dash
 - `VStack`/`HStack` for layout
 
 ### Route
+
 - `/` → Landing page (when not authenticated)
 - `/` → Redirect to `/dashboard` (when authenticated)
 - Separate route component, not inside the app shell
@@ -114,6 +116,7 @@ readingTime: 5
    - "Related articles" at the bottom
 
 ### Components
+
 - `Markdown` from `@astryxdesign/core/Markdown` for rendering post content
 - `ClickableCard` for blog index cards
 - `Badge` for tags
@@ -132,6 +135,7 @@ The app has a single hardcoded "default user." All data (food logs, workouts, pr
 ### Solution
 
 Better Auth provides a complete auth framework with:
+
 - Email/password sign-up and sign-in
 - Social OAuth (GitHub, Google)
 - Session management via secure HTTP-only cookies
@@ -178,12 +182,7 @@ import { createAuthClient } from "better-auth/tanstack-start";
 
 export const authClient = createAuthClient();
 
-export const {
-  signIn,
-  signOut,
-  signUp,
-  useSession,
-} = authClient;
+export const { signIn, signOut, signUp, useSession } = authClient;
 ```
 
 #### 3. API Route Handler (`src/routes/api/auth/$.ts`)
@@ -229,8 +228,16 @@ export const auth = betterAuth({
     additionalFields: {
       heightCm: { type: "number", required: false },
       sex: { type: "string", required: false, defaultValue: "male" },
-      activityLevel: { type: "string", required: false, defaultValue: "moderate" },
-      goalType: { type: "string", required: false, defaultValue: "build_muscle" },
+      activityLevel: {
+        type: "string",
+        required: false,
+        defaultValue: "moderate",
+      },
+      goalType: {
+        type: "string",
+        required: false,
+        defaultValue: "build_muscle",
+      },
       birthDate: { type: "string", required: false },
     },
   },
@@ -242,29 +249,34 @@ This eliminates the need for a separate `users` table — Better Auth's user tab
 ### Auth Pages
 
 #### Sign In (`/sign-in`)
+
 - Email + password form (TanStack Form)
 - "Sign in with GitHub" social button
 - Link to sign-up page
 - Astryx Card centered on page with Field + TextInput + Button
 
 #### Sign Up (`/sign-up`)
+
 - Name, email, password form (TanStack Form)
 - "Sign up with GitHub" social button
 - Link to sign-in page
 - Validation (password strength, email format)
 
 #### Protected Routes
+
 - All app routes (`/dashboard`, `/nutrition`, `/workout`, `/progress`, `/settings`) require authentication
 - If not authenticated → redirect to `/sign-in`
 - Server functions check session via `auth.api.getSession()`
 
 ```typescript
-export const getDashboardStats = createServerFn({ method: "GET" }).handler(async (ctx) => {
-  const session = await auth.api.getSession({ headers: ctx.request.headers })
-  if (!session) throw new Error("Unauthorized")
-  const userId = session.user.id
-  // Query data for this user only
-})
+export const getDashboardStats = createServerFn({ method: "GET" }).handler(
+  async (ctx) => {
+    const session = await auth.api.getSession({ headers: ctx.request.headers });
+    if (!session) throw new Error("Unauthorized");
+    const userId = session.user.id;
+    // Query data for this user only
+  }
+);
 ```
 
 ### Migration Plan
@@ -281,6 +293,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 ## Batches
 
 ### Batch 1: Better Auth Setup + Schema
+
 - Install better-auth
 - Create `src/lib/auth.ts` with Drizzle adapter
 - Run `npx @better-auth/cli generate` for schema
@@ -289,6 +302,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - Add `.env` variables (BETTER_AUTH_SECRET, BETTER_AUTH_URL)
 
 ### Batch 2: Auth Pages (Sign In / Sign Up)
+
 - Create `/sign-in` route with TanStack Form
 - Create `/sign-up` route with TanStack Form
 - Social login buttons (GitHub OAuth)
@@ -296,12 +310,14 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - Error handling with Astryx Banner for auth failures
 
 ### Batch 3: Route Guards + Server Function Migration
+
 - Add `requireAuth()` helper that checks session in server functions
 - Update all server functions to use `session.user.id`
 - Redirect unauthenticated users from app routes to `/sign-in`
 - Landing page (`/`) shows marketing content when not authenticated
 
 ### Batch 4: Landing Page
+
 - Hero section with headline, subheadline, CTA
 - Feature highlight cards (ClickableCard)
 - Science explainer section
@@ -309,6 +325,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - Simplified TopNav for unauthenticated users
 
 ### Batch 5: Blog Infrastructure
+
 - Set up `content/blog/` directory with Markdown frontmatter parsing
 - Server function to list and read blog posts
 - `/blog` index page with ClickableCard grid
@@ -316,6 +333,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - Tag filtering with SegmentedControl or Badge
 
 ### Batch 6: Blog Content
+
 - Write 3-5 initial blog posts covering the core science:
   - Protein for hypertrophy (Morton et al. 2018)
   - BMR and TDEE explained (Mifflin-St Jeor)
@@ -328,6 +346,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 ## Acceptance Criteria
 
 ### Authentication
+
 - [ ] Users can sign up with email/password
 - [ ] Users can sign in with GitHub OAuth
 - [ ] Sessions persist across page reloads (HTTP-only cookies)
@@ -336,6 +355,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - [ ] Sign out works
 
 ### Landing Page
+
 - [ ] Landing page renders at `/` when not authenticated
 - [ ] Hero section with headline and CTA
 - [ ] Feature cards are clickable
@@ -343,6 +363,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - [ ] Authenticated users redirect to `/dashboard`
 
 ### Blog
+
 - [ ] Blog index at `/blog` shows all posts
 - [ ] Individual posts render Markdown with Astryx Markdown component
 - [ ] Frontmatter parsing (title, date, tags, description)
@@ -350,6 +371,7 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(async
 - [ ] At least 3 initial articles published
 
 ### General
+
 - [ ] All Astryx components (no custom CSS)
 - [ ] All unit tests pass
 - [ ] All e2e tests pass
