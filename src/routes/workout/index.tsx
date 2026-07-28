@@ -94,17 +94,21 @@ interface WorkoutSearch {
   summary?: boolean;
 }
 
+type WorkoutSessionTableRow = WorkoutSession & Record<string, unknown>;
+
 export const Route = createFileRoute("/workout/")({
   component: WorkoutPage,
   head: () => ({ meta: [{ title: "Workout - FitTrack" }] }),
   loader: async ({ deps }) => {
-    const selectedDate = resolveSelectedDate(deps.date);
+    const selectedDate = resolveSelectedDate((deps as WorkoutSearch).date);
     const sessions = await getWorkoutSessions({
       data: { date: selectedDate, limit: 10 },
     });
     return { selectedDate, sessions };
   },
-  loaderDeps: ({ search: { date } }) => ({ date }),
+  loaderDeps: ({ search }) => ({
+    date: (search as WorkoutSearch).date,
+  }),
   pendingComponent: WorkoutSkeleton,
   validateSearch: (search: Record<string, unknown>): WorkoutSearch => {
     const rest = parseRestTimerSearch(search);
@@ -209,14 +213,15 @@ function WorkoutPageContent() {
   const isViewingSavedSession =
     sessionIdFromSearch !== undefined &&
     startedSession === null &&
-    urlSession !== null;
+    urlSession !== undefined;
 
   const isSummaryView =
     showSummary === true && sessionIdFromSearch !== undefined;
 
-  const historyExerciseIds = isViewingSavedSession
-    ? [...new Set(urlSession.sets.map((set) => set.exercise_id))]
-    : [];
+  const historyExerciseIds =
+    isViewingSavedSession && urlSession
+      ? [...new Set(urlSession.sets.map((set) => set.exercise_id))]
+      : [];
 
   const { data: historyByExercise } = useQuery({
     enabled: isViewingSavedSession && historyExerciseIds.length > 0,
@@ -235,12 +240,15 @@ function WorkoutPageContent() {
   });
 
   const sessionHistoryRows =
-    isViewingSavedSession && historyByExercise
+    isViewingSavedSession && urlSession && historyByExercise
       ? buildSessionHistoryRows(urlSession.sets, historyByExercise)
       : [];
 
   const hasProgramDay =
-    activeSession?.programId !== null && activeSession?.programDayId !== null;
+    activeSession?.programId !== undefined &&
+    activeSession.programId !== null &&
+    activeSession.programDayId !== undefined &&
+    activeSession.programDayId !== null;
   const { data: targetsResponse } = useQuery({
     enabled: hasProgramDay,
     queryFn: () =>
@@ -265,16 +273,23 @@ function WorkoutPageContent() {
     : undefined;
 
   const isFreeFormSession = !hasProgramDay;
+  const selectedExerciseId = selectedExercise?.id;
   const { data: lastPerformance } = useQuery({
-    enabled: selectedExercise !== null && isFreeFormSession,
-    queryFn: () =>
-      getLastPerformance({
+    enabled: selectedExerciseId !== undefined && isFreeFormSession,
+    queryFn: () => {
+      if (selectedExerciseId === undefined) {
+        throw new Error(
+          `Cannot load last performance for exercise ${String(selectedExerciseId)}; expected a numeric exercise id`
+        );
+      }
+      return getLastPerformance({
         data: {
           excludeSessionId: activeSession?.id ?? undefined,
-          exerciseId: selectedExercise?.id,
+          exerciseId: selectedExerciseId,
         },
-      }),
-    queryKey: ["last-performance", selectedExercise?.id, activeSession?.id],
+      });
+    },
+    queryKey: ["last-performance", selectedExerciseId, activeSession?.id],
   });
   const freeFormSuggestion = buildFreeFormSuggestion(lastPerformance ?? null);
 
@@ -468,7 +483,7 @@ function WorkoutPageContent() {
     }
 
     try {
-      if (removed.id !== null) {
+      if (removed.id !== undefined) {
         await deleteWorkoutSet({ data: { id: removed.id } });
       }
       setSets((prev) => prev.filter((_, i) => i !== index));
@@ -484,9 +499,11 @@ function WorkoutPageContent() {
             onUndo={async () => {
               dismiss();
               try {
+                const restoredSessionId = activeSession?.id;
                 if (
-                  removed.id !== null &&
-                  activeSession?.id !== null &&
+                  removed.id !== undefined &&
+                  restoredSessionId !== undefined &&
+                  restoredSessionId !== null &&
                   selectedExercise
                 ) {
                   const outcome = await runOrQueue(
@@ -495,7 +512,7 @@ function WorkoutPageContent() {
                       exercise_id: selectedExercise.id,
                       reps: removed.reps,
                       rpe: removed.rpe,
-                      session_id: activeSession.id,
+                      session_id: restoredSessionId,
                       set_number: index + 1,
                       weight_kg: removed.weight,
                     },
@@ -505,7 +522,7 @@ function WorkoutPageContent() {
                           exercise_id: selectedExercise.id,
                           reps: removed.reps,
                           rpe: removed.rpe,
-                          session_id: activeSession.id as number,
+                          session_id: restoredSessionId,
                           set_number: index + 1,
                           weight_kg: removed.weight,
                         },
@@ -850,7 +867,7 @@ function WorkoutPageContent() {
                 <Table
                   aria-label="Recent workout sessions"
                   columns={recentSessionColumns(selectedDate)}
-                  data={sessions}
+                  data={sessions as WorkoutSessionTableRow[]}
                   density="compact"
                   hasHover
                   idKey="id"
@@ -984,7 +1001,7 @@ function WorkoutPageContent() {
   );
 }
 
-interface SessionHistoryRow {
+interface SessionHistoryRow extends Record<string, unknown> {
   exercise_name: string;
   id: number;
   recordKinds: RecordKind[];
@@ -1111,10 +1128,9 @@ function buildExerciseOptions(
     value: String(exercise.id),
   }));
 }
-
 function recentSessionColumns(
   selectedDate: string
-): TableColumn<WorkoutSession>[] {
+): TableColumn<WorkoutSessionTableRow>[] {
   return [
     {
       header: "Date",
@@ -1146,45 +1162,6 @@ function recentSessionColumns(
             variant="secondary"
           />
         </HStack>
-      ),
-      width: proportional(2),
-    },
-  ];
-}
-
-function _programTargetColumns(): TableColumn<ProgramDayTarget>[] {
-  return [
-    {
-      header: "Exercise",
-      key: "exercise_name",
-      renderCell: (target) => <Text weight="bold">{target.exercise_name}</Text>,
-      width: proportional(2),
-    },
-    {
-      header: "Target",
-      key: "target",
-      renderCell: (target) => (
-        <HStack gap={2} wrap="wrap">
-          <Text type="supporting">
-            {target.target_sets} x {target.target_reps} @ RPE{" "}
-            {target.target_rpe}
-          </Text>
-          {target.dup_emphasis ? (
-            <Badge label={target.dup_emphasis} variant="info" />
-          ) : null}
-        </HStack>
-      ),
-      width: proportional(2),
-    },
-    {
-      header: "Suggested",
-      key: "suggested",
-      renderCell: (target) => (
-        <Text type="supporting">
-          {target.suggested_weight_kg
-            ? `${target.suggested_weight_kg} kg`
-            : target.progression_note}
-        </Text>
       ),
       width: proportional(2),
     },

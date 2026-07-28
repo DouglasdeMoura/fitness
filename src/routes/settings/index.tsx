@@ -447,8 +447,8 @@ function SettingsPageContent() {
                 {/* Last data point dot */}
                 {chartPoints.length > 0 && (
                   <circle
-                    cx={chartPoints.at(-1).x}
-                    cy={chartPoints.at(-1).y}
+                    cx={chartPoints.at(-1)!.x}
+                    cy={chartPoints.at(-1)!.y}
                     fill="var(--color-accent)"
                     r="3"
                   />

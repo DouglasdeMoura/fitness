@@ -3,8 +3,6 @@ pre-commit:
   commands:
     format:
       run: npx oxfmt --write src/ tests/ scripts/
-      glob: "*.{ts,tsx,mjs}"
     lint:
       run: npx oxlint --fix src/ tests/ scripts/
-      glob: "*.{ts,tsx,mjs}"
       stage_fixed: true

@@ -23,6 +23,9 @@ export type {
   EditableProgramExercise,
 } from "~/lib/program-form";
 
+type ProgramExerciseTableRow = EditableProgramExercise &
+  Record<string, unknown>;
+
 export type UpdateProgramExercise = (
   dayTempId: string,
   exerciseTempId: string,
@@ -71,7 +74,7 @@ export function ProgramExerciseTable({
           updateExercise,
           removeExercise
         )}
-        data={day.exercises}
+        data={day.exercises as ProgramExerciseTableRow[]}
         density="compact"
         hasHover
         idKey="tempId"
@@ -85,7 +88,7 @@ function programExerciseColumns(
   exercises: Exercise[],
   updateExercise: UpdateProgramExercise,
   removeExercise: ProgramExerciseTableProps["removeExercise"]
-): TableColumn<EditableProgramExercise>[] {
+): TableColumn<ProgramExerciseTableRow>[] {
   const exerciseOptions = exercises.map((exercise) => ({
     label: exercise.name,
     value: String(exercise.id),

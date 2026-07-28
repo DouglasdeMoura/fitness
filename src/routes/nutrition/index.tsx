@@ -46,7 +46,7 @@ export const Route = createFileRoute("/nutrition/")({
   component: NutritionPage,
   head: () => ({ meta: [{ title: "Nutrition - FitTrack" }] }),
   loader: async ({ deps }) => {
-    const selectedDate = resolveSelectedDate(deps.date);
+    const selectedDate = resolveSelectedDate((deps as NutritionSearch).date);
     const sourceDate = previousDay(selectedDate);
     const [summary, sourceSummary, targets, mealTemplates] = await Promise.all([
       getNutritionSummary({ data: { date: selectedDate } }),
@@ -63,7 +63,9 @@ export const Route = createFileRoute("/nutrition/")({
       targets,
     };
   },
-  loaderDeps: ({ search: { date } }) => ({ date }),
+  loaderDeps: ({ search }) => ({
+    date: (search as NutritionSearch).date,
+  }),
   pendingComponent: NutritionSkeleton,
   validateSearch: (search: Record<string, unknown>): NutritionSearch => ({
     date: parseSearchDate(

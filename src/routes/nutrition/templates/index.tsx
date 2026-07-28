@@ -66,10 +66,12 @@ type DeleteMealTemplate = (id: number) => Promise<void>;
 
 type LogMealTemplate = (template: MealTemplateSummary) => Promise<void>;
 
+type MealTemplateTableRow = MealTemplateSummary & Record<string, unknown>;
+
 function mealTemplateColumns(
   removeTemplate: DeleteMealTemplate,
   logTemplate: LogMealTemplate
-): TableColumn<MealTemplateSummary>[] {
+): TableColumn<MealTemplateTableRow>[] {
   return [
     {
       header: "Template",
@@ -350,7 +352,7 @@ function MealTemplatesPage() {
                 templateId: template.id,
               })
             )}
-            data={templates}
+            data={templates as MealTemplateTableRow[]}
             density="compact"
             hasHover
             idKey="id"

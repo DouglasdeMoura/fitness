@@ -136,7 +136,12 @@ export function buildProfileUpdate(
  * with `parseFloat` + falsy check.
  */
 export function parseWeightKg(value: number | null | undefined): number | null {
-  if (value === null || !Number.isFinite(value) || value <= 0) {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
     return null;
   }
   return value;

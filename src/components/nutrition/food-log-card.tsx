@@ -59,6 +59,7 @@ import {
 type RequestDeleteFoodEntry = (entry: FoodLogEntry) => void;
 type CopyMealFromYesterday = (mealType: MealType) => Promise<void>;
 type FoodLogRow = FoodLogEntry & { food_name?: string | null };
+type FoodLogTableRow = FoodLogRow & Record<string, unknown>;
 
 /**
  * Displays food entries grouped by meal with copy-from-yesterday shortcuts.
@@ -226,7 +227,7 @@ function MealLogSection({
             <Table
               aria-label={`${mealLabel} food log`}
               columns={foodLogColumns(onDelete)}
-              data={entries}
+              data={entries as FoodLogTableRow[]}
               density="compact"
               hasHover
               idKey="id"
@@ -487,8 +488,7 @@ function foodEntryLabel(entry: FoodLogRow) {
     </HStack>
   );
 }
-
-const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
+const FOOD_LOG_COLUMNS: TableColumn<FoodLogTableRow>[] = [
   {
     header: "Food",
     key: "custom_name",
@@ -520,7 +520,7 @@ const FOOD_LOG_COLUMNS: TableColumn<FoodLogRow>[] = [
 
 function foodLogColumns(
   onDelete: RequestDeleteFoodEntry
-): TableColumn<FoodLogRow>[] {
+): TableColumn<FoodLogTableRow>[] {
   return [
     ...FOOD_LOG_COLUMNS,
     {

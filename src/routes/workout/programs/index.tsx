@@ -68,10 +68,12 @@ const PERIODIZATION_OPTIONS = Object.entries(PERIODIZATION_LABELS).map(
 
 type ProgramAction = (id: number) => Promise<void>;
 
+type ProgramTableRow = ProgramSummary & Record<string, unknown>;
+
 function programColumns(
   activateProgram: ProgramAction,
   removeProgram: ProgramAction
-): TableColumn<ProgramSummary>[] {
+): TableColumn<ProgramTableRow>[] {
   return [
     {
       header: "Program",
@@ -375,7 +377,7 @@ function ProgramsPage() {
           <Table
             aria-label="Training programs"
             columns={programColumns(handleSetActive, requestDelete)}
-            data={programs}
+            data={programs as ProgramTableRow[]}
             density="compact"
             hasHover
             idKey="id"

@@ -23,9 +23,10 @@ export interface WorkoutSetRow {
   weight: number;
 }
 
-type WorkoutSetTableRow = WorkoutSetRow & {
-  rowIndex: number;
-};
+type WorkoutSetTableRow = Record<string, unknown> &
+  WorkoutSetRow & {
+    rowIndex: number;
+  };
 
 interface WorkoutSetsTableProps {
   exerciseName: string;

@@ -50,8 +50,8 @@ export function weightTrend(logs: BodyLog[]): WeightTrend | null {
   }
 
   const weights = weighted.map((log) => log.weight_kg);
-  const first = weighted[0].weight_kg;
-  const last = weighted.at(-1).weight_kg;
+  const first = weighted[0]!.weight_kg;
+  const last = weighted.at(-1)!.weight_kg;
 
   return {
     change: last - first,
@@ -285,7 +285,7 @@ export function areaChartPath(
   }
   const top = points.map((p) => `${p.x},${p.y}`).join(" L ");
   const bottomY = geometry.viewBoxHeight;
-  const lastX = points.at(-1).x;
-  const firstX = points[0].x;
+  const lastX = points.at(-1)!.x;
+  const firstX = points[0]!.x;
   return `M ${top} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
 }

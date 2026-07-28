@@ -122,7 +122,7 @@ export function recordKindsBySetId(
 
   for (let index = 0; index < chronologicalSets.length; index++) {
     const set = chronologicalSets[index];
-    if (set.id === null) {
+    if (!set || set.id === undefined) {
       continue;
     }
     const prior = chronologicalSets.slice(0, index);

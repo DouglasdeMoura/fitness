@@ -35,11 +35,13 @@ export const Route = createFileRoute("/review/")({
   component: ReviewPage,
   head: () => ({ meta: [{ title: "Weekly Review - FitTrack" }] }),
   loader: async ({ deps }) => {
-    const asOf = resolveSelectedDate(deps.date);
+    const asOf = resolveSelectedDate((deps as ReviewSearch).date);
     const review = await getWeeklyReview({ data: { asOf } });
     return { asOf, review };
   },
-  loaderDeps: ({ search: { date } }) => ({ date }),
+  loaderDeps: ({ search }) => ({
+    date: (search as ReviewSearch).date,
+  }),
   pendingComponent: ReviewSkeleton,
   validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
     date: parseSearchDate(

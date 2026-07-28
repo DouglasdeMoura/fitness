@@ -313,7 +313,7 @@ export function urlBase64ToUint8Array(
   // pushManager.subscribe's applicationServerKey.
   const output = new Uint8Array(new ArrayBuffer(raw.length));
   for (let index = 0; index < raw.length; index += 1) {
-    output[index] = raw.codePointAt(index);
+    output[index] = raw.codePointAt(index) ?? 0;
   }
   return output;
 }

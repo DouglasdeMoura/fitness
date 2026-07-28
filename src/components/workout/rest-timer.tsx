@@ -146,6 +146,7 @@ export function RestTimer() {
 
   const showControls = active || hasContext;
 
+  // Astryx Section renders a div and has no polymorphic element prop.
   return (
     <Section
       aria-label="Rest timer"
@@ -154,6 +155,7 @@ export function RestTimer() {
       minHeight="var(--app-rest-timer-reserved-height)"
       padding={2}
       variant="section"
+      role="region"
     >
       {showControls ? (
         <VStack gap={2}>

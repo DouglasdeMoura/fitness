@@ -75,6 +75,8 @@ type UpdateTemplateItem = (
 ) => void;
 type RemoveTemplateItem = (tempId: string) => void;
 
+type MealTemplateTableRow = EditableItem & Record<string, unknown>;
+
 const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(
   ([value, label]) => ({
     label,
@@ -85,7 +87,7 @@ const MEAL_TYPE_OPTIONS = Object.entries(MEAL_TYPE_LABELS).map(
 function mealTemplateItemColumns(
   updateItem: UpdateTemplateItem,
   removeItem: RemoveTemplateItem
-): TableColumn<EditableItem>[] {
+): TableColumn<MealTemplateTableRow>[] {
   return [
     {
       header: "Food",
@@ -477,7 +479,7 @@ function AddFoodsCard({
           <Table
             aria-label="Meal template foods"
             columns={mealTemplateItemColumns(onUpdate, onRemove)}
-            data={items}
+            data={items as MealTemplateTableRow[]}
             density="compact"
             hasHover
             idKey="tempId"

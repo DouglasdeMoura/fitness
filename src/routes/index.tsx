@@ -55,7 +55,7 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
   head: () => ({ meta: [{ title: "Dashboard - FitTrack" }] }),
   loader: async ({ deps }) => {
-    const asOf = resolveSelectedDate(deps.date);
+    const asOf = resolveSelectedDate((deps as DashboardSearch).date);
     const [stats, consistency, weeklyReview] = await Promise.all([
       getDashboardStats(),
       getConsistency({ data: { asOf } }),
@@ -63,7 +63,9 @@ export const Route = createFileRoute("/")({
     ]);
     return { asOf, consistency, stats, weeklyReview };
   },
-  loaderDeps: ({ search: { date } }) => ({ date }),
+  loaderDeps: ({ search }) => ({
+    date: (search as DashboardSearch).date,
+  }),
   pendingComponent: DashboardSkeleton,
   validateSearch: (search: Record<string, unknown>): DashboardSearch => ({
     date: parseSearchDate(

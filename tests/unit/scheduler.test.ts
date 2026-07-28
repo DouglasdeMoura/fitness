@@ -97,15 +97,23 @@ describe(runScheduledNotifications, () => {
     enableMealReminderAtNoon(db);
     const client = new FakePushNotificationClient();
     const shouldDeliverSpy = vi.spyOn(push, "shouldDeliver");
+    const now = new Date("2026-01-05T12:00:00");
 
     await runScheduledNotifications({
       client,
       db,
-      now: new Date("2026-01-05T12:00:00"),
+      now,
       vapid: TEST_VAPID,
     });
 
-    expect(shouldDeliverSpy).toHaveBeenCalledWith();
+    expect(shouldDeliverSpy).toHaveBeenCalledWith(
+      now,
+      expect.objectContaining({
+        meal_reminders: true,
+        meal_times: ["12:00"],
+      }),
+      "meal_reminder"
+    );
     shouldDeliverSpy.mockRestore();
   });
 

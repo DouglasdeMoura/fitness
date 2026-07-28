@@ -173,7 +173,7 @@ export function hydrateRestTimerFromUrl(
   url: RestTimerUrlState,
   nowMs: number
 ): void {
-  if (url.restEnd === null || url.restDur === null) {
+  if (url.restEnd === undefined || url.restDur === undefined) {
     return;
   }
   if (url.restEnd <= nowMs) {
