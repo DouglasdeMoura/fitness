@@ -1,9 +1,16 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import Database from "better-sqlite3";
 
-const __dirname = import.meta.dirname;
+// Bundled as a string rather than read at runtime. This was
+// `readFileSync(join(import.meta.dirname, "schema.sql"))`, which resolves to
+// src/lib/ under `vite dev` but to .output/server/_ssr/ in a production build —
+// and the bundler does not copy the .sql file there. So `npm run start` threw
+// ENOENT on the first request touching the database, and every DB-backed route
+// 500'd. It went unnoticed because `npm run build` only proves the bundle
+// builds, and the e2e suite only ever exercised `vite dev`.
+import schemaSql from "./schema.sql?raw";
 
 let dbInstance: Database.Database | null = null;
 
@@ -79,15 +86,20 @@ export function getDb(): Database.Database {
   if (!dbInstance) {
     const dbPath =
       process.env.DATABASE_PATH || join(process.cwd(), "data", "fittrack.db");
-    const dir = dirname(dbPath);
-    import("node:fs").then((fs) => fs.mkdirSync(dir, { recursive: true }));
+    // Synchronous on purpose. This was `import("node:fs").then(fs => ...)`,
+    // which defers the mkdir to a microtask — but `new Database()` on the next
+    // line runs before that tick, so opening the file failed whenever data/ did
+    // not exist yet. The deferred mkdir then created the directory a moment too
+    // late, so the *next* run succeeded and the failure looked intermittent.
+    // In the dev loop that cost a whole verification cycle (and the model retry
+    // behind it) on any fresh clone, worktree, or rewound tree.
+    mkdirSync(dirname(dbPath), { recursive: true });
 
     dbInstance = new Database(dbPath);
     dbInstance.pragma("journal_mode = WAL");
     dbInstance.pragma("foreign_keys = ON");
 
-    const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
-    dbInstance.exec(schema);
+    dbInstance.exec(schemaSql);
     runMigrations(dbInstance);
   }
   return dbInstance;
