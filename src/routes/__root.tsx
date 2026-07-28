@@ -15,6 +15,8 @@ import { AppChrome } from "~/components/app-chrome";
 import {
   DARK_COLOR_SCHEME_QUERY,
   DEFAULT_COLOR_MODE,
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
   THEME_STORAGE_KEY,
 } from "~/lib/app-chrome";
 
@@ -49,6 +51,13 @@ const THEME_BOOTSTRAP_SCRIPT = `
     var root = document.documentElement;
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
+    var themeColor = theme === "dark"
+      ? "${THEME_COLOR_DARK}"
+      : "${THEME_COLOR_LIGHT}";
+    var themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) {
+      themeMeta.setAttribute("content", themeColor);
+    }
   })();
 `;
 
@@ -84,7 +93,7 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
         name: "viewport",
       },
-      { content: "#6741d9", name: "theme-color" },
+      { content: THEME_COLOR_LIGHT, name: "theme-color" },
       {
         content: "Science-backed nutrition and workout companion",
         name: "description",

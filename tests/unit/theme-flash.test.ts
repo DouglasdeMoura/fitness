@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "~/lib/app-chrome";
+
 const rootRouteSource = readFileSync(
   join(process.cwd(), "src/routes/__root.tsx"),
   "utf-8"
@@ -45,5 +47,26 @@ describe("pre-paint theme bootstrap (issue #76)", () => {
     expect(appChromeSource).not.toContain(
       'useState<"light" | "dark">("light")'
     );
+  });
+});
+
+describe("system preference and browser chrome (issue #78)", () => {
+  it("resolves prefers-color-scheme before the first paint", () => {
+    expect(rootRouteSource).toContain("DARK_COLOR_SCHEME_QUERY");
+    expect(rootRouteSource).toContain("prefersDark");
+  });
+
+  it("drives theme-color from the resolved theme before paint", () => {
+    expect(rootRouteSource).toContain('meta[name="theme-color"]');
+    expect(rootRouteSource).toContain("THEME_COLOR_DARK");
+    expect(rootRouteSource).toContain("THEME_COLOR_LIGHT");
+    expect(rootRouteSource).toContain(
+      `content: THEME_COLOR_LIGHT, name: "theme-color"`
+    );
+    expect(THEME_COLOR_LIGHT).not.toBe(THEME_COLOR_DARK);
+  });
+
+  it("keeps following the OS theme until the user makes an explicit choice", () => {
+    expect(appChromeSource).toContain("subscribeToSystemTheme");
   });
 });

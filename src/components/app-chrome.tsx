@@ -32,6 +32,7 @@ import {
   isWorkoutRoute,
   navValueFromPath,
   persistTheme,
+  subscribeToSystemTheme,
   THEME_CHANGE_EVENT,
   toggleColorMode,
 } from "~/lib/app-chrome";
@@ -125,6 +126,9 @@ export function AppChrome({ children }: { children: ReactNode }) {
     return () =>
       window.removeEventListener(THEME_CHANGE_EVENT, handler as EventListener);
   }, []);
+
+  // Follow OS colour scheme until the user makes an explicit Settings choice.
+  useEffect(() => subscribeToSystemTheme(setColorMode), []);
 
   useEffect(() => {
     if (isWorkoutRoute(pathname)) {

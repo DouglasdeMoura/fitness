@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  applyResolvedTheme,
   getStoredTheme,
+  getThemeColor,
+  hasExplicitThemeChoice,
   isAuthRoute,
   isBlogRoute,
   isMinimalChromeRoute,
@@ -10,7 +13,39 @@ import {
   isWorkoutRoute,
   navValueFromPath,
   persistTheme,
+  resolveTheme,
+  subscribeToSystemTheme,
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
 } from "~/lib/app-chrome";
+
+function createThemeDocument({
+  root,
+  provider,
+  themeMeta,
+}: {
+  root: { dataset: { theme: string }; style: { colorScheme: string } };
+  provider?: {
+    dataset: { theme: string };
+    style: { colorScheme: string };
+  };
+  themeMeta: { content: string };
+}) {
+  const querySelector = (selector: string) => {
+    if (selector === "[data-astryx-theme]") {
+      return provider ?? null;
+    }
+    if (selector === 'meta[name="theme-color"]') {
+      return themeMeta;
+    }
+    return null;
+  };
+  return {
+    body: { querySelector },
+    documentElement: root,
+    querySelector,
+  };
+}
 
 const NAV_ITEMS = [
   { href: "/dashboard" },
@@ -69,6 +104,54 @@ describe(isWorkoutRoute, () => {
   });
 });
 
+describe(resolveTheme, () => {
+  it("prefers an explicit stored choice over the operating system", () => {
+    expect(resolveTheme("light", true)).toBe("light");
+    expect(resolveTheme("dark", false)).toBe("dark");
+  });
+
+  it("follows the operating system when nothing valid is stored", () => {
+    expect(resolveTheme(null, true)).toBe("dark");
+    expect(resolveTheme("sepia", true)).toBe("dark");
+    expect(resolveTheme(undefined, false)).toBe("light");
+  });
+});
+
+describe(getThemeColor, () => {
+  it("returns different browser chrome colours for light and dark", () => {
+    expect(getThemeColor("light")).toBe(THEME_COLOR_LIGHT);
+    expect(getThemeColor("dark")).toBe(THEME_COLOR_DARK);
+    expect(THEME_COLOR_LIGHT).not.toBe(THEME_COLOR_DARK);
+  });
+});
+
+describe(hasExplicitThemeChoice, () => {
+  beforeEach(() => {
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("is false until the user saves light or dark", () => {
+    expect(hasExplicitThemeChoice()).toBe(false);
+    localStorage.setItem("fittrack-theme", "sepia");
+    expect(hasExplicitThemeChoice()).toBe(false);
+  });
+
+  it("is true after the user saves light or dark", () => {
+    localStorage.setItem("fittrack-theme", "dark");
+    expect(hasExplicitThemeChoice()).toBe(true);
+  });
+});
+
 describe(getStoredTheme, () => {
   beforeEach(() => {
     const store: Record<string, string> = {};
@@ -102,9 +185,41 @@ describe(getStoredTheme, () => {
     expect(getStoredTheme()).toBe("dark");
   });
 
-  it("treats unknown values as light", () => {
+  it("follows the operating system for unknown stored values", () => {
     localStorage.setItem("fittrack-theme", "sepia");
-    expect(getStoredTheme()).toBe("light");
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    expect(getStoredTheme()).toBe("dark");
+  });
+});
+
+describe(applyResolvedTheme, () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("updates the root, provider, and theme-color meta tag", () => {
+    const root = {
+      dataset: { theme: "light" },
+      style: { colorScheme: "light" },
+    };
+    const provider = {
+      dataset: { theme: "light" },
+      style: { colorScheme: "light" },
+    };
+    const themeMeta = { content: THEME_COLOR_LIGHT };
+    vi.stubGlobal(
+      "document",
+      createThemeDocument({ provider, root, themeMeta })
+    );
+
+    applyResolvedTheme("dark");
+
+    expect(root).toEqual({
+      dataset: { theme: "dark" },
+      style: { colorScheme: "dark" },
+    });
+    expect(provider).toEqual(root);
+    expect(themeMeta.content).toBe(THEME_COLOR_DARK);
   });
 });
 
@@ -122,13 +237,14 @@ describe(persistTheme, () => {
       dataset: { theme: "dark" },
       style: { colorScheme: "dark" },
     };
+    const themeMeta = { content: THEME_COLOR_DARK };
     const setItem = vi.fn();
     vi.stubGlobal("localStorage", { setItem });
     vi.stubGlobal("window");
-    vi.stubGlobal("document", {
-      body: { querySelector: () => provider },
-      documentElement: root,
-    });
+    vi.stubGlobal(
+      "document",
+      createThemeDocument({ provider, root, themeMeta })
+    );
 
     persistTheme("light");
 
@@ -138,6 +254,61 @@ describe(persistTheme, () => {
       style: { colorScheme: "light" },
     });
     expect(provider).toEqual(root);
+    expect(themeMeta.content).toBe(THEME_COLOR_LIGHT);
+  });
+});
+
+describe(subscribeToSystemTheme, () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("follows OS changes only while no explicit choice is stored", () => {
+    const store: Record<string, string> = {};
+    const listeners = new Set<() => void>();
+    const onChange = vi.fn();
+    const root = {
+      dataset: { theme: "light" },
+      style: { colorScheme: "light" },
+    };
+    const themeMeta = { content: THEME_COLOR_LIGHT };
+    let prefersDark = true;
+
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+    });
+    vi.stubGlobal("document", createThemeDocument({ root, themeMeta }));
+    vi.stubGlobal("window", {
+      dispatchEvent: vi.fn(),
+    });
+    vi.stubGlobal("matchMedia", () => ({
+      addEventListener: (_event: string, listener: () => void) => {
+        listeners.add(listener);
+      },
+      get matches() {
+        return prefersDark;
+      },
+      removeEventListener: (_event: string, listener: () => void) => {
+        listeners.delete(listener);
+      },
+    }));
+
+    const unsubscribe = subscribeToSystemTheme(onChange);
+    listeners.forEach((listener) => listener());
+    expect(onChange).toHaveBeenCalledWith("dark");
+    expect(root.dataset.theme).toBe("dark");
+    expect(themeMeta.content).toBe(THEME_COLOR_DARK);
+
+    localStorage.setItem("fittrack-theme", "light");
+    onChange.mockClear();
+    prefersDark = true;
+    listeners.forEach((listener) => listener());
+    expect(onChange).not.toHaveBeenCalled();
+
+    unsubscribe();
   });
 });
 
