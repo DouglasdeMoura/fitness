@@ -1,14 +1,13 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 
 import * as schema from "../../src/db/schema";
+import { readAllMigrationSql } from "./migration-sql";
 
 const EXPECTED_TABLES = [
+  "account",
   "body_logs",
   "exercises",
   "food_log",
@@ -22,25 +21,19 @@ const EXPECTED_TABLES = [
   "program_exercises",
   "programs",
   "push_subscriptions",
+  "session",
   "sync_queue",
+  "user",
   "users",
+  "verification",
   "workout_sessions",
   "workout_sets",
 ];
 
-function readInitialMigration(): string {
-  const migrationDirectory = join(process.cwd(), "drizzle");
-  const migrationFiles = readdirSync(migrationDirectory).filter((fileName) =>
-    fileName.endsWith(".sql")
-  );
-  expect(migrationFiles).toHaveLength(1);
-  return readFileSync(join(migrationDirectory, migrationFiles[0]!), "utf-8");
-}
-
 describe("Drizzle schema", () => {
   it("migrates every FitTrack table and supports typed queries", async () => {
     const sqlite = new Database(":memory:");
-    sqlite.exec(readInitialMigration());
+    sqlite.exec(readAllMigrationSql());
 
     const tableNames = sqlite
       .prepare(
@@ -94,5 +87,25 @@ describe("Drizzle schema", () => {
       "dinner",
       "snack",
     ]);
+  });
+
+  it("stores fitness profile defaults on the Better Auth user table (issue #42)", async () => {
+    const sqlite = new Database(":memory:");
+    sqlite.exec(readAllMigrationSql());
+    const db = drizzle(sqlite, { schema });
+    const inserted = await db
+      .insert(schema.user)
+      .values({
+        email: "auth@example.com",
+        id: "usr_test",
+        name: "Auth Athlete",
+      })
+      .returning();
+    expect(inserted[0]).toMatchObject({
+      activityLevel: "moderate",
+      goalType: "build_muscle",
+      sex: "male",
+    });
+    sqlite.close();
   });
 });

@@ -1,12 +1,10 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 
 import type { FitTrackDatabase } from "../../src/db";
 import * as relations from "../../src/db/relations";
 import * as schema from "../../src/db/schema";
+import { readAllMigrationSql } from "./migration-sql";
 
 export interface DrizzleTestDb {
   close: () => void;
@@ -30,12 +28,7 @@ export interface DrizzleTestDb {
  */
 export function createDrizzleTestDb(): DrizzleTestDb {
   const sqlite = new Database(":memory:");
-  sqlite.exec(
-    readFileSync(
-      join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
-      "utf-8"
-    )
-  );
+  sqlite.exec(readAllMigrationSql());
 
   const db = drizzle(sqlite, { schema: { ...schema, ...relations } });
 

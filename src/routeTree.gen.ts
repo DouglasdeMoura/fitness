@@ -15,6 +15,7 @@ import { Route as ProgressIndexRouteImport } from './routes/progress/index'
 import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as WorkoutIndexRouteImport } from './routes/workout/index'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronNotificationsRouteImport } from './routes/api/cron/notifications'
 import { Route as NutritionPlanningIndexRouteImport } from './routes/nutrition/planning/index'
 import { Route as NutritionTemplatesIndexRouteImport } from './routes/nutrition/templates/index'
@@ -50,6 +51,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
 const WorkoutIndexRoute = WorkoutIndexRouteImport.update({
   id: '/workout/',
   path: '/workout/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCronNotificationsRoute = ApiCronNotificationsRouteImport.update({
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workout': typeof WorkoutIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workout/': typeof WorkoutIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notifications': typeof ApiCronNotificationsRoute
   '/nutrition/templates/$templateId': typeof NutritionTemplatesTemplateIdRoute
   '/workout/programs/$programId': typeof WorkoutProgramsProgramIdRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/review/'
     | '/settings/'
     | '/workout/'
+    | '/api/auth/$'
     | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/settings'
     | '/workout'
+    | '/api/auth/$'
     | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/review/'
     | '/settings/'
     | '/workout/'
+    | '/api/auth/$'
     | '/api/cron/notifications'
     | '/nutrition/templates/$templateId'
     | '/workout/programs/$programId'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   ReviewIndexRoute: typeof ReviewIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   WorkoutIndexRoute: typeof WorkoutIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronNotificationsRoute: typeof ApiCronNotificationsRoute
   NutritionTemplatesTemplateIdRoute: typeof NutritionTemplatesTemplateIdRoute
   WorkoutProgramsProgramIdRoute: typeof WorkoutProgramsProgramIdRoute
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/workout'
       fullPath: '/workout/'
       preLoaderRoute: typeof WorkoutIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/cron/notifications': {
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewIndexRoute: ReviewIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   WorkoutIndexRoute: WorkoutIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronNotificationsRoute: ApiCronNotificationsRoute,
   NutritionTemplatesTemplateIdRoute: NutritionTemplatesTemplateIdRoute,
   WorkoutProgramsProgramIdRoute: WorkoutProgramsProgramIdRoute,

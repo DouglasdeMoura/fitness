@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 
 import {
+  account,
   exercises,
   foods,
   mealPlans,
@@ -9,6 +10,8 @@ import {
   programDays,
   programExercises,
   programs,
+  session,
+  user,
   workoutSessions,
   workoutSets,
 } from "./schema";
@@ -88,5 +91,23 @@ export const mealPlansRelations = relations(mealPlans, ({ one }) => ({
   template: one(mealTemplates, {
     fields: [mealPlans.templateId],
     references: [mealTemplates.id],
+  }),
+}));
+export const userRelations = relations(user, ({ many }) => ({
+  accounts: many(account),
+  sessions: many(session),
+}));
+
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
   }),
 }));
