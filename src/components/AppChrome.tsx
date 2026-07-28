@@ -20,6 +20,7 @@ import {
   isNavSelected,
   isWorkoutRoute,
   navValueFromPath,
+  THEME_CHANGE_EVENT,
   toggleColorMode,
 } from '~/lib/app-chrome'
 
@@ -101,6 +102,15 @@ export function AppChrome({ children }: { children: ReactNode }) {
     if (!themeReady) return
     localStorage.setItem('fittrack-theme', colorMode)
   }, [colorMode, themeReady])
+
+  // Listen for theme changes dispatched from Settings (issue #34).
+  useEffect(() => {
+    const handler = (event: CustomEvent<'light' | 'dark'>) => {
+      setColorMode(event.detail)
+    }
+    window.addEventListener(THEME_CHANGE_EVENT, handler as EventListener)
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handler as EventListener)
+  }, [])
 
   useEffect(() => {
     if (isWorkoutRoute(pathname)) {

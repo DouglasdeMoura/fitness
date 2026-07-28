@@ -58,6 +58,36 @@ export const GOAL_OPTIONS: SelectorOption[] = [
   { value: 'recomp', label: 'Body Recomposition' },
 ]
 
+/** Goal options with descriptions for the visual SelectableCard grid (issue #34). */
+export interface GoalCardOption {
+  value: GoalType
+  label: string
+  description: string
+}
+
+export const GOAL_CARD_OPTIONS: GoalCardOption[] = [
+  {
+    value: 'build_muscle',
+    label: 'Build Muscle',
+    description: '~10% calorie surplus to support hypertrophy training.',
+  },
+  {
+    value: 'lose_fat',
+    label: 'Lose Fat',
+    description: '~20% calorie deficit to promote fat loss while preserving muscle.',
+  },
+  {
+    value: 'maintain',
+    label: 'Maintain',
+    description: 'Eat at maintenance to keep current weight and body composition.',
+  },
+  {
+    value: 'recomp',
+    label: 'Recomp',
+    description: 'Slight deficit with high protein to build muscle while losing fat.',
+  },
+]
+
 /** Activity options derived from the shared ACTIVITY_LABELS catalogue. */
 export function activityOptions(): SelectorOption[] {
   return (Object.entries(ACTIVITY_LABELS) as [ActivityLevel, string][]).map(
@@ -167,3 +197,73 @@ export const SCIENCE_REFERENCES: ReadonlyArray<{ topic: string; citation: string
   { topic: 'RPE/RIR', citation: 'Zourdos et al., 2016 for autoregulation' },
   { topic: 'Volume', citation: 'Schoenfeld et al., 2017 dose-response data' },
 ]
+
+/** SVG sparkline point for the weight mini-chart (issue #34). */
+export interface WeightChartPoint {
+  date: string
+  weightKg: number
+  x: number
+  y: number
+}
+
+/**
+ * Transforms weight log entries into normalised SVG sparkline points.
+ * Chronological order (oldest left), y inverted so lower weight = higher on canvas.
+ */
+export function buildWeightChartPoints(
+  entries: { date: string; weight_kg: number | null }[],
+  chartWidth: number,
+  chartHeight: number,
+  padding: number,
+): WeightChartPoint[] {
+  const valid = entries
+    .filter((e): e is { date: string; weight_kg: number } => e.weight_kg != null && e.weight_kg > 0)
+    .reverse() // chronological order
+
+  if (valid.length < 2) return []
+
+  const weights = valid.map((e) => e.weight_kg)
+  const minW = Math.min(...weights)
+  const maxW = Math.max(...weights)
+  const range = maxW - minW || 1 // avoid division by zero
+
+  const w = chartWidth - padding * 2
+  const h = chartHeight - padding * 2
+
+  return valid.map((e, i) => ({
+    date: e.date,
+    weightKg: e.weight_kg,
+    x: padding + (i / Math.max(valid.length - 1, 1)) * w,
+    y: padding + h - ((e.weight_kg - minW) / range) * h,
+  }))
+}
+
+/**
+ * Builds an SVG polyline points string from chart points.
+ */
+export function weightChartPolyline(points: WeightChartPoint[]): string {
+  return points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+}
+
+/**
+ * Validates and parses a JSON file for data import.
+ * Returns null with an error message on failure.
+ */
+export function parseImportFile(
+  json: string,
+): { data: Record<string, unknown> } | { error: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return { error: 'Invalid JSON file.' }
+  }
+  if (typeof parsed !== 'object' || parsed == null || Array.isArray(parsed)) {
+    return { error: 'File must contain a JSON object, not an array.' }
+  }
+  const obj = parsed as Record<string, unknown>
+  if (obj.app !== 'FitTrack') {
+    return { error: 'Not a valid FitTrack export file.' }
+  }
+  return { data: obj }
+}

@@ -1,18 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import type { User } from '~/lib/db'
 import {
+  GOAL_CARD_OPTIONS,
   GOAL_OPTIONS,
   SCIENCE_REFERENCES,
   SEX_OPTIONS,
   activityOptions,
   buildProfileUpdate,
+  buildWeightChartPoints,
   exportDownloadFilename,
+  parseImportFile,
   parseWeightKg,
   profileFormDefaults,
   profileSaveButtonLabel,
   saveProfileButtonLabel,
   todayISODate,
   toISODate,
+  weightChartPolyline,
 } from '~/lib/settings'
 
 const userFixture = (overrides: Partial<User> = {}): User => ({
@@ -201,5 +205,118 @@ describe('SCIENCE_REFERENCES', () => {
     expect(blob).toContain('Epley')
     expect(blob).toContain('Zourdos')
     expect(blob).toContain('Schoenfeld')
+  })
+})
+
+describe('GOAL_CARD_OPTIONS', () => {
+  it('has four goal options each with a description', () => {
+    expect(GOAL_CARD_OPTIONS).toHaveLength(4)
+    for (const opt of GOAL_CARD_OPTIONS) {
+      expect(opt.value).toBeTruthy()
+      expect(opt.label).toBeTruthy()
+      expect(opt.description).toBeTruthy()
+    }
+  })
+
+  it('maps every value to a unique label', () => {
+    const values = GOAL_CARD_OPTIONS.map((o) => o.value)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('describes surplus for build_muscle and deficit for lose_fat', () => {
+    const muscle = GOAL_CARD_OPTIONS.find((o) => o.value === 'build_muscle')!
+    const fat = GOAL_CARD_OPTIONS.find((o) => o.value === 'lose_fat')!
+    expect(muscle.description).toContain('surplus')
+    expect(fat.description).toContain('deficit')
+  })
+})
+
+describe('buildWeightChartPoints', () => {
+  // DB returns entries in descending order (newest first).
+  const entries = [
+    { date: '2025-01-03', weight_kg: 79 },
+    { date: '2025-01-02', weight_kg: 79.5 },
+    { date: '2025-01-01', weight_kg: 80 },
+  ]
+
+  it('returns empty array for fewer than 2 valid entries', () => {
+    expect(buildWeightChartPoints([], 300, 80, 8)).toEqual([])
+    expect(buildWeightChartPoints([{ date: '2025-01-01', weight_kg: 80 }], 300, 80, 8)).toEqual([])
+  })
+
+  it('filters out null and non-positive weights', () => {
+    const mixed = [
+      { date: '2025-01-04', weight_kg: 79 },
+      { date: '2025-01-03', weight_kg: 0 },
+      { date: '2025-01-02', weight_kg: null },
+      { date: '2025-01-01', weight_kg: 80 },
+    ]
+    const points = buildWeightChartPoints(mixed, 300, 80, 8)
+    expect(points).toHaveLength(2)
+  })
+
+  it('returns chronologically ordered points with normalised coordinates', () => {
+    const points = buildWeightChartPoints(entries, 300, 80, 8)
+    expect(points).toHaveLength(3)
+    // Oldest first
+    expect(points[0].date).toBe('2025-01-01')
+    expect(points[2].date).toBe('2025-01-03')
+    // x increases monotonically
+    expect(points[0].x).toBeLessThan(points[1].x)
+    expect(points[1].x).toBeLessThan(points[2].x)
+    // Heavier weight gets smaller y coordinate (appears higher on chart).
+    expect(points[0].y).toBeLessThan(points[2].y) // 80kg above 79kg
+    // All x within padded bounds
+    for (const p of points) {
+      expect(p.x).toBeGreaterThanOrEqual(8)
+      expect(p.x).toBeLessThanOrEqual(292)
+      expect(p.y).toBeGreaterThanOrEqual(8)
+      expect(p.y).toBeLessThanOrEqual(72)
+    }
+  })
+})
+
+describe('weightChartPolyline', () => {
+  it('builds a space-separated SVG points string', () => {
+    const points = [
+      { date: '2025-01-01', weightKg: 80, x: 10, y: 50 },
+      { date: '2025-01-02', weightKg: 79, x: 50, y: 30 },
+    ]
+    expect(weightChartPolyline(points)).toBe('10.0,50.0 50.0,30.0')
+  })
+
+  it('returns empty string for empty points', () => {
+    expect(weightChartPolyline([])).toBe('')
+  })
+})
+
+describe('parseImportFile', () => {
+  it('validates a FitTrack export JSON', () => {
+    const result = parseImportFile(JSON.stringify({ app: 'FitTrack', version: '0.1.0' }))
+    expect('data' in result).toBe(true)
+  })
+
+  it('rejects non-JSON text', () => {
+    const result = parseImportFile('not json')
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Invalid JSON')
+    }
+  })
+
+  it('rejects arrays', () => {
+    const result = parseImportFile('[]')
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('object')
+    }
+  })
+
+  it('rejects non-FitTrack JSON', () => {
+    const result = parseImportFile(JSON.stringify({ app: 'OtherApp' }))
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('FitTrack')
+    }
   })
 })

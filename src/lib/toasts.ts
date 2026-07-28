@@ -24,6 +24,7 @@ export type MutationToastAction =
   | 'Save set'
   | 'Delete set'
   | 'Export data'
+  | 'Import data'
 
 /** Profile save confirmation. */
 export function profileSavedBody(): string {
@@ -79,6 +80,11 @@ export function setDeletedBody(): string {
 /** JSON export confirmation. */
 export function dataExportedBody(): string {
   return 'Data exported'
+}
+
+/** JSON import confirmation. */
+export function dataImportedBody(): string {
+  return 'Data imported'
 }
 
 /**

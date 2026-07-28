@@ -4,6 +4,16 @@ export function getStoredTheme(): 'light' | 'dark' {
   return stored === 'dark' ? 'dark' : 'light'
 }
 
+/** Custom event dispatched when theme is toggled from Settings (issue #34). */
+export const THEME_CHANGE_EVENT = 'fittrack-theme-changed'
+
+export function persistTheme(mode: 'light' | 'dark'): void {
+  localStorage.setItem('fittrack-theme', mode)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: mode }))
+  }
+}
+
 export function toggleColorMode(mode: 'light' | 'dark'): 'light' | 'dark' {
   return mode === 'light' ? 'dark' : 'light'
 }

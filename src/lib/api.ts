@@ -1517,6 +1517,112 @@ export const exportData = createServerFn({ method: 'GET' }).handler(async () => 
   }
 })
 
+/**
+ * Import previously exported FitTrack data.
+ * Inserts all records into the current user's database, preserving original
+ * dates and IDs to avoid conflicts. Uses a transaction for atomicity.
+ */
+export const importData = createServerFn({ method: 'POST' })
+  .validator((data: {
+    body_logs?: BodyLog[]
+    food_log?: FoodLogEntry[]
+    workouts?: WorkoutSession[]
+    workout_sets?: WorkoutSet[]
+    programs?: Program[]
+    program_days?: ProgramDay[]
+    program_exercises?: ProgramExercise[]
+  }) => data)
+  .handler(async (ctx) => {
+    const db = getDb()
+    const user = await ensureDefaultUser()
+
+    const importAll = db.transaction(() => {
+      const rows = { bodyLogs: 0, foodLog: 0, workouts: 0, sets: 0, programs: 0, days: 0, exercises: 0 }
+
+      if (ctx.data.body_logs?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO body_logs (id, user_id, date, weight_kg, body_fat_pct, muscle_mass_kg, waist_cm, notes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.body_logs) {
+          insert.run(r.id, user.id, r.date, r.weight_kg, r.body_fat_pct, r.muscle_mass_kg, r.waist_cm, r.notes, r.created_at)
+          rows.bodyLogs++
+        }
+      }
+
+      if (ctx.data.food_log?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO food_log (id, user_id, food_id, custom_name, date, meal_type, servings, calories, protein_g, carbs_g, fat_g, notes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.food_log) {
+          insert.run(r.id, user.id, r.food_id, r.custom_name, r.date, r.meal_type, r.servings, r.calories, r.protein_g, r.carbs_g, r.fat_g, r.notes, r.created_at)
+          rows.foodLog++
+        }
+      }
+
+      if (ctx.data.workouts?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO workout_sessions (id, user_id, date, name, duration_minutes, notes, program_id, program_day_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.workouts) {
+          insert.run(r.id, user.id, r.date, r.name, r.duration_minutes, r.notes, r.program_id, r.program_day_id, r.created_at)
+          rows.workouts++
+        }
+      }
+
+      if (ctx.data.workout_sets?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO workout_sets (id, session_id, exercise_id, set_number, reps, weight_kg, rpe, rest_seconds, notes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.workout_sets) {
+          insert.run(r.id, r.session_id, r.exercise_id, r.set_number, r.reps, r.weight_kg, r.rpe, r.rest_seconds, r.notes, r.created_at)
+          rows.sets++
+        }
+      }
+
+      if (ctx.data.programs?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO programs (id, user_id, name, description, frequency_per_week, periodization_type, progression_increment_pct, is_active, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.programs) {
+          insert.run(r.id, user.id, r.name, r.description, r.frequency_per_week, r.periodization_type, r.progression_increment_pct, r.is_active, r.created_at)
+          rows.programs++
+        }
+      }
+
+      if (ctx.data.program_days?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO program_days (id, program_id, day_name, sort_order, created_at)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.program_days) {
+          insert.run(r.id, r.program_id, r.day_name, r.sort_order, r.created_at)
+          rows.days++
+        }
+      }
+
+      if (ctx.data.program_exercises?.length) {
+        const insert = db.prepare(
+          `INSERT OR REPLACE INTO program_exercises (id, program_day_id, exercise_id, target_sets, target_reps, target_rpe, rest_seconds, sort_order, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        for (const r of ctx.data.program_exercises) {
+          insert.run(r.id, r.program_day_id, r.exercise_id, r.target_sets, r.target_reps, r.target_rpe, r.rest_seconds, r.sort_order, r.created_at)
+          rows.exercises++
+        }
+      }
+
+      return rows
+    })
+
+    const result = importAll()
+    return { success: true, ...result }
+  })
+
 // --- Dashboard Stats ---
 
 export const getDashboardStats = createServerFn({ method: 'GET' }).handler(async () => {
