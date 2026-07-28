@@ -21,7 +21,7 @@ export function DateNavigationBar({
   const isToday = selectedDate === today;
 
   return (
-    <HStack gap={2} vAlign="center" wrap="wrap">
+    <HStack data-visual-mask="" gap={2} vAlign="center" wrap="wrap">
       <IconButton
         icon={<span aria-hidden>←</span>}
         label="Previous day"

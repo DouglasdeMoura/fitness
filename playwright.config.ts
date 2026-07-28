@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
 
 // Port, server command and database are all env-driven so a run can be fully
@@ -16,7 +18,12 @@ const PORT = process.env.E2E_PORT ?? "3000";
 const WEB_SERVER_COMMAND =
   process.env.E2E_WEB_SERVER_COMMAND ?? "npm run build && npm run start";
 
+const E2E_DATABASE_PATH =
+  process.env.DATABASE_PATH ??
+  join(process.cwd(), "data", "e2e-fittrack.db");
+
 export default defineConfig({
+  globalSetup: "./tests/e2e/global-setup.ts",
   forbidOnly: !!process.env.CI,
   // Both stay off until every spec can be given its own database.
   //
@@ -43,7 +50,7 @@ export default defineConfig({
       // Mobile navigation specs belong with the bottom-nav change itself.
       name: "pixel-7",
       testMatch:
-        /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile)\.spec\.ts/,
+        /(mobile-layout|mobile-nav|a11y|pwa-install|push-notifications|gym-mobile|visual)\.spec\.ts/,
       use: { ...devices["Pixel 7"] },
     },
     {
@@ -65,6 +72,13 @@ export default defineConfig({
       use: { ...devices["iPhone 14"] },
     },
   ],
+  expect: {
+    toHaveScreenshot: {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixels: 0,
+    },
+  },
   reporter: "list",
   retries: process.env.CI ? 1 : 0,
   testDir: "./tests/e2e",
@@ -77,14 +91,18 @@ export default defineConfig({
   webServer: {
     command: WEB_SERVER_COMMAND,
     env: {
+      BETTER_AUTH_SECRET:
+        process.env.BETTER_AUTH_SECRET ??
+        "dev-only-change-me-before-production",
+      // Better Auth validates the request origin against baseURL — keep in sync
+      // with E2E_PORT so sign-in works when the suite uses a non-default port.
+      BETTER_AUTH_URL: `http://localhost:${PORT}`,
       E2E_PUSH_MOCK: "1",
       PORT,
       // Forwarded explicitly so the server opens the same file the specs seed
       // through openE2eDatabase(). Without it a run with DATABASE_PATH set
       // would have the specs writing one database and the app reading another.
-      ...(process.env.DATABASE_PATH
-        ? { DATABASE_PATH: process.env.DATABASE_PATH }
-        : {}),
+      DATABASE_PATH: E2E_DATABASE_PATH,
     },
     // Reuse is convenient locally (keep `npm run dev` open, re-run specs), but
     // it silently tests whatever is already listening on the port — including a

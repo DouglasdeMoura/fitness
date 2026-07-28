@@ -111,7 +111,9 @@ function DashboardPageContent() {
       <VStack as="main" gap={6}>
         <VStack gap={1}>
           <Heading level={1}>Dashboard</Heading>
-          <Text type="supporting">{today}</Text>
+          <Text data-visual-mask="" type="supporting">
+            {today}
+          </Text>
         </VStack>
         <EmptyState
           actions={
@@ -133,7 +135,9 @@ function DashboardPageContent() {
     <VStack as="main" gap={6}>
       <VStack gap={1}>
         <Heading level={1}>Dashboard</Heading>
-        <Text type="supporting">{today}</Text>
+        <Text data-visual-mask="" type="supporting">
+          {today}
+        </Text>
       </VStack>
 
       {/* Calorie ring — hero element */}

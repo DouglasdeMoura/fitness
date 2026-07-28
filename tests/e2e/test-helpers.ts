@@ -4,6 +4,8 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import Database from "better-sqlite3";
 
+import { SEED_DEMO_ACCOUNT } from "../../src/lib/seed-auth";
+
 /**
  * Absolute path of the SQLite file the app under test is using.
  *
@@ -80,10 +82,34 @@ export async function prepareTheme(
   }, colorMode);
 }
 
+/** Sign in with the seeded demo account when the app shell is not loaded. */
+export async function signInAsDemoUser(page: Page): Promise<void> {
+  await page.goto("/dashboard");
+  await page.waitForLoadState("domcontentloaded");
+  const appNav = page.getByRole("navigation", {
+    name: "FitTrack navigation",
+  });
+  if (await appNav.isVisible().catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/sign-in");
+  await page
+    .getByRole("textbox", { name: "Email" })
+    .fill(SEED_DEMO_ACCOUNT.email);
+  await page
+    .getByRole("textbox", { name: "Password" })
+    .fill(SEED_DEMO_ACCOUNT.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+  await expect(appNav).toBeVisible({ timeout: 15_000 });
+}
+
 export async function openAppRoute(
   page: Page,
   path: AppRoute | string
 ): Promise<void> {
+  await signInAsDemoUser(page);
   await page.goto(routeWithStableQuery(path));
   await page.waitForLoadState("networkidle");
   await expect(

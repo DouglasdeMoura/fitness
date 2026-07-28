@@ -110,7 +110,9 @@ function ReviewPageContent() {
     <VStack aria-label="Weekly review" as="main" gap={6}>
       <VStack gap={1}>
         <Heading level={1}>Weekly Review</Heading>
-        <Text type="supporting">{weekLabel}</Text>
+        <Text data-visual-mask="" type="supporting">
+          {weekLabel}
+        </Text>
       </VStack>
 
       <Card>
