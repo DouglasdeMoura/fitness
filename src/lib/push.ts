@@ -18,6 +18,7 @@ import {
 
 import type { NotificationType } from "./notification-preferences";
 import { isIosDevice } from "./pwa-install";
+import { requireEnvString } from "./schemas/env";
 import type { PushSubscriptionInput } from "./schemas/user";
 
 // --- Types ---
@@ -111,13 +112,19 @@ export function readVapidPublicKey(env: EnvLike = process.env): string | null {
 export function readVapidConfig(
   env: EnvLike = process.env
 ): VapidConfig | null {
-  const publicKey = readVapidPublicKey(env);
+  const publicKey = env.VAPID_PUBLIC_KEY?.trim();
   const privateKey = env.VAPID_PRIVATE_KEY?.trim();
-  if (!(publicKey && privateKey)) {
+  const subject = env.VAPID_SUBJECT?.trim();
+
+  if (!publicKey && !privateKey && !subject) {
     return null;
   }
-  const subject = env.VAPID_SUBJECT?.trim() || "mailto:fittrack@example.com";
-  return { privateKey, publicKey, subject };
+
+  return {
+    privateKey: requireEnvString(env, "VAPID_PRIVATE_KEY"),
+    publicKey: requireEnvString(env, "VAPID_PUBLIC_KEY"),
+    subject: requireEnvString(env, "VAPID_SUBJECT"),
+  };
 }
 
 // --- Database ---

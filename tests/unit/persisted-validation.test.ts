@@ -148,13 +148,11 @@ describe("persisted state rehydration (issue #72)", () => {
   });
 
   it("rejects a corrupt import file without throwing", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     const result = parseImportFile(JSON.stringify({ app: "OtherApp" }));
     expect("error" in result).toBe(true);
-
-    const payload = lastWarnPayload(warn);
-    expect(payload.context).toBe("settings.import_file");
+    if ("error" in result) {
+      expect(result.error).toMatch(/FitTrack/i);
+    }
   });
 
   it("still returns documented defaults for a fresh notification preferences row", () => {

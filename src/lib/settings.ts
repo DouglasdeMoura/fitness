@@ -11,8 +11,8 @@ import type { UserRecord } from "~/db/user-body-queries";
 import type { ActivityLevel, GoalType, Sex } from "~/lib/nutrition";
 import { ACTIVITY_LABELS } from "~/lib/nutrition";
 
-import { tryParsePersistedValue } from "./parse-persisted";
-import { fitTrackExportFileSchema } from "./schemas/persistence";
+import { parseFitTrackExportFile } from "./schemas/persistence";
+import type { ImportDataInput } from "./schemas/user";
 
 export interface ProfileFormState {
   activity: ActivityLevel;
@@ -282,7 +282,7 @@ export function weightChartPolyline(points: WeightChartPoint[]): string {
  */
 export function parseImportFile(
   json: string
-): { data: Record<string, unknown> } | { error: string } {
+): { data: ImportDataInput } | { error: string } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -293,14 +293,5 @@ export function parseImportFile(
     return { error: "File must contain a JSON object, not an array." };
   }
 
-  const data = tryParsePersistedValue(
-    fitTrackExportFileSchema,
-    parsed,
-    "settings.import_file"
-  );
-  if (!data) {
-    return { error: "Not a valid FitTrack export file." };
-  }
-
-  return { data };
+  return parseFitTrackExportFile(parsed);
 }

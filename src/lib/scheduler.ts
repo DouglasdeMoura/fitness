@@ -3,6 +3,8 @@
  * Burke et al. 2011: timely prompts support self-monitoring adherence.
  */
 
+import { z } from "zod";
+
 import type { FitTrackDatabase } from "~/db";
 
 import type {
@@ -21,6 +23,8 @@ import {
   shouldDeliver,
   tryClaimNotificationDelivery,
 } from "./push";
+import { requireEnvString } from "./schemas/env";
+import { schedulerCronRequestBodySchema } from "./schemas/scheduler";
 
 type EnvLike = Record<string, string | undefined>;
 
@@ -43,6 +47,34 @@ export interface RunScheduledNotificationsInput {
 export function readSchedulerSecret(env: EnvLike = process.env): string | null {
   const secret = env.SCHEDULER_SECRET?.trim();
   return secret || null;
+}
+
+/** Require the scheduler secret, naming the variable when absent. */
+export function requireSchedulerSecret(env: EnvLike = process.env): string {
+  return requireEnvString(env, "SCHEDULER_SECRET");
+}
+
+async function parseSchedulerCronBody(
+  request: Request
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const text = await request.text();
+  if (!text.trim()) {
+    return { ok: true };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { error: "Invalid JSON body.", ok: false };
+  }
+
+  const result = schedulerCronRequestBodySchema.safeParse(parsed);
+  if (!result.success) {
+    return { error: z.prettifyError(result.error), ok: false };
+  }
+
+  return { ok: true };
 }
 
 /** Validates Bearer token or X-Scheduler-Secret header. */
@@ -149,12 +181,23 @@ export async function handleSchedulerCronRequest(
   }
 ): Promise<Response> {
   const env = deps.env ?? process.env;
-  const secret = readSchedulerSecret(env);
-  if (!secret) {
-    return jsonResponse({ error: "scheduler-not-configured" }, 503);
+  let secret: string;
+  try {
+    secret = requireSchedulerSecret(env);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Missing environment variable: SCHEDULER_SECRET";
+    return jsonResponse({ error: message }, 503);
   }
   if (!verifySchedulerAuth(request, secret)) {
     return jsonResponse({ error: "unauthorized" }, 401);
+  }
+
+  const body = await parseSchedulerCronBody(request);
+  if (!body.ok) {
+    return jsonResponse({ error: body.error }, 400);
   }
 
   const result = await runScheduledNotifications({

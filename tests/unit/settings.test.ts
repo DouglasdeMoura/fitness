@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { UserRecord } from "~/db/user-body-queries";
+import { parseServerInput } from "~/lib/schemas/common";
+import { importDataInputSchema } from "~/lib/schemas/user";
 import {
   activityOptions,
   buildProfileUpdate,
@@ -19,6 +21,35 @@ import {
   toISODate,
   weightChartPolyline,
 } from "~/lib/settings";
+
+import { foodLog } from "../../src/db/schema";
+import { createDrizzleTestDb } from "./drizzle-test-db";
+
+const validFoodLogEntry = {
+  calories: 100,
+  carbs_g: 10,
+  created_at: "2026-01-01T00:00:00.000Z",
+  custom_name: null,
+  date: "2026-01-01",
+  fat_g: 5,
+  food_id: null,
+  id: 1,
+  meal_type: "breakfast" as const,
+  notes: null,
+  protein_g: 20,
+  servings: 1,
+  user_id: 1,
+};
+
+function validExportFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    app: "FitTrack",
+    exported_at: "2026-01-01T00:00:00.000Z",
+    user: { id: 1, name: "Test User" },
+    version: "0.1.0",
+    ...overrides,
+  };
+}
 
 const userFixture = (overrides: Partial<UserRecord> = {}): UserRecord => ({
   activityLevel: "moderate",
@@ -301,9 +332,7 @@ describe(weightChartPolyline, () => {
 
 describe(parseImportFile, () => {
   it("validates a FitTrack export JSON", () => {
-    const result = parseImportFile(
-      JSON.stringify({ app: "FitTrack", version: "0.1.0" })
-    );
+    const result = parseImportFile(JSON.stringify(validExportFixture()));
     expect("data" in result).toBeTruthy();
   });
 
@@ -327,7 +356,41 @@ describe(parseImportFile, () => {
     const result = parseImportFile(JSON.stringify({ app: "OtherApp" }));
     expect("error" in result).toBeTruthy();
     if ("error" in result) {
-      expect(result.error).toContain("FitTrack");
+      expect(result.error).toMatch(/FitTrack/i);
     }
+  });
+
+  it("names the offending field when a record is malformed", () => {
+    const result = parseImportFile(
+      JSON.stringify(
+        validExportFixture({
+          food_log: [{ ...validFoodLogEntry, calories: -1 }],
+        })
+      )
+    );
+
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("food_log[0].calories");
+    }
+  });
+});
+
+describe("import validation (issue #73)", () => {
+  it("rejects malformed import server-side before the database changes", () => {
+    const fixture = createDrizzleTestDb();
+    const countBefore = fixture.db.select().from(foodLog).all().length;
+
+    const malformed = {
+      food_log: [{ ...validFoodLogEntry, calories: -1 }],
+    };
+
+    expect(() => parseServerInput(importDataInputSchema, malformed)).toThrow(
+      /food_log\[0\]\.calories/
+    );
+
+    const countAfter = fixture.db.select().from(foodLog).all().length;
+    expect(countAfter).toBe(countBefore);
+    fixture.close();
   });
 });

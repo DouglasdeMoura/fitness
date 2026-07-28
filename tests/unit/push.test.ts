@@ -9,6 +9,7 @@ import {
   getPushUiMode,
   hasPushSubscription,
   listPushSubscriptionsForUser,
+  readVapidConfig,
   readVapidPublicKey,
   sendPushToSubscription,
   sendPushToUserSubscriptions,
@@ -45,6 +46,20 @@ function createTestDb(): FitTrackDatabase {
     .run();
   return db;
 }
+
+describe(readVapidConfig, () => {
+  it("throws naming a missing VAPID variable when push is partially configured", () => {
+    expect(() =>
+      readVapidConfig({
+        VAPID_PUBLIC_KEY: "public-key",
+      })
+    ).toThrow(/VAPID_PRIVATE_KEY/);
+  });
+
+  it("returns null when push is not configured", () => {
+    expect(readVapidConfig({})).toBeNull();
+  });
+});
 
 describe(readVapidPublicKey, () => {
   it("returns null when VAPID_PUBLIC_KEY is absent", () => {

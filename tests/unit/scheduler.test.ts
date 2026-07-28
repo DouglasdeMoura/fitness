@@ -253,6 +253,29 @@ describe(handleSchedulerCronRequest, () => {
     expect(body.error).toBe("unauthorized");
   });
 
+  it("rejects a malformed cron body before touching the database", async () => {
+    const db = createTestDb();
+    const client = new FakePushNotificationClient();
+    const request = new Request("http://localhost/api/cron/notifications", {
+      body: JSON.stringify({ unexpected: true }),
+      headers: {
+        authorization: "Bearer cron-secret",
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+
+    const response = await handleSchedulerCronRequest(request, {
+      client,
+      db,
+      env: { SCHEDULER_SECRET: "cron-secret" },
+      vapid: TEST_VAPID,
+    });
+
+    expect(response.status).toBe(400);
+    expect(client.calls).toHaveLength(0);
+  });
+
   it("runs delivery when the cron secret matches", async () => {
     const db = createTestDb();
     enableMealReminderAtNoon(db);
