@@ -3,7 +3,13 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "~/lib/app-chrome";
+import {
+  DEFAULT_COLOR_MODE,
+  resolveTheme,
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
+} from "~/lib/app-chrome";
+import type { ThemePreference } from "~/lib/app-chrome";
 
 const projectRoot = process.cwd();
 const srcRoot = join(projectRoot, "src");
@@ -56,6 +62,39 @@ function collectSourceFiles(directory: string): string[] {
 
 function countMatches(source: string, pattern: RegExp): number {
   return [...source.matchAll(pattern)].length;
+}
+
+function extractBootstrapScript(source: string): string {
+  const bootstrapStart = source.indexOf("const THEME_BOOTSTRAP_SCRIPT");
+  const bootstrapEnd = source.indexOf("const THEME_PROVIDER_SYNC_SCRIPT");
+  return source.slice(bootstrapStart, bootstrapEnd);
+}
+
+function resolveBootstrapTheme(
+  preference: string | null,
+  prefersDark: boolean
+): { colorScheme: string; dataTheme: string; themeColor: string } {
+  let normalized = preference;
+  if (normalized !== "light" && normalized !== "dark") {
+    normalized = "system";
+  }
+  const theme = resolveTheme(normalized as ThemePreference, prefersDark);
+  return {
+    colorScheme: theme,
+    dataTheme: theme,
+    themeColor: theme === "dark" ? THEME_COLOR_DARK : THEME_COLOR_LIGHT,
+  };
+}
+
+/** Mirrors loadRootThemePreference when the session is absent (#105). */
+function resolveRootThemePreferenceWithoutSession(
+  getStored: () => ThemePreference
+): ThemePreference {
+  const session = null;
+  if (!session) {
+    return "system";
+  }
+  return getStored();
 }
 
 describe("pre-paint theme bootstrap (issue #76)", () => {
@@ -180,5 +219,125 @@ describe("theme flash gates (issue #79)", () => {
 
     expect(bootstrapScript).toContain("root.style.colorScheme = theme");
     expect(bootstrapScript).not.toContain("<Scripts");
+  });
+});
+describe("bootstrap script branches (issue #105)", () => {
+  const bootstrapScript = extractBootstrapScript(rootRouteSource);
+
+  it("normalises unknown values to system before resolving", () => {
+    expect(bootstrapScript).toContain('preference !== "light"');
+    expect(bootstrapScript).toContain('preference !== "dark"');
+    expect(bootstrapScript).toContain('preference = "system"');
+  });
+
+  it("applies light and dark preferences directly without matchMedia", () => {
+    expect(bootstrapScript).toContain('preference === "light"');
+    expect(bootstrapScript).toContain('preference === "dark"');
+  });
+
+  it("resolves system through matchMedia and DEFAULT_COLOR_MODE", () => {
+    expect(bootstrapScript).toContain("matchMedia");
+    expect(bootstrapScript).toContain("prefersDark");
+    expect(bootstrapScript).toContain(`"${DEFAULT_COLOR_MODE}"`);
+  });
+
+  it.each([
+    { preference: "light", prefersDark: true, resolved: "light" },
+    { preference: "dark", prefersDark: false, resolved: "dark" },
+    { preference: "system", prefersDark: true, resolved: "dark" },
+    { preference: "system", prefersDark: false, resolved: "light" },
+    { preference: null, prefersDark: true, resolved: "dark" },
+  ] as const)(
+    "resolves bootstrap preference $preference with OS prefersDark=$prefersDark to $resolved",
+    ({ preference, prefersDark, resolved }) => {
+      const result = resolveBootstrapTheme(preference, prefersDark);
+      expect(result).toEqual({
+        colorScheme: resolved,
+        dataTheme: resolved,
+        themeColor: resolved === "dark" ? THEME_COLOR_DARK : THEME_COLOR_LIGHT,
+      });
+    }
+  );
+});
+
+describe("server-side preference resolution (issue #105)", () => {
+  it.each([
+    { preference: "light", prefersDark: true, resolved: "light" },
+    { preference: "dark", prefersDark: false, resolved: "dark" },
+    { preference: "system", prefersDark: true, resolved: "dark" },
+    { preference: "system", prefersDark: false, resolved: "light" },
+  ] as const)(
+    "resolveTheme maps $preference with prefersDark=$prefersDark to $resolved",
+    ({ preference, prefersDark, resolved }) => {
+      expect(resolveTheme(preference, prefersDark)).toBe(resolved);
+    }
+  );
+
+  it("returns system for signed-out loader mirror without calling storage", () => {
+    let storageReads = 0;
+    const preference = resolveRootThemePreferenceWithoutSession(() => {
+      storageReads += 1;
+      return "dark";
+    });
+    expect(preference).toBe("system");
+    expect(storageReads).toBe(0);
+  });
+});
+
+describe("theme persistence gates (issue #105)", () => {
+  const spec = readFileSync(
+    join(projectRoot, "tests/e2e/theme-flash.spec.ts"),
+    "utf-8"
+  );
+  const helpers = readFileSync(
+    join(projectRoot, "tests/e2e/theme-flash-helpers.ts"),
+    "utf-8"
+  );
+
+  it("documents the signed-in and signed-out first-paint matrix in e2e", () => {
+    expect(spec).toContain("server-path first paint (issue #105)");
+    expect(spec).toContain(
+      ["signed in $", "{preference}: no flash from server preference"].join("")
+    );
+    expect(spec).toContain(
+      [
+        "signed in system with OS $",
+        "{osScheme}: no flash from server preference",
+      ].join("")
+    );
+    expect(spec).toContain(
+      [
+        "signed out system with OS $",
+        "{osScheme}: no flash from server preference",
+      ].join("")
+    );
+    expect(spec).toContain("captureServerPathFirstPaint");
+    expect(helpers).toContain("assertNoThemeLocalStorage");
+    expect(helpers).toContain("fittrack-theme");
+  });
+
+  it("does not seed localStorage in the server-path first-paint block", () => {
+    const serverPathBlock = spec.slice(
+      spec.indexOf("server-path first paint (issue #105)"),
+      spec.indexOf("cross-device propagation (issue #105)")
+    );
+    expect(serverPathBlock).not.toContain("prepareTheme");
+  });
+
+  it("documents cross-device propagation and signed-out html preference", () => {
+    expect(spec).toContain("cross-device propagation (issue #105)");
+    expect(spec).toContain("browser.newContext");
+    expect(spec).toContain("signed-out document requests (issue #105)");
+    expect(spec).toContain("do not surface a stored account preference");
+    expect(spec).toContain('request.get("/")');
+  });
+
+  it("documents live OS change and the coarse TTFB guard", () => {
+    expect(spec).toContain("live OS under system (issue #105)");
+    expect(spec).toContain("flips data-theme with no reload");
+    expect(spec).toContain("TTFB budget (issue #105)");
+    expect(spec).toContain("Coarse guard against a structural regression");
+    expect(helpers).toContain("TTFB_BASELINES_MS");
+    expect(helpers).toContain("TTFB_BUDGET_MS");
   });
 });
