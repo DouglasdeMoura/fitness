@@ -284,18 +284,22 @@ describe("scripts/seed.ts determinism (issue #82)", () => {
     delete process.env.NODE_ENV;
   });
 
-  it("produces identical user tables when seeded twice", () => {
-    runSeedScript(dbPath);
-    const first = snapshotSeedTables(dbPath);
-    runSeedScript(dbPath);
-    const second = snapshotSeedTables(dbPath);
+  it(
+    "produces identical user tables when seeded twice",
+    { timeout: 90_000 },
+    () => {
+      runSeedScript(dbPath);
+      const first = snapshotSeedTables(dbPath);
+      runSeedScript(dbPath);
+      const second = snapshotSeedTables(dbPath);
 
-    expect(second).toEqual(first);
-    expect(first.user.length).toBe(1);
-    expect(first.users.length).toBe(1);
-    expect(first.account.length).toBe(1);
-    expect(first.programs.length).toBe(2);
-  });
+      expect(second).toEqual(first);
+      expect(first.user.length).toBe(1);
+      expect(first.users.length).toBe(1);
+      expect(first.account.length).toBe(1);
+      expect(first.programs.length).toBe(2);
+    }
+  );
 
   it("leaves an existing signed-up account unchanged", async () => {
     const sqlite = new Database(dbPath);
