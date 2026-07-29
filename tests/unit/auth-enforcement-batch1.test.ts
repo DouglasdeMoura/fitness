@@ -246,6 +246,13 @@ describe("auth enforcement batch 1 (issue #80)", () => {
         .from(workoutSets)
         .get()?.count;
 
+      const missingShape = await apiHandlers.executeAddWorkoutSet({
+        exercise_id: fixture.exerciseId,
+        reps: 5,
+        session_id: 9_999_999,
+        set_number: 1,
+        weight_kg: 50,
+      });
       const result = await apiHandlers.executeAddWorkoutSet({
         exercise_id: fixture.exerciseId,
         reps: 5,
@@ -259,8 +266,35 @@ describe("auth enforcement batch 1 (issue #80)", () => {
         .from(workoutSets)
         .get()?.count;
 
+      expect(result).toEqual(missingShape);
       expect(result).toBeNull();
       expect(afterCount).toBe(beforeCount);
+    });
+
+    it("inserts a set when the session belongs to the caller", async () => {
+      const fixture = seedTwoUsers();
+      mockAuthAs(fixture.owner);
+
+      const result = await apiHandlers.executeAddWorkoutSet({
+        exercise_id: fixture.exerciseId,
+        reps: 5,
+        session_id: fixture.ownerSessionId,
+        set_number: 1,
+        weight_kg: 50,
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.session_id).toBe(fixture.ownerSessionId);
+      expect(result?.exercise_id).toBe(fixture.exerciseId);
+      expect(result?.reps).toBe(5);
+      expect(result?.weight_kg).toBe(50);
+
+      const stored = ensureDb()
+        .select({ id: workoutSets.id, sessionId: workoutSets.sessionId })
+        .from(workoutSets)
+        .where(eq(workoutSets.id, result!.id))
+        .get();
+      expect(stored?.sessionId).toBe(fixture.ownerSessionId);
     });
   });
 
@@ -279,6 +313,9 @@ describe("auth enforcement batch 1 (issue #80)", () => {
       const fixture = seedTwoUsers();
       mockAuthAs(fixture.owner);
 
+      const missingShape = await apiHandlers.executeDeleteWorkoutSet({
+        id: 9_999_999,
+      });
       const result = await apiHandlers.executeDeleteWorkoutSet({
         id: fixture.otherSetId,
       });
@@ -289,8 +326,39 @@ describe("auth enforcement batch 1 (issue #80)", () => {
         .where(eq(workoutSets.id, fixture.otherSetId))
         .get();
 
+      expect(result).toEqual(missingShape);
       expect(result).toEqual({ success: true });
       expect(remaining?.id).toBe(fixture.otherSetId);
+    });
+
+    it("deletes a set owned by the caller", async () => {
+      const fixture = seedTwoUsers();
+      mockAuthAs(fixture.owner);
+      const ownSetId = ensureDb()
+        .insert(workoutSets)
+        .values({
+          exerciseId: fixture.exerciseId,
+          reps: 5,
+          rpe: 8,
+          sessionId: fixture.ownerSessionId,
+          setNumber: 1,
+          weightKg: 70,
+        })
+        .returning()
+        .get().id;
+
+      const result = await apiHandlers.executeDeleteWorkoutSet({
+        id: ownSetId,
+      });
+
+      const remaining = ensureDb()
+        .select({ id: workoutSets.id })
+        .from(workoutSets)
+        .where(eq(workoutSets.id, ownSetId))
+        .get();
+
+      expect(result).toEqual({ success: true });
+      expect(remaining).toBeUndefined();
     });
   });
 
@@ -334,7 +402,7 @@ describe("auth enforcement batch 1 (issue #80)", () => {
       const fixture = seedTwoUsers();
       mockAuthAs(fixture.owner);
 
-      await apiHandlers.executeUnsubscribePush({
+      const result = await apiHandlers.executeUnsubscribePush({
         endpoint: fixture.otherEndpoint,
       });
 
@@ -344,7 +412,37 @@ describe("auth enforcement batch 1 (issue #80)", () => {
         .where(eq(pushSubscriptions.endpoint, fixture.otherEndpoint))
         .get();
 
+      expect(result).toEqual({ ok: true });
       expect(remaining?.endpoint).toBe(fixture.otherEndpoint);
+    });
+
+    it("deletes the caller's own push subscription by endpoint", async () => {
+      const fixture = seedTwoUsers();
+      mockAuthAs(fixture.owner);
+      const ownEndpoint = "https://push.example.test/owner-user";
+      ensureDb()
+        .insert(pushSubscriptions)
+        .values({
+          auth: "auth-key",
+          createdAt: "2026-07-28T12:00:00.000Z",
+          endpoint: ownEndpoint,
+          p256dh: "p256dh-key",
+          userId: fixture.owner.id,
+        })
+        .run();
+
+      const result = await apiHandlers.executeUnsubscribePush({
+        endpoint: ownEndpoint,
+      });
+
+      const remaining = ensureDb()
+        .select({ endpoint: pushSubscriptions.endpoint })
+        .from(pushSubscriptions)
+        .where(eq(pushSubscriptions.endpoint, ownEndpoint))
+        .get();
+
+      expect(result).toEqual({ ok: true });
+      expect(remaining).toBeUndefined();
     });
   });
 });
