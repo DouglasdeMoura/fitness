@@ -3,8 +3,8 @@ import {
   getThemePreferenceRecord,
   updateThemePreferenceRecord,
 } from "~/db/user-body-queries";
-import { normalizeThemePreference } from '~/lib/app-chrome';
-import type { ThemePreference } from '~/lib/app-chrome';
+import { normalizeThemePreference } from "~/lib/app-chrome";
+import type { ThemePreference } from "~/lib/app-chrome";
 
 /**
  * Read one user's stored theme preference.
