@@ -1,6 +1,8 @@
 /**
- * Type-level gate for issue #97: ColorMode must stay `"light" | "dark"`.
+ * Type-level gate for issues #97 and #106: ColorMode must stay `"light" | "dark"`.
  * Widening ColorMode to include `"system"` must fail `npm run typecheck`.
+ *
+ * Issue #106 was auto-filed when this gate was missing during iteration 5 on #97.
  */
 import type { ColorMode, ThemePreference } from "../src/lib/app-chrome.ts";
 

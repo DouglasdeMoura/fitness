@@ -40,7 +40,7 @@ function isThemePreference(value: string): value is ThemePreference {
  * @example normalizeThemePreference(null) // "system"
  */
 export function normalizeThemePreference(
-  value: string | null | undefined
+  value?: string | null | undefined
 ): ThemePreference {
   if (typeof value === "string" && isThemePreference(value)) {
     return value;
