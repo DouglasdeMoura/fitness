@@ -95,17 +95,14 @@ async function assertProtectedRouteHydrated(
     page.getByRole("navigation", { name: "FitTrack navigation" })
   ).toBeVisible({ timeout: 15_000 });
 
-  const themeToggle = page.getByRole("button", { name: "Toggle dark mode" });
-  await clickHydratedControl(themeToggle);
-  const beforeTheme = await page.evaluate(
-    () => document.documentElement.dataset.theme ?? "light"
-  );
-  await themeToggle.click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.dataset.theme ?? "light")
-    )
-    .not.toBe(beforeTheme);
+  const accountMenuButton = page.getByRole("button", {
+    name: SEED_DEMO_ACCOUNT.name,
+  });
+  await clickHydratedControl(accountMenuButton);
+  const accountMenu = page.getByRole("menu", { name: SEED_DEMO_ACCOUNT.name });
+  await expect(accountMenu).toBeVisible();
+  await accountMenuButton.click();
+  await expect(accountMenu).toBeHidden();
 }
 
 test.describe("dev-mode runtime integrity (issue #87)", () => {
