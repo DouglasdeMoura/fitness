@@ -5,14 +5,14 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 
-/** Lexically ordered Drizzle SQL migrations through 0004 (issue #101). */
-export const MIGRATION_SQL_FILES = [
-  "0000_jazzy_zaran.sql",
-  "0001_busy_misty_knight.sql",
-  "0002_conscious_doomsday.sql",
-  "0003_sync_queue_user_id.sql",
-  "0004_theme_preference.sql",
-] as const;
+import { readJournalMigrationTags } from "../../src/db/migration-diagnostics";
+
+/** Journal-ordered Drizzle SQL migration filenames (issue #111). */
+export function readJournalMigrationSqlFiles(
+  migrationsFolder = getMigrationsFolder()
+): string[] {
+  return readJournalMigrationTags(migrationsFolder).map((tag) => `${tag}.sql`);
+}
 
 export interface UnmigratableDbFixture {
   cleanup: () => void;
@@ -66,7 +66,7 @@ export function recordAppliedMigrations(
  *
  * @example
  * const fixture = createScratchMigrationDb();
- * execMigrationSql(fixture.sqlite, MIGRATION_SQL_FILES[0]);
+ * execMigrationSql(fixture.sqlite, readJournalMigrationSqlFiles()[0]!);
  * fixture.cleanup();
  */
 export function createScratchMigrationDb(
@@ -293,27 +293,25 @@ export function seedMigrationGateChildRows(
 }
 
 /**
- * Builds the unmigratable state from PRD 17: 0000 schema present, empty journal.
+ * Builds a database whose schema reflects the first `appliedMigrationCount`
+ * journal migrations while leaving `__drizzle_migrations` empty.
  *
  * @example
  * const fixture = createUnmigratableDbFixture();
  * recoverDevDatabase({ dbPath: fixture.dbPath });
  * fixture.cleanup();
  */
-export function createUnmigratableDbFixture(): UnmigratableDbFixture {
+export function createUnmigratableDbFixture(
+  appliedMigrationCount = 1,
+  migrationsFolder = getMigrationsFolder()
+): UnmigratableDbFixture {
   const scratchRoot = mkdtempSync(join(tmpdir(), "fittrack-unmigratable-"));
   const dbPath = join(scratchRoot, "fittrack.db");
-  const migrationSql = readFileSync(
-    join(process.cwd(), "drizzle", "0000_jazzy_zaran.sql"),
-    "utf-8"
-  );
-
+  const migrationFiles = readJournalMigrationSqlFiles(migrationsFolder);
   const sqlite = new Database(dbPath);
-  for (const statement of migrationSql.split("--> statement-breakpoint")) {
-    const trimmed = statement.trim();
-    if (trimmed) {
-      sqlite.exec(trimmed);
-    }
+
+  for (const fileName of migrationFiles.slice(0, appliedMigrationCount)) {
+    execMigrationSql(sqlite, fileName, migrationsFolder);
   }
 
   sqlite.exec(

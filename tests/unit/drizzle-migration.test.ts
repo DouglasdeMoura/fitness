@@ -20,7 +20,7 @@ import {
   discoverTablesReferencingUsers,
   execMigrationSql,
   getMigrationsFolder,
-  MIGRATION_SQL_FILES,
+  readJournalMigrationSqlFiles,
   recordAppliedMigrations,
   seedMigrationGateChildRows,
 } from "./db-migration-fixture";
@@ -297,7 +297,7 @@ describe("migration 0004_theme_preference (issue #100)", () => {
     const userId = 7;
 
     try {
-      for (const fileName of MIGRATION_SQL_FILES.slice(0, 4)) {
+      for (const fileName of readJournalMigrationSqlFiles().slice(0, 4)) {
         execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
       }
 
@@ -357,7 +357,7 @@ describe("migration 0004_theme_preference (issue #100)", () => {
     const fixture = createScratchMigrationDb("fittrack-migrate-0003-0004-");
 
     try {
-      for (const fileName of MIGRATION_SQL_FILES.slice(0, 4)) {
+      for (const fileName of readJournalMigrationSqlFiles().slice(0, 4)) {
         execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
       }
 

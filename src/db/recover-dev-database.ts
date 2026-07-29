@@ -220,6 +220,11 @@ function assertMigrationJournalPopulated(sqlite: Database.Database): void {
  * @example
  * recoverDevDatabase({ dbPath: "data/fittrack.db" });
  */
+/** Journal tags with schema-detection markers used during dev recovery backfill. */
+export function readAppliedMigrationMarkerTags(): string[] {
+  return APPLIED_MIGRATION_MARKERS.map((marker) => marker.tag);
+}
+
 export function recoverDevDatabase(options: RecoverDevDatabaseOptions): void {
   const migrationsFolder = options.migrationsFolder ?? getMigrationsFolder();
   const force = options.force ?? false;

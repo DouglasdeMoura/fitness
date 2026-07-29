@@ -13,6 +13,7 @@ import {
   createScratchMigrationDb,
   createUnmigratableDbFixture,
   execMigrationSql,
+  readJournalMigrationSqlFiles,
   recordAppliedMigrations,
 } from "./db-migration-fixture";
 
@@ -78,12 +79,9 @@ describe("resolveFailingMigrationTag by execution order (issue #110)", () => {
     const { migrationsFolder } = fixture;
 
     try {
-      for (const fileName of [
-        "0000_jazzy_zaran.sql",
-        "0001_busy_misty_knight.sql",
-        "0002_conscious_doomsday.sql",
-        "0003_sync_queue_user_id.sql",
-      ]) {
+      for (const fileName of readJournalMigrationSqlFiles(
+        migrationsFolder
+      ).slice(0, 4)) {
         execMigrationSql(fixture.sqlite, fileName, migrationsFolder);
       }
       recordAppliedMigrations(fixture.sqlite, 3, migrationsFolder);
@@ -110,13 +108,7 @@ describe("resolveFailingMigrationTag by execution order (issue #110)", () => {
     const { migrationsFolder } = fixture;
 
     try {
-      for (const fileName of [
-        "0000_jazzy_zaran.sql",
-        "0001_busy_misty_knight.sql",
-        "0002_conscious_doomsday.sql",
-        "0003_sync_queue_user_id.sql",
-        "0004_theme_preference.sql",
-      ]) {
+      for (const fileName of readJournalMigrationSqlFiles(migrationsFolder)) {
         execMigrationSql(fixture.sqlite, fileName, migrationsFolder);
       }
       recordAppliedMigrations(fixture.sqlite, 4, migrationsFolder);

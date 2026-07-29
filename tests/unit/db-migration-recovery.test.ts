@@ -13,7 +13,10 @@ import {
   readJournalMigrationTags,
   runMigrations,
 } from "../../src/db/migration-diagnostics";
-import { recoverDevDatabase } from "../../src/db/recover-dev-database";
+import {
+  readAppliedMigrationMarkerTags,
+  recoverDevDatabase,
+} from "../../src/db/recover-dev-database";
 import * as relations from "../../src/db/relations";
 import * as schema from "../../src/db/schema";
 import {
@@ -21,16 +24,24 @@ import {
   resolveGithubSocialProvider,
 } from "../../src/lib/auth-config";
 import {
-  createScratchMigrationDb,
   createUnmigratableDbFixture,
-  execMigrationSql,
-  MIGRATION_SQL_FILES,
+  recordAppliedMigrations,
 } from "./db-migration-fixture";
 
 const TEST_AUTH_SECRET = "test-secret-test-secret-test-secret!!";
 const AUTH_TABLES = ["user", "session", "account", "verification"] as const;
 
 const originalDatabasePath = process.env.DATABASE_PATH;
+const migrationsFolder = getMigrationsFolder();
+const journalTags = readJournalMigrationTags(migrationsFolder);
+
+function appliedMigrationCountForTag(tag: string): number {
+  const index = journalTags.indexOf(tag);
+  if (index === -1) {
+    throw new Error(`journal is missing migration tag ${tag}`);
+  }
+  return index + 1;
+}
 
 async function openDatabaseAt(dbPath: string) {
   process.env.DATABASE_PATH = dbPath;
@@ -46,21 +57,9 @@ function tableExists(sqlite: Database.Database, tableName: string): boolean {
   return row !== undefined;
 }
 
-function createSchemaAtMigrationLevel(appliedMigrationCount: number) {
-  const fixture = createScratchMigrationDb("fittrack-recover-");
-  for (const fileName of MIGRATION_SQL_FILES.slice(0, appliedMigrationCount)) {
-    execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
-  }
-  fixture.sqlite.exec(
-    "CREATE TABLE IF NOT EXISTS __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)"
-  );
-  fixture.sqlite.close();
-  return fixture;
-}
-
 function assertRecoveredJournalAndForeignKeys(dbPath: string) {
   const sqlite = new Database(dbPath, { readonly: true });
-  const expectedCount = readJournalMigrationTags(getMigrationsFolder()).length;
+  const expectedCount = readJournalMigrationTags(migrationsFolder).length;
   const migrationCount = sqlite
     .prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations")
     .get() as { count: number };
@@ -229,28 +228,30 @@ describe("recoverDevDatabase (issue #88)", () => {
     after.close();
     rmSync(scratchRoot, { force: true, recursive: true });
   });
+});
 
-  it("recovers a database whose schema is at 0003 with an empty journal (issue #109)", () => {
-    const schemaFixture = createSchemaAtMigrationLevel(4);
-
-    try {
-      recoverDevDatabase({ dbPath: schemaFixture.dbPath });
-      assertRecoveredJournalAndForeignKeys(schemaFixture.dbPath);
-    } finally {
-      schemaFixture.cleanup();
-    }
+describe("recoverDevDatabase journal backfill (issue #111)", () => {
+  it("declares recovery markers for every journal migration tag", () => {
+    const markerTags = readAppliedMigrationMarkerTags();
+    expect(new Set(markerTags)).toEqual(new Set(journalTags));
   });
 
-  it("recovers a database whose schema is at 0004 with an empty journal (issue #109)", () => {
-    const schemaFixture = createSchemaAtMigrationLevel(5);
+  it.each([["0003_sync_queue_user_id"], ["0004_theme_preference"]] as const)(
+    "recovers a database whose schema is at %s with an empty journal",
+    (tag) => {
+      const fixture = createUnmigratableDbFixture(
+        appliedMigrationCountForTag(tag),
+        migrationsFolder
+      );
 
-    try {
-      recoverDevDatabase({ dbPath: schemaFixture.dbPath });
-      assertRecoveredJournalAndForeignKeys(schemaFixture.dbPath);
-    } finally {
-      schemaFixture.cleanup();
+      try {
+        recoverDevDatabase({ dbPath: fixture.dbPath, migrationsFolder });
+        assertRecoveredJournalAndForeignKeys(fixture.dbPath);
+      } finally {
+        fixture.cleanup();
+      }
     }
-  });
+  );
 });
 
 describe("runMigrations diagnostics", () => {
@@ -272,5 +273,41 @@ describe("runMigrations diagnostics", () => {
 
     sqlite.close();
     fixture.cleanup();
+  });
+
+  it("reports 0003_sync_queue_user_id when replaying that migration onto an existing column (issue #111)", () => {
+    const fixture = createUnmigratableDbFixture(
+      appliedMigrationCountForTag("0003_sync_queue_user_id"),
+      migrationsFolder
+    );
+    const sqlite = new Database(fixture.dbPath);
+
+    try {
+      recordAppliedMigrations(
+        sqlite,
+        appliedMigrationCountForTag("0002_conscious_doomsday"),
+        migrationsFolder
+      );
+
+      try {
+        runMigrations(drizzle(sqlite), {
+          dbPath: fixture.dbPath,
+          migrationsFolder,
+        });
+        expect.unreachable("runMigrations should fail when replaying 0003");
+      } catch (error) {
+        expect(error).toMatchObject({
+          dbPath: fixture.dbPath,
+          migrationTag: "0003_sync_queue_user_id",
+          name: "DatabaseMigrationError",
+        });
+        expect(
+          (error as Error & { sqliteMessage: string }).sqliteMessage
+        ).toMatch(/duplicate column name: [`']?user_id[`']?/i);
+      }
+    } finally {
+      sqlite.close();
+      fixture.cleanup();
+    }
   });
 });
