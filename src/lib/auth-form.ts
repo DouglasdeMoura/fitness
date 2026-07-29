@@ -79,10 +79,21 @@ export function validateAuthName(name: string): string | undefined {
   return undefined;
 }
 
+const AUTH_CREDENTIAL_FAILURE_MESSAGE =
+  "Authentication failed. Check your details and try again." as const;
+
+const AUTH_SERVER_FAILURE_MESSAGE =
+  "Something went wrong on our end. Please try again in a moment." as const;
+
+const AUTH_NETWORK_FAILURE_MESSAGE =
+  "Could not reach the server. Check your connection and try again." as const;
+
 /** Maps Better Auth client errors to user-facing Banner copy. */
 export function formatAuthError(error: {
   code?: string;
   message?: string;
+  status?: number;
+  statusText?: string;
 }): string {
   if (error.message?.trim()) {
     return error.message;
@@ -93,7 +104,15 @@ export function formatAuthError(error: {
   if (error.code === "INVALID_PASSWORD") {
     return "Password does not meet requirements";
   }
-  return "Authentication failed. Check your details and try again.";
+  if (typeof error.status === "number") {
+    if (error.status >= 500) {
+      return AUTH_SERVER_FAILURE_MESSAGE;
+    }
+    if (error.status >= 400) {
+      return AUTH_CREDENTIAL_FAILURE_MESSAGE;
+    }
+  }
+  return AUTH_NETWORK_FAILURE_MESSAGE;
 }
 
 export function fieldErrorMessage(

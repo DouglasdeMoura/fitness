@@ -89,6 +89,29 @@ describe("auth form validation (issue #43)", () => {
     );
   });
 
+  it("distinguishes server, credential, and network auth failures (issue #90)", () => {
+    const credentialMessage =
+      "Authentication failed. Check your details and try again.";
+
+    const serverError = formatAuthError({
+      status: 500,
+      statusText: "Internal Server Error",
+    });
+    expect(serverError).toMatch(/try again/i);
+    expect(serverError).not.toMatch(/credential|details|password|email/i);
+
+    expect(formatAuthError({ status: 401 })).toBe(credentialMessage);
+    expect(formatAuthError({ status: 403 })).toBe(credentialMessage);
+
+    const networkError = formatAuthError({});
+    expect(networkError).toMatch(/connection|server/i);
+    expect(networkError).not.toMatch(/credential|details|password|email/i);
+
+    expect(formatAuthError({ message: "Account is locked" })).toBe(
+      "Account is locked"
+    );
+  });
+
   it("exposes field helpers for TextInput status", () => {
     expect(fieldErrorMessage(["Email is required"])).toBe("Email is required");
     expect(textInputStatus("Email is required")).toStrictEqual({
