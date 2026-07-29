@@ -34,7 +34,12 @@ const EXERCISE_CATEGORY_VALUES = [
 ] as const;
 const PERIODIZATION_TYPE_VALUES = ["linear", "dup"] as const;
 const SYNC_STATUS_VALUES = ["applied", "failed"] as const;
-const THEME_PREFERENCE_VALUES = ["light", "dark", "system"] as const;
+export const THEME_PREFERENCE_VALUES = ["light", "dark", "system"] as const;
+// Check DDL cannot bind parameters, so compile these trusted const values as literals.
+const THEME_PREFERENCE_CHECK_VALUES = sql.join(
+  THEME_PREFERENCE_VALUES.map((preference) => sql.raw(`'${preference}'`)),
+  sql`, `
+);
 const CURRENT_TIMESTAMP = sql`(datetime('now'))`;
 
 export const users = sqliteTable(
@@ -73,7 +78,7 @@ export const users = sqliteTable(
     ),
     check(
       "users_theme_preference_check",
-      sql`${table.themePreference} in ('light', 'dark', 'system')`
+      sql`${table.themePreference} in (${THEME_PREFERENCE_CHECK_VALUES})`
     ),
   ]
 );

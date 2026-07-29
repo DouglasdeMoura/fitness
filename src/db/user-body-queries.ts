@@ -138,6 +138,19 @@ export async function findLatestBodyweightRecord(
   });
 }
 
+/** Read one user's stored theme preference. Example: `await getThemePreferenceRecord(db, 1)`. */
+export async function getThemePreferenceRecord(
+  database: FitTrackDatabase,
+  userId: number
+): Promise<UserRecord["themePreference"] | undefined> {
+  const record = database
+    .select({ themePreference: users.themePreference })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  return record?.themePreference;
+}
+
 /** Persist one user's theme preference (issue #102). */
 export async function updateThemePreferenceRecord(
   database: FitTrackDatabase,

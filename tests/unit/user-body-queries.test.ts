@@ -7,7 +7,9 @@ import * as schema from "../../src/db/schema";
 import {
   ensureSessionUserRecord,
   findLatestBodyweightRecord,
+  getThemePreferenceRecord,
   listBodyLogRecords,
+  updateThemePreferenceRecord,
   updateUserRecord,
   upsertBodyweightRecord,
 } from "../../src/db/user-body-queries";
@@ -61,6 +63,48 @@ describe("Drizzle user queries", () => {
       id: user.id,
       name: "Updated Athlete",
     });
+  });
+});
+
+describe("Drizzle theme-preference queries", () => {
+  it("returns the system default for a new user", async () => {
+    const user = await ensureSessionUserRecord(testDb, {
+      email: "system@example.com",
+      id: "auth-system",
+      name: "System Athlete",
+    });
+
+    expect(schema.THEME_PREFERENCE_VALUES).toStrictEqual([
+      "light",
+      "dark",
+      "system",
+    ]);
+    expect(await getThemePreferenceRecord(testDb, user.id)).toBe("system");
+  });
+
+  it("updates only the requested user's preference", async () => {
+    const darkUser = await ensureSessionUserRecord(testDb, {
+      email: "dark@example.com",
+      id: "auth-dark",
+      name: "Dark Athlete",
+    });
+    const systemUser = await ensureSessionUserRecord(testDb, {
+      email: "unchanged@example.com",
+      id: "auth-unchanged",
+      name: "Unchanged Athlete",
+    });
+
+    const updatedUser = await updateThemePreferenceRecord(
+      testDb,
+      darkUser.id,
+      "dark"
+    );
+
+    expect(updatedUser.themePreference).toBe("dark");
+    expect(await getThemePreferenceRecord(testDb, darkUser.id)).toBe("dark");
+    expect(await getThemePreferenceRecord(testDb, systemUser.id)).toBe(
+      "system"
+    );
   });
 });
 

@@ -86,6 +86,23 @@ function execMigrationSql(sqlite: Database.Database, fileName: string): void {
   }
 }
 
+function recordAppliedMigrations(
+  sqlite: Database.Database,
+  migrationsFolder: string,
+  count: number
+): void {
+  sqlite.exec(
+    "CREATE TABLE IF NOT EXISTS __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)"
+  );
+  const migrations = readMigrationFiles({ migrationsFolder });
+  const insertMigration = sqlite.prepare(
+    "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)"
+  );
+  for (const migration of migrations.slice(0, count)) {
+    insertMigration.run(migration.hash, migration.folderMillis);
+  }
+}
+
 function syncQueueColumnNames(sqlite: Database.Database): string[] {
   const columns = sqlite.pragma("table_info(sync_queue)") as {
     name: string;
@@ -175,22 +192,90 @@ describe("migration 0003_sync_queue_user_id (issue #89)", () => {
         execMigrationSql(sqlite, fileName);
       }
 
-      sqlite.exec(
-        "CREATE TABLE IF NOT EXISTS __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)"
-      );
-      const migrations = readMigrationFiles({ migrationsFolder });
-      const insertMigration = sqlite.prepare(
-        "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)"
-      );
-      for (const migration of migrations.slice(0, 3)) {
-        insertMigration.run(migration.hash, migration.folderMillis);
-      }
+      recordAppliedMigrations(sqlite, migrationsFolder, 3);
 
       expect(syncQueueColumnNames(sqlite)).not.toContain("user_id");
 
       const db = drizzle(sqlite);
       runMigrations(db, { dbPath, migrationsFolder });
       expect(syncQueueColumnNames(sqlite)).toContain("user_id");
+    } finally {
+      sqlite.close();
+      rmSync(scratchRoot, { force: true, recursive: true });
+    }
+  });
+});
+
+describe("migration 0004_theme_preference (issue #100)", () => {
+  it("defaults new users to system and rejects unsupported preferences", () => {
+    const fixture = createDrizzleTestDb();
+
+    try {
+      const row = fixture.sqlite
+        .prepare("SELECT theme_preference FROM users WHERE id = ?")
+        .get(fixture.userId) as { theme_preference: string };
+
+      expect(row.theme_preference).toBe("system");
+      expect(() =>
+        fixture.sqlite
+          .prepare("UPDATE users SET theme_preference = ? WHERE id = ?")
+          .run("sepia", fixture.userId)
+      ).toThrow(/users_theme_preference_check/);
+    } finally {
+      fixture.close();
+    }
+  });
+
+  it("migrates a 0003 user without losing profile data", () => {
+    const scratchRoot = mkdtempSync(join(tmpdir(), "fittrack-migrate-0003-"));
+    const dbPath = join(scratchRoot, "fittrack.db");
+    const sqlite = new Database(dbPath);
+    const migrationsFolder = getMigrationsFolder();
+
+    try {
+      for (const fileName of [
+        "0000_jazzy_zaran.sql",
+        "0001_busy_misty_knight.sql",
+        "0002_conscious_doomsday.sql",
+        "0003_sync_queue_user_id.sql",
+      ]) {
+        execMigrationSql(sqlite, fileName);
+      }
+      sqlite
+        .prepare(
+          "INSERT INTO users (id, name, email, activity_level, goal_type, sex) VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          42,
+          "Migration Athlete",
+          "migration@example.com",
+          "active",
+          "maintain",
+          "other"
+        );
+      recordAppliedMigrations(sqlite, migrationsFolder, 4);
+
+      runMigrations(drizzle(sqlite), { dbPath, migrationsFolder });
+
+      const migratedUser = sqlite
+        .prepare(
+          "SELECT id, name, email, activity_level, goal_type, sex, theme_preference FROM users WHERE id = ?"
+        )
+        .get(42);
+      expect(migratedUser).toStrictEqual({
+        activity_level: "active",
+        email: "migration@example.com",
+        goal_type: "maintain",
+        id: 42,
+        name: "Migration Athlete",
+        sex: "other",
+        theme_preference: "system",
+      });
+
+      const authUserColumns = (
+        sqlite.pragma("table_info(user)") as { name: string }[]
+      ).map((column) => column.name);
+      expect(authUserColumns).not.toContain("theme_preference");
     } finally {
       sqlite.close();
       rmSync(scratchRoot, { force: true, recursive: true });
