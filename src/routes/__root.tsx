@@ -7,13 +7,12 @@ import {
   useRouter,
   useTags,
 } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { DEV_STYLES_ATTR } from "@tanstack/router-core";
 import type { RouterManagedTag } from "@tanstack/router-core";
 import * as React from "react";
 
 import { AppChrome } from "~/components/app-chrome";
-import { db } from "~/db";
-import { ensureSessionUserRecord } from "~/db/user-body-queries";
 import {
   DARK_COLOR_SCHEME_QUERY,
   DEFAULT_COLOR_MODE,
@@ -23,7 +22,6 @@ import {
 } from "~/lib/app-chrome";
 import type { ThemePreference } from "~/lib/app-chrome";
 import { fetchServerSession } from "~/lib/route-auth";
-import { getStoredThemePreference } from "~/lib/theme-preference-persistence";
 
 import appCss from "~/styles/app.css?url";
 import focusVisibleCss from "~/styles/focus-visible.css?url";
@@ -81,14 +79,20 @@ const THEME_PROVIDER_SYNC_SCRIPT = `
   })();
 `;
 
-async function loadRootThemePreference(): Promise<ThemePreference> {
-  const session = await fetchServerSession();
-  if (!session) {
-    return "system";
+const fetchRootThemePreference = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ThemePreference> => {
+    const session = await fetchServerSession();
+    if (!session) {
+      return "system";
+    }
+    const { db } = await import("~/db");
+    const { ensureSessionUserRecord } = await import("~/db/user-body-queries");
+    const { getStoredThemePreference } =
+      await import("~/lib/theme-preference-persistence");
+    const user = await ensureSessionUserRecord(db, session.user);
+    return getStoredThemePreference(db, user.id);
   }
-  const user = await ensureSessionUserRecord(db, session.user);
-  return getStoredThemePreference(db, user.id);
-}
+);
 
 export const Route = createRootRoute({
   head: () => ({
@@ -123,7 +127,7 @@ export const Route = createRootRoute({
     ],
   }),
   loader: async () => ({
-    themePreference: await loadRootThemePreference(),
+    themePreference: await fetchRootThemePreference(),
   }),
   shellComponent: RootDocument,
 });

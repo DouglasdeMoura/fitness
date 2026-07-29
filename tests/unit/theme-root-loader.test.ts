@@ -40,6 +40,12 @@ function collectSourceFiles(directory: string): string[] {
   return files;
 }
 
+function extractThemePreferenceHandlerBody(source: string): string {
+  const handlerStart = source.indexOf("fetchRootThemePreference");
+  const handlerEnd = source.indexOf("export const Route = createRootRoute");
+  return source.slice(handlerStart, handlerEnd);
+}
+
 function extractBootstrapScript(source: string): string {
   const bootstrapStart = source.indexOf("const THEME_BOOTSTRAP_SCRIPT");
   const bootstrapEnd = source.indexOf("const THEME_PROVIDER_SYNC_SCRIPT");
@@ -80,44 +86,64 @@ describe("root theme loader (issue #104)", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("does not import ~/db modules at the module top level in __root.tsx", () => {
+    const importLines = rootRouteSource
+      .split("\n")
+      .filter((line) => line.startsWith("import "));
+
+    for (const line of importLines) {
+      expect(line).not.toMatch(/import\s+(?!type\b).*from\s+["']~\/db/);
+      expect(line).not.toContain("theme-preference-persistence");
+      expect(line).not.toContain("user-body-queries");
+    }
+  });
+
+  it("loads theme preference through a createServerFn handler", () => {
+    expect(rootRouteSource).toMatch(
+      /createServerFn\s*\(\s*\{\s*method:\s*["']GET["']\s*\}\s*\)\s*\.handler/
+    );
+    expect(rootRouteSource).toContain("fetchRootThemePreference");
+    expect(rootRouteSource).toMatch(
+      /themePreference:\s*await\s+fetchRootThemePreference\(\)/
+    );
+  });
+
   it("reads the session through fetchServerSession only", () => {
-    expect(rootRouteSource).toContain("fetchServerSession");
+    const handlerBody = extractThemePreferenceHandlerBody(rootRouteSource);
+
+    expect(handlerBody).toContain("fetchServerSession");
     expect(rootRouteSource).not.toMatch(
       /auth\.api\.getSession|requireAuth\s*\(/
     );
   });
 
   it("returns system without a theme database read when there is no session", () => {
-    const loaderStart = rootRouteSource.indexOf(
-      "async function loadRootThemePreference"
-    );
-    const loaderEnd = rootRouteSource.indexOf(
-      "export const Route = createRootRoute"
-    );
-    const loaderBody = rootRouteSource.slice(loaderStart, loaderEnd);
-    const noSessionBranch = loaderBody.match(
+    const handlerBody = extractThemePreferenceHandlerBody(rootRouteSource);
+    const noSessionBranch = handlerBody.match(
       /if\s*\(\s*!session\s*\)\s*\{([^}]*)\}/
     )?.[1];
 
-    expect(loaderBody).toMatch(/if\s*\(\s*!session\s*\)/);
-    expect(loaderBody).toMatch(/return\s+"system"/);
+    expect(handlerBody).toMatch(/if\s*\(\s*!session\s*\)/);
+    expect(handlerBody).toMatch(/return\s+"system"/);
     expect(noSessionBranch).toBeDefined();
     expect(noSessionBranch).not.toContain("getStoredThemePreference");
+    expect(noSessionBranch).not.toContain("ensureSessionUserRecord");
   });
 
-  it("reads the stored preference only after a session exists", () => {
-    const loaderStart = rootRouteSource.indexOf(
-      "async function loadRootThemePreference"
-    );
-    const loaderEnd = rootRouteSource.indexOf(
-      "export const Route = createRootRoute"
-    );
-    const loaderBody = rootRouteSource.slice(loaderStart, loaderEnd);
+  it("reads the stored preference only after a session exists via dynamic imports", () => {
+    const handlerBody = extractThemePreferenceHandlerBody(rootRouteSource);
 
-    expect(loaderBody).toContain("getStoredThemePreference");
-    expect(loaderBody).toContain("ensureSessionUserRecord");
-    expect(loaderBody.indexOf("getStoredThemePreference")).toBeGreaterThan(
-      loaderBody.indexOf("if (!session)")
+    expect(handlerBody).toMatch(/await\s+import\s*\(\s*["']~\/db["']\s*\)/);
+    expect(handlerBody).toMatch(
+      /await\s+import\s*\(\s*["']~\/db\/user-body-queries["']\s*\)/
+    );
+    expect(handlerBody).toMatch(
+      /await\s+import\s*\(\s*["']~\/lib\/theme-preference-persistence["']\s*\)/
+    );
+    expect(handlerBody).toContain("getStoredThemePreference");
+    expect(handlerBody).toContain("ensureSessionUserRecord");
+    expect(handlerBody.indexOf("getStoredThemePreference")).toBeGreaterThan(
+      handlerBody.indexOf("if (!session)")
     );
   });
 
