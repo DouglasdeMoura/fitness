@@ -22,7 +22,7 @@ Apple's design guidelines.
 
 When the request is related to new features, follow the stablished practices from the repo. 
 
-When the request is related to a bug, **do not write a PRD from reading source.**
+**Do not write a PRD from reading source.**
 Reproduce the thing first, in the real runtime, and record what actually happened.
 
 - Take the reported symptom **literally**. "Nothing happens" is not "shows an
