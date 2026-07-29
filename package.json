@@ -28,6 +28,7 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "db:migrate": "npx drizzle-kit migrate",
+    "db:reset-dev": "npx tsx scripts/reset-dev-db.ts",
     "db:studio": "npx drizzle-kit studio",
     "db:generate": "npx drizzle-kit generate",
     "test:e2e:dev-smoke": "E2E_WEB_SERVER_COMMAND='npm run dev' E2E_REUSE_SERVER=false npx playwright test --project=dev-runtime"

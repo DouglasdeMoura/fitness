@@ -1,11 +1,12 @@
 import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
+import { DatabaseMigrationError, runMigrations } from "./migration-diagnostics";
+import { resolveDbPath } from "./paths";
 import * as relations from "./relations";
 import * as schema from "./schema";
 
@@ -15,10 +16,22 @@ export type FitTrackDatabase = BetterSQLite3Database<typeof fullSchema>;
 
 let sqliteInstance: Database.Database | null = null;
 let drizzleInstance: FitTrackDatabase | null = null;
+let migrationBootFailure: {
+  dbPath: string;
+  migrationTag: string;
+  sqliteMessage: string;
+} | null = null;
 
-function resolveDbPath(): string {
-  return (
-    process.env.DATABASE_PATH || join(process.cwd(), "data", "fittrack.db")
+function throwStoredMigrationFailure(): void {
+  if (migrationBootFailure === null) {
+    return;
+  }
+
+  throw new DatabaseMigrationError(
+    migrationBootFailure.dbPath,
+    migrationBootFailure.migrationTag,
+    migrationBootFailure.sqliteMessage,
+    null
   );
 }
 
@@ -35,12 +48,29 @@ function initSqlite(): Database.Database {
 }
 
 function initDrizzle(): FitTrackDatabase {
+  throwStoredMigrationFailure();
+
   if (!drizzleInstance) {
+    const dbPath = resolveDbPath();
     const sqlite = initSqlite();
-    drizzleInstance = drizzle(sqlite, { schema: fullSchema });
-    migrate(drizzleInstance, {
-      migrationsFolder: join(process.cwd(), "drizzle"),
-    });
+    const instance = drizzle(sqlite, { schema: fullSchema });
+    try {
+      runMigrations(instance, { dbPath });
+    } catch (error) {
+      if (error instanceof DatabaseMigrationError) {
+        migrationBootFailure = {
+          dbPath: error.dbPath,
+          migrationTag: error.migrationTag,
+          sqliteMessage: error.sqliteMessage,
+        };
+        throw error;
+      }
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error), { cause: error });
+    }
+    drizzleInstance = instance;
   }
   return drizzleInstance;
 }
