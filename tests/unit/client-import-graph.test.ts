@@ -1,10 +1,12 @@
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
   findTopLevelNodeBuiltinImports,
+  findTopLevelServerOnlyImportViolations,
   formatClientImportGraphViolation,
   scanClientImportGraphViolations,
 } from "./client-import-graph-scan";
@@ -86,11 +88,138 @@ describe("client import graph scanner (issue #87)", () => {
   });
 });
 
-describe("client import graph repository gate (issue #87)", () => {
+describe("client import graph server-only import scanner (issue #119)", () => {
+  const projectRoot = join(import.meta.dirname, "../..");
+
+  it("flags the pre-#118 root route ~/db import regression", () => {
+    const rootSource = execSync("git show 8fe8b15:src/routes/__root.tsx", {
+      cwd: projectRoot,
+      encoding: "utf-8",
+    });
+
+    const violations = findTopLevelServerOnlyImportViolations(
+      rootSource,
+      "src/routes/__root.tsx",
+      projectRoot
+    );
+
+    const dbViolation = violations.find(
+      (violation) => violation.specifier === "~/db"
+    );
+    expect(dbViolation).toEqual({
+      filePath: "src/routes/__root.tsx",
+      line: 15,
+      specifier: "~/db",
+    });
+    expect(formatClientImportGraphViolation(dbViolation!)).toBe(
+      "src/routes/__root.tsx:15 imports ~/db into the client-reachable graph"
+    );
+  });
+
+  it("flags top-level ~/db imports in route modules", () => {
+    const source = [
+      'import { db } from "~/db";',
+      'import { createFileRoute } from "@tanstack/react-router";',
+      "",
+      "export const Route = createFileRoute('/leak')({",
+      "  loader: async () => db.select().from('users'),",
+      "  component: () => null,",
+      "});",
+    ].join("\n");
+
+    const violations = findTopLevelServerOnlyImportViolations(
+      source,
+      "src/routes/leak.tsx",
+      projectRoot
+    );
+
+    expect(violations).toStrictEqual([
+      {
+        filePath: "src/routes/leak.tsx",
+        line: 1,
+        specifier: "~/db",
+      },
+    ]);
+  });
+
+  it("flags top-level .server.ts imports in route modules", () => {
+    const source = [
+      'import { createDefaultBlogReader } from "~/lib/blog-api.server";',
+      'import { createFileRoute } from "@tanstack/react-router";',
+      "",
+      "export const Route = createFileRoute('/leak')({",
+      "  loader: async () => createDefaultBlogReader(),",
+      "  component: () => null,",
+      "});",
+    ].join("\n");
+
+    const violations = findTopLevelServerOnlyImportViolations(
+      source,
+      "src/routes/leak.tsx",
+      projectRoot
+    );
+
+    expect(violations).toStrictEqual([
+      {
+        filePath: "src/routes/leak.tsx",
+        line: 1,
+        specifier: "~/lib/blog-api.server",
+      },
+    ]);
+  });
+
+  it("allows ~/db value imports referenced only inside createServerFn handlers", () => {
+    const source = readFileSync(join(projectRoot, "src/lib/api.ts"), "utf-8");
+
+    const violations = findTopLevelServerOnlyImportViolations(
+      source,
+      "src/lib/api.ts",
+      projectRoot
+    );
+
+    expect(
+      violations.filter((violation) => violation.specifier === "~/db")
+    ).toStrictEqual([]);
+  });
+
+  it("allows type-only imports from server-only modules", () => {
+    const source = [
+      'import type { FitTrackDatabase } from "~/db";',
+      'import { createFileRoute } from "@tanstack/react-router";',
+      "",
+      "export const Route = createFileRoute('/safe')({ component: () => null });",
+    ].join("\n");
+
+    expect(
+      findTopLevelServerOnlyImportViolations(
+        source,
+        "src/routes/safe.tsx",
+        projectRoot
+      )
+    ).toStrictEqual([]);
+  });
+
+  it("allows ~/db imports used only inside route server.handlers", () => {
+    const source = readFileSync(
+      join(projectRoot, "src/routes/api/cron/notifications.ts"),
+      "utf-8"
+    );
+
+    expect(
+      findTopLevelServerOnlyImportViolations(
+        source,
+        "src/routes/api/cron/notifications.ts",
+        projectRoot
+      )
+    ).toStrictEqual([]);
+  });
+});
+
+describe("client import graph repository gate (issues #87, #119)", () => {
   const projectRoot = join(import.meta.dirname, "../..");
   const allViolations = scanClientImportGraphViolations(projectRoot);
 
-  it("has no Node builtin imports in the route-tree client graph", () => {
+  it("has no import leaks in the route-tree client graph", () => {
     expectNoGateViolations(allViolations);
   });
 
