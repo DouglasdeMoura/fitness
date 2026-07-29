@@ -34,6 +34,7 @@ import {
   programDays,
   programs,
   pushSubscriptions,
+  users,
   workoutSessions,
   workoutSets,
 } from "../../src/db/schema";
@@ -46,6 +47,10 @@ import {
   updateWorkoutSessionDuration,
 } from "../../src/db/workout-queries";
 import { emptyTotals } from "../../src/lib/nutrition";
+import {
+  getStoredThemePreference,
+  updateStoredThemePreference,
+} from "../../src/lib/theme-preference-persistence";
 import type { DataIsolationFixture } from "./data-isolation-fixture";
 import { seedDataIsolationFixture } from "./data-isolation-fixture";
 
@@ -212,6 +217,14 @@ describe("data isolation read gates (issue #84)", () => {
     expect(prefs?.workout_reminders).toBe(1);
     expect(prefs?.user_id).toBe(fixture.other.id);
   });
+
+  it("getStoredThemePreference returns the caller's value, not another user's write (issue #103)", async () => {
+    await updateStoredThemePreference(fixture.db, fixture.owner.id, "dark");
+
+    expect(await getStoredThemePreference(fixture.db, fixture.other.id)).toBe(
+      "system"
+    );
+  });
 });
 
 describe("data isolation write gates (issue #84)", () => {
@@ -345,6 +358,25 @@ describe("data isolation write gates (issue #84)", () => {
 
     expect(deleted).toBe(false);
     expect(remaining?.endpoint).toBe(fixture.ownerEndpoint);
+  });
+
+  it("updateStoredThemePreference does not modify another user's theme_preference row (issue #103)", async () => {
+    await updateStoredThemePreference(fixture.db, fixture.other.id, "light");
+    await updateStoredThemePreference(fixture.db, fixture.owner.id, "dark");
+
+    const otherRow = fixture.db
+      .select({ themePreference: users.themePreference })
+      .from(users)
+      .where(eq(users.id, fixture.other.id))
+      .get();
+
+    expect(otherRow?.themePreference).toBe("light");
+    expect(await getStoredThemePreference(fixture.db, fixture.other.id)).toBe(
+      "light"
+    );
+    expect(await getStoredThemePreference(fixture.db, fixture.owner.id)).toBe(
+      "dark"
+    );
   });
 });
 
