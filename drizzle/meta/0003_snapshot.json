@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7a7b0cbc-2304-463a-8913-554586735144",
-  "prevId": "c99651a3-8e81-4e99-8ff5-51eca324906f",
+  "id": "c99651a3-8e81-4e99-8ff5-51eca324906f",
+  "prevId": "af522299-f33e-4964-b969-f87e2be663c0",
   "tables": {
     "account": {
       "name": "account",
@@ -1765,14 +1765,6 @@
           "autoincrement": false,
           "default": "'male'"
         },
-        "theme_preference": {
-          "name": "theme_preference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'system'"
-        },
         "updated_at": {
           "name": "updated_at",
           "type": "text",
@@ -1813,10 +1805,6 @@
         "users_goal_type_check": {
           "name": "users_goal_type_check",
           "value": "\"users\".\"goal_type\" in ('lose_fat', 'build_muscle', 'maintain', 'recomp')"
-        },
-        "users_theme_preference_check": {
-          "name": "users_theme_preference_check",
-          "value": "\"users\".\"theme_preference\" in ('light', 'dark', 'system')"
         }
       }
     },
