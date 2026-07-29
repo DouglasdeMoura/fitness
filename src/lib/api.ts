@@ -13,7 +13,6 @@ import {
 } from "~/db/progress-queries";
 import { processSyncMutations } from "~/db/sync-queries";
 import type { Food, FoodLogEntry, MealType, WorkoutSession } from "~/db/types";
-import { normalizeThemePreference } from "~/lib/app-chrome";
 import type { ThemePreference } from "~/lib/app-chrome";
 
 import {
@@ -66,7 +65,6 @@ import {
 import {
   findLatestBodyweightRecord,
   listBodyLogRecords,
-  updateThemePreferenceRecord,
   updateUserRecord,
   upsertBodyweightRecord,
 } from "../db/user-body-queries";
@@ -190,6 +188,10 @@ import {
 } from "./schemas/workout";
 import type { SaveProgramInput } from "./schemas/workout";
 import type { SyncResult } from "./sync";
+import {
+  getStoredThemePreference,
+  updateStoredThemePreference,
+} from "./theme-preference-persistence";
 import type { WeeklyReviewPayload } from "./weekly-review";
 import {
   assembleWeeklyReview,
@@ -215,7 +217,7 @@ export const getUser = createServerFn({ method: "GET" }).handler(async () => {
 export const getThemePreference = createServerFn({ method: "GET" }).handler(
   async (): Promise<ThemePreference> => {
     const { user } = await requireAuth();
-    return normalizeThemePreference(user.themePreference);
+    return getStoredThemePreference(drizzleDb, user.id);
   }
 );
 
@@ -223,7 +225,7 @@ export const updateThemePreference = createServerFn({ method: "POST" })
   .validator(serverInputValidator(updateThemePreferenceInputSchema))
   .handler(async (ctx) => {
     const { user } = await requireAuth();
-    return updateThemePreferenceRecord(
+    return updateStoredThemePreference(
       drizzleDb,
       user.id,
       ctx.data.theme_preference

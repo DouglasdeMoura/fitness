@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { THEME_PREFERENCE_VALUES } from "~/db/schema";
+
 import {
   isoDateSchema,
   isoTimeSchema,
@@ -41,9 +43,13 @@ export const goalTypeSchema = z.enum([
 
 export const sexSchema = z.enum(["male", "female", "other"]);
 
-export const themePreferenceSchema = z.enum(["light", "dark", "system"]);
-
-export type ThemePreferenceValue = z.infer<typeof themePreferenceSchema>;
+export const themePreferenceSchema = z.enum(THEME_PREFERENCE_VALUES, {
+  error: (issue) => {
+    if (issue.code === "invalid_value") {
+      return `theme_preference must be light, dark, or system; received ${JSON.stringify(issue.input)}`;
+    }
+  },
+});
 
 export const updateThemePreferenceInputSchema = z.object({
   theme_preference: themePreferenceSchema,
