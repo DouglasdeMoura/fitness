@@ -22,6 +22,7 @@ import {
   workoutSessions,
   workoutSets,
 } from "./schema";
+import { updateThemePreferenceRecord } from "./user-body-queries";
 
 function findAppliedSyncResult(database: FitTrackDatabase, clientId: string) {
   return database
@@ -262,6 +263,14 @@ export function processSyncMutations(
           .returning({ id: workoutSessions.id })
           .get();
         return record.id;
+      }
+      case "updateThemePreference": {
+        updateThemePreferenceRecord(
+          database,
+          userId,
+          mutation.payload.theme_preference
+        );
+        return userId;
       }
       case "addWorkoutSet": {
         const { payload } = mutation;

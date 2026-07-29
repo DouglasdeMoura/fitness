@@ -14,7 +14,6 @@ import {
   SegmentedControlItem,
   SelectableCard,
   Selector,
-  Switch,
   Text,
   TextInput,
   VStack,
@@ -22,7 +21,7 @@ import {
 import { useToast } from "@astryxdesign/core/Toast";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DataLoadErrorView } from "~/components/data-load-error-banner";
 import { InstallPrompt } from "~/components/install-prompt";
@@ -37,9 +36,14 @@ import {
   getUser,
   importData,
   logBodyweight,
+  updateThemePreference,
   updateUser,
 } from "~/lib/api";
-import { getStoredTheme, persistTheme } from "~/lib/app-chrome";
+import {
+  applyThemePreference,
+  normalizeThemePreference,
+} from "~/lib/app-chrome";
+import type { ThemePreference } from "~/lib/app-chrome";
 import {
   isDataLoadPending,
   pickFailedDataLoadQuery,
@@ -130,12 +134,19 @@ function SettingsPageContent() {
   });
 
   const [weight, setWeight] = useState<number | null>(null);
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return getStoredTheme() === "dark";
-  });
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
+    normalizeThemePreference(
+      userQuery.data?.themePreference ?? loaderData.user?.themePreference
+    )
+  );
+
+  useEffect(() => {
+    const nextPreference = normalizeThemePreference(
+      userQuery.data?.themePreference ?? loaderData.user?.themePreference
+    );
+    setThemePreference(nextPreference);
+    applyThemePreference(nextPreference);
+  }, [loaderData.user?.themePreference, userQuery.data?.themePreference]);
 
   const form = useForm({
     defaultValues: profileFormDefaults(userQuery.data ?? loaderData.user),
@@ -249,9 +260,23 @@ function SettingsPageContent() {
     form.setFieldValue("activity", value as ActivityLevel);
   };
 
-  const handleDarkModeToggle = (checked: boolean) => {
-    setIsDark(checked);
-    persistTheme(checked ? "dark" : "light");
+  const handleThemePreferenceChange = async (value: string) => {
+    const preference = normalizeThemePreference(value);
+    const previousPreference = themePreference;
+    setThemePreference(preference);
+    applyThemePreference(preference);
+    try {
+      await runOrQueue(
+        "updateThemePreference",
+        { theme_preference: preference },
+        () => updateThemePreference({ data: { theme_preference: preference } })
+      );
+      userQuery.refetch();
+    } catch {
+      setThemePreference(previousPreference);
+      applyThemePreference(previousPreference);
+      toast({ body: mutationFailedBody("Save appearance"), type: "error" });
+    }
   };
 
   return (
@@ -390,12 +415,24 @@ function SettingsPageContent() {
 
           <Divider />
 
-          <Switch
-            description="Switch between light and dark appearance."
-            label="Dark Mode"
-            onChange={handleDarkModeToggle}
-            value={isDark}
-          />
+          <VStack gap={2}>
+            <Text as="span" type="label">
+              Appearance
+            </Text>
+            <SegmentedControl
+              label="Appearance"
+              layout="fill"
+              onChange={handleThemePreferenceChange}
+              value={themePreference}
+            >
+              <SegmentedControlItem label="Light" value="light" />
+              <SegmentedControlItem label="System" value="system" />
+              <SegmentedControlItem label="Dark" value="dark" />
+            </SegmentedControl>
+            <Text size="sm" type="supporting">
+              System follows your device light or dark appearance.
+            </Text>
+          </VStack>
         </VStack>
       </Card>
 

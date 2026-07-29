@@ -29,6 +29,7 @@ const KIND_LABELS: Record<QueuedMutationKind, string> = {
   deleteFoodLogEntry: "Deleted food entry",
   logBodyweight: "Bodyweight",
   logMealTemplate: "Logged meal template",
+  updateThemePreference: "Appearance",
 };
 
 const OFFLINE_BANNER_TITLE =

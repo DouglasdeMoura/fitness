@@ -18,6 +18,24 @@ const THEME_COLOR_BY_MODE: Record<ColorMode, string> = {
   light: THEME_COLOR_LIGHT,
 };
 
+let clientThemePreference: ThemePreference | null = null;
+
+/** Tracks the signed-in user's preference for OS-following without localStorage (#104). */
+export function setClientThemePreference(preference: ThemePreference): void {
+  clientThemePreference = preference;
+}
+
+/** Preference used by client-side resolution; falls back to legacy storage until #104 retires it. */
+export function getClientThemePreference(): ThemePreference {
+  if (clientThemePreference !== null) {
+    return clientThemePreference;
+  }
+  if (typeof localStorage === "undefined") {
+    return "system";
+  }
+  return normalizeThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
+}
+
 function isThemePreference(value: string): value is ThemePreference {
   return (THEME_PREFERENCES as readonly string[]).includes(value);
 }
@@ -112,6 +130,20 @@ export function applyResolvedTheme(mode: ColorMode): void {
 /** Custom event dispatched when theme is toggled from Settings (issue #34). */
 export const THEME_CHANGE_EVENT = "fittrack-theme-changed";
 
+/**
+ * Applies a theme preference immediately without persisting to localStorage (#98).
+ *
+ * @example applyThemePreference("system")
+ */
+export function applyThemePreference(preference: ThemePreference): void {
+  setClientThemePreference(preference);
+  const mode = resolveTheme(preference, readPrefersDark());
+  applyResolvedTheme(mode);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: mode }));
+  }
+}
+
 export function persistTheme(mode: ColorMode): void {
   localStorage.setItem(THEME_STORAGE_KEY, mode);
   applyResolvedTheme(mode);
@@ -137,9 +169,7 @@ export function subscribeToSystemTheme(
   }
   const mediaQuery = matchMedia(DARK_COLOR_SCHEME_QUERY);
   const handleChange = () => {
-    const preference = normalizeThemePreference(
-      localStorage.getItem(THEME_STORAGE_KEY)
-    );
+    const preference = getClientThemePreference();
     if (hasFixedThemeChoice(preference)) {
       return;
     }

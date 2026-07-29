@@ -34,6 +34,7 @@ const EXERCISE_CATEGORY_VALUES = [
 ] as const;
 const PERIODIZATION_TYPE_VALUES = ["linear", "dup"] as const;
 const SYNC_STATUS_VALUES = ["applied", "failed"] as const;
+const THEME_PREFERENCE_VALUES = ["light", "dark", "system"] as const;
 const CURRENT_TIMESTAMP = sql`(datetime('now'))`;
 
 export const users = sqliteTable(
@@ -53,6 +54,11 @@ export const users = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     name: text("name").notNull().default("Athlete"),
     sex: text("sex", { enum: SEX_VALUES }).notNull().default("male"),
+    themePreference: text("theme_preference", {
+      enum: THEME_PREFERENCE_VALUES,
+    })
+      .notNull()
+      .default("system"),
     updatedAt: text("updated_at").notNull().default(CURRENT_TIMESTAMP),
   },
   (table) => [
@@ -64,6 +70,10 @@ export const users = sqliteTable(
     check(
       "users_goal_type_check",
       sql`${table.goalType} in ('lose_fat', 'build_muscle', 'maintain', 'recomp')`
+    ),
+    check(
+      "users_theme_preference_check",
+      sql`${table.themePreference} in ('light', 'dark', 'system')`
     ),
   ]
 );

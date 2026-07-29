@@ -23,7 +23,9 @@ import { ShortcutsHelpDialog } from "~/components/shortcuts-help-dialog";
 import { UserMenu } from "~/components/user-menu";
 import { RestTimer } from "~/components/workout/rest-timer";
 import { useKeyboardShortcuts } from "~/hooks/use-keyboard-shortcuts";
+import { getThemePreference } from "~/lib/api";
 import {
+  applyThemePreference,
   DEFAULT_COLOR_MODE,
   isMinimalChromeRoute,
   isWorkoutRoute,
@@ -124,6 +126,17 @@ export function AppChrome({ children }: { children: ReactNode }) {
 
   // Follow OS colour scheme until the user makes an explicit Settings choice.
   useEffect(() => subscribeToSystemTheme(setColorMode), []);
+
+  useEffect(() => {
+    if (isMinimalChromeRoute(pathname)) {
+      return;
+    }
+    void getThemePreference()
+      .then(applyThemePreference)
+      .catch(() => {
+        /* protected routes require auth; ignore transient lookup failures */
+      });
+  }, [pathname]);
 
   useEffect(() => {
     if (isWorkoutRoute(pathname)) {

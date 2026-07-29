@@ -17,10 +17,6 @@ const appChromeSource = readFileSync(
   join(projectRoot, "src/components/app-chrome.tsx"),
   "utf-8"
 );
-const appSpecSource = readFileSync(
-  join(projectRoot, "tests/e2e/app.spec.ts"),
-  "utf-8"
-);
 const settingsSource = readFileSync(
   join(projectRoot, THEME_CONTROL_OWNER),
   "utf-8"
@@ -52,17 +48,14 @@ describe("theme control consolidation (issue #94)", () => {
     expect(appChromeSource).toContain("subscribeToSystemTheme");
   });
 
-  it("retargets the three dark-mode e2e tests at the Settings switch", () => {
-    expect(appSpecSource).toContain('test.describe("Dark Mode Toggle"');
-    expect(appSpecSource).toContain(
-      "theme control lives on Settings, not in TopNav"
-    );
-    expect(appSpecSource).toContain(
-      'page.getByRole("switch", { name: "Dark Mode" })'
-    );
-    expect(appSpecSource).not.toMatch(
-      /getByRole\("button", \{ name: "Toggle dark mode" \}\)\.click\(\)/
-    );
+  it("keeps the Settings appearance control as a three-way radiogroup", () => {
+    expect(settingsSource).toContain('label="Appearance"');
+    expect(settingsSource).toContain('<SegmentedControlItem label="Light"');
+    expect(settingsSource).toContain('<SegmentedControlItem label="System"');
+    expect(settingsSource).toContain('<SegmentedControlItem label="Dark"');
+    expect(settingsSource).not.toContain('label="Dark Mode"');
+    expect(settingsSource).not.toContain("persistTheme");
+    expect(settingsSource).not.toContain("localStorage");
   });
 });
 
@@ -77,12 +70,12 @@ describe("theme control single-owner scan (issue #95)", () => {
     expect(appChromeSource).not.toContain("persistTheme");
   });
 
-  it("flags persistTheme handler calls outside the definition module", () => {
+  it("flags applyThemePreference handler calls outside the definition module", () => {
     const markers = findThemeControlMarkers(
       [
-        'import { persistTheme } from "~/lib/app-chrome";',
-        "const onToggle = () => {",
-        '  persistTheme("dark");',
+        'import { applyThemePreference } from "~/lib/app-chrome";',
+        "const onChange = () => {",
+        '  applyThemePreference("dark");',
         "};",
       ].join("\n"),
       "src/components/experimental-toggle.tsx"
@@ -91,20 +84,20 @@ describe("theme control single-owner scan (issue #95)", () => {
     expect(markers).toStrictEqual([
       {
         filePath: "src/components/experimental-toggle.tsx",
-        kind: "persistTheme-handler",
+        kind: "applyThemePreference-handler",
         line: 3,
-        lineContent: 'persistTheme("dark");',
+        lineContent: 'applyThemePreference("dark");',
       },
     ]);
     expect(formatThemeControlMarker(markers[0]!)).toBe(
-      'src/components/experimental-toggle.tsx:3 persistTheme("dark");'
+      'src/components/experimental-toggle.tsx:3 applyThemePreference("dark");'
     );
   });
 
-  it("does not treat the persistTheme definition or Settings import as a control", () => {
-    expect(findThemeControlMarkers(appChromeLibSource, "src/lib/app-chrome.ts")).toStrictEqual(
-      []
-    );
+  it("does not treat the applyThemePreference definition or Settings import as a control", () => {
+    expect(
+      findThemeControlMarkers(appChromeLibSource, "src/lib/app-chrome.ts")
+    ).toStrictEqual([]);
     expect(
       findThemeControlMarkers(settingsSource, THEME_CONTROL_OWNER).some(
         (marker) => marker.kind === "toggle-dark-mode-label"
@@ -112,7 +105,7 @@ describe("theme control single-owner scan (issue #95)", () => {
     ).toBe(false);
     expect(
       findThemeControlMarkers(settingsSource, THEME_CONTROL_OWNER).some(
-        (marker) => marker.kind === "persistTheme-handler"
+        (marker) => marker.kind === "applyThemePreference-handler"
       )
     ).toBe(true);
   });

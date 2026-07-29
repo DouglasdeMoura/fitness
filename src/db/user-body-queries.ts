@@ -137,3 +137,17 @@ export async function findLatestBodyweightRecord(
     where: and(eq(bodyLogs.userId, userId), isNotNull(bodyLogs.weightKg)),
   });
 }
+
+/** Persist one user's theme preference (issue #102). */
+export async function updateThemePreferenceRecord(
+  database: FitTrackDatabase,
+  userId: number,
+  themePreference: UserRecord["themePreference"]
+): Promise<UserRecord> {
+  return database
+    .update(users)
+    .set({ themePreference, updatedAt: new Date().toISOString() })
+    .where(eq(users.id, userId))
+    .returning()
+    .get();
+}

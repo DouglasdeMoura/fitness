@@ -41,6 +41,18 @@ export const goalTypeSchema = z.enum([
 
 export const sexSchema = z.enum(["male", "female", "other"]);
 
+export const themePreferenceSchema = z.enum(["light", "dark", "system"]);
+
+export type ThemePreferenceValue = z.infer<typeof themePreferenceSchema>;
+
+export const updateThemePreferenceInputSchema = z.object({
+  theme_preference: themePreferenceSchema,
+});
+
+export type UpdateThemePreferenceInput = z.infer<
+  typeof updateThemePreferenceInputSchema
+>;
+
 export const userProfileUpdateSchema = z.object({
   activityLevel: activityLevelSchema.optional(),
   birthDate: isoDateSchema.nullable().optional(),
@@ -213,6 +225,13 @@ const syncLogMealTemplateMutationSchema = queuedMutationBaseSchema.extend({
   payload: logMealTemplateInputSchema,
 });
 
+const syncUpdateThemePreferenceMutationSchema = queuedMutationBaseSchema.extend(
+  {
+    kind: z.literal("updateThemePreference"),
+    payload: updateThemePreferenceInputSchema,
+  }
+);
+
 export const queuedMutationSchema = z.discriminatedUnion("kind", [
   syncAddFoodMutationSchema,
   syncAddFoodLogEntryMutationSchema,
@@ -224,6 +243,7 @@ export const queuedMutationSchema = z.discriminatedUnion("kind", [
   syncDeleteFoodLogEntryMutationSchema,
   syncLogBodyweightMutationSchema,
   syncLogMealTemplateMutationSchema,
+  syncUpdateThemePreferenceMutationSchema,
 ]);
 
 export type QueuedMutation = z.infer<typeof queuedMutationSchema>;

@@ -8,6 +8,7 @@ export const THEME_CONTROL_OWNER = "src/routes/settings/index.tsx";
 export const PERSIST_THEME_DEFINITION_FILE = "src/lib/app-chrome.ts";
 
 export type ThemeControlMarkerKind =
+  | "applyThemePreference-handler"
   | "persistTheme-handler"
   | "toggle-dark-mode-label";
 
@@ -24,10 +25,19 @@ export interface ThemeControlModule {
 }
 
 const TOGGLE_DARK_MODE_LABEL_PATTERN = /Toggle dark mode/;
+const APPLY_THEME_PREFERENCE_CALL_PATTERN = /\bapplyThemePreference\s*\(/;
 const PERSIST_THEME_CALL_PATTERN = /\bpersistTheme\s*\(/;
 
 function normalizePath(filePath: string): string {
   return filePath.replaceAll("\\", "/");
+}
+
+function isApplyThemePreferenceDefinition(line: string): boolean {
+  return /export\s+function\s+applyThemePreference\b/.test(line);
+}
+
+function isApplyThemePreferenceImport(line: string): boolean {
+  return /\bimport\b.*\bapplyThemePreference\b/.test(line);
 }
 
 function isPersistThemeDefinition(line: string): boolean {
@@ -36,6 +46,23 @@ function isPersistThemeDefinition(line: string): boolean {
 
 function isPersistThemeImport(line: string): boolean {
   return /\bimport\b.*\bpersistTheme\b/.test(line);
+}
+
+function shouldScanApplyThemePreferenceHandler(
+  filePath: string,
+  line: string
+): boolean {
+  const normalizedPath = normalizePath(filePath);
+  if (normalizedPath === PERSIST_THEME_DEFINITION_FILE) {
+    return false;
+  }
+  if (
+    isApplyThemePreferenceDefinition(line) ||
+    isApplyThemePreferenceImport(line)
+  ) {
+    return false;
+  }
+  return APPLY_THEME_PREFERENCE_CALL_PATTERN.test(line);
 }
 
 function shouldScanPersistThemeHandler(
@@ -67,6 +94,15 @@ export function findThemeControlMarkers(
       markers.push({
         filePath: normalizedPath,
         kind: "toggle-dark-mode-label",
+        line: lineNumber,
+        lineContent: line.trim(),
+      });
+    }
+
+    if (shouldScanApplyThemePreferenceHandler(normalizedPath, line)) {
+      markers.push({
+        filePath: normalizedPath,
+        kind: "applyThemePreference-handler",
         line: lineNumber,
         lineContent: line.trim(),
       });
@@ -132,9 +168,7 @@ export function scanThemeControlModules(
 }
 
 /** Format one actionable gate failure with its source location. */
-export function formatThemeControlMarker(
-  marker: ThemeControlMarker
-): string {
+export function formatThemeControlMarker(marker: ThemeControlMarker): string {
   return `${marker.filePath}:${marker.line} ${marker.lineContent}`;
 }
 

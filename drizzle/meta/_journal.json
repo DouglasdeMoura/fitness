@@ -29,6 +29,13 @@
       "when": 1785280829834,
       "tag": "0003_sync_queue_user_id",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785346565691,
+      "tag": "0004_theme_preference",
+      "breakpoints": true
     }
   ]
 }

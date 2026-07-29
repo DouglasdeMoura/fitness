@@ -88,6 +88,9 @@ export interface QueuedMutationPayloads {
     date: string;
     mealType: MealType;
   };
+  updateThemePreference: {
+    theme_preference: "light" | "dark" | "system";
+  };
 }
 
 export type QueuedMutationKind = keyof QueuedMutationPayloads;

@@ -3,8 +3,27 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyResolvedTheme, getStoredTheme, getThemeColor, hasFixedThemeChoice, isAuthRoute, isBlogRoute, isMinimalChromeRoute, isNavSelected, isPublicMarketingRoute, isWorkoutRoute, navValueFromPath, normalizeThemePreference, persistTheme, resolveTheme, subscribeToSystemTheme, THEME_COLOR_DARK, THEME_COLOR_LIGHT, THEME_STORAGE_KEY } from '~/lib/app-chrome';
-import type { ThemePreference } from '~/lib/app-chrome';
+import {
+  applyResolvedTheme,
+  getStoredTheme,
+  getThemeColor,
+  hasFixedThemeChoice,
+  isAuthRoute,
+  isBlogRoute,
+  isMinimalChromeRoute,
+  isNavSelected,
+  isPublicMarketingRoute,
+  isWorkoutRoute,
+  navValueFromPath,
+  normalizeThemePreference,
+  persistTheme,
+  resolveTheme,
+  subscribeToSystemTheme,
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
+  THEME_STORAGE_KEY,
+} from "~/lib/app-chrome";
+import type { ThemePreference } from "~/lib/app-chrome";
 
 function createThemeDocument({
   root,
