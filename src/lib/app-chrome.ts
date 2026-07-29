@@ -1,5 +1,9 @@
 export type ColorMode = "light" | "dark";
 
+/** Allowed user theme preferences; shared with schema validators (#100, #102). */
+export const THEME_PREFERENCES = ["light", "dark", "system"] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+
 export const DEFAULT_COLOR_MODE: ColorMode = "light";
 export const THEME_STORAGE_KEY = "fittrack-theme";
 export const DARK_COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
@@ -14,17 +18,36 @@ const THEME_COLOR_BY_MODE: Record<ColorMode, string> = {
   light: THEME_COLOR_LIGHT,
 };
 
+function isThemePreference(value: string): value is ThemePreference {
+  return (THEME_PREFERENCES as readonly string[]).includes(value);
+}
+
 /**
- * Single resolver for stored preference, then OS, then the light default.
+ * Normalises a server- or storage-supplied value to a theme preference.
+ * Absent and unrecognised values mean "follow the OS".
  *
- * @example resolveTheme(null, true) // "dark"
+ * @example normalizeThemePreference(null) // "system"
+ */
+export function normalizeThemePreference(
+  value: string | null | undefined
+): ThemePreference {
+  if (typeof value === "string" && isThemePreference(value)) {
+    return value;
+  }
+  return "system";
+}
+
+/**
+ * Resolves a theme preference to the colour mode applied to the document.
+ *
+ * @example resolveTheme("system", true) // "dark"
  */
 export function resolveTheme(
-  storedTheme: string | null | undefined,
+  preference: ThemePreference,
   prefersDark: boolean
 ): ColorMode {
-  if (storedTheme === "light" || storedTheme === "dark") {
-    return storedTheme;
+  if (preference === "light" || preference === "dark") {
+    return preference;
   }
   return prefersDark ? "dark" : DEFAULT_COLOR_MODE;
 }
@@ -33,12 +56,9 @@ export function getThemeColor(mode: ColorMode): string {
   return THEME_COLOR_BY_MODE[mode];
 }
 
-export function hasExplicitThemeChoice(): boolean {
-  if (typeof localStorage === "undefined") {
-    return false;
-  }
-  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-  return storedTheme === "light" || storedTheme === "dark";
+/** True when the preference is fixed light/dark and must not follow the OS. */
+export function hasFixedThemeChoice(preference: ThemePreference): boolean {
+  return preference === "light" || preference === "dark";
 }
 
 function readPrefersDark(): boolean {
@@ -58,7 +78,7 @@ export function getStoredTheme(): ColorMode {
     return DEFAULT_COLOR_MODE;
   }
   return resolveTheme(
-    localStorage.getItem(THEME_STORAGE_KEY),
+    normalizeThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
     readPrefersDark()
   );
 }
@@ -105,7 +125,7 @@ const NOOP_UNSUBSCRIBE = () => {
 };
 
 /**
- * Keeps following the OS colour scheme until the user makes an explicit choice.
+ * Keeps following the OS colour scheme until the user makes a fixed choice.
  *
  * @example subscribeToSystemTheme(setColorMode)
  */
@@ -117,13 +137,13 @@ export function subscribeToSystemTheme(
   }
   const mediaQuery = matchMedia(DARK_COLOR_SCHEME_QUERY);
   const handleChange = () => {
-    if (hasExplicitThemeChoice()) {
+    const preference = normalizeThemePreference(
+      localStorage.getItem(THEME_STORAGE_KEY)
+    );
+    if (hasFixedThemeChoice(preference)) {
       return;
     }
-    const mode = resolveTheme(
-      localStorage.getItem(THEME_STORAGE_KEY),
-      mediaQuery.matches
-    );
+    const mode = resolveTheme(preference, mediaQuery.matches);
     applyResolvedTheme(mode);
     onChange(mode);
     window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: mode }));

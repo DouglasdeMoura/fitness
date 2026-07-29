@@ -4,7 +4,7 @@ import {
   applyResolvedTheme,
   getStoredTheme,
   getThemeColor,
-  hasExplicitThemeChoice,
+  hasFixedThemeChoice,
   isAuthRoute,
   isBlogRoute,
   isMinimalChromeRoute,
@@ -12,6 +12,7 @@ import {
   isPublicMarketingRoute,
   isWorkoutRoute,
   navValueFromPath,
+  normalizeThemePreference,
   persistTheme,
   resolveTheme,
   subscribeToSystemTheme,
@@ -110,10 +111,23 @@ describe(resolveTheme, () => {
     expect(resolveTheme("dark", false)).toBe("dark");
   });
 
-  it("follows the operating system when nothing valid is stored", () => {
-    expect(resolveTheme(null, true)).toBe("dark");
-    expect(resolveTheme("sepia", true)).toBe("dark");
-    expect(resolveTheme(undefined, false)).toBe("light");
+  it("follows the operating system when the preference is system", () => {
+    expect(resolveTheme("system", true)).toBe("dark");
+    expect(resolveTheme("system", false)).toBe("light");
+  });
+});
+
+describe(normalizeThemePreference, () => {
+  it("returns system for absent and unrecognised values", () => {
+    expect(normalizeThemePreference(null)).toBe("system");
+    expect(normalizeThemePreference()).toBe("system");
+    expect(normalizeThemePreference("purple")).toBe("system");
+  });
+
+  it("preserves recognised preference values", () => {
+    expect(normalizeThemePreference("light")).toBe("light");
+    expect(normalizeThemePreference("dark")).toBe("dark");
+    expect(normalizeThemePreference("system")).toBe("system");
   });
 });
 
@@ -125,30 +139,14 @@ describe(getThemeColor, () => {
   });
 });
 
-describe(hasExplicitThemeChoice, () => {
-  beforeEach(() => {
-    const store: Record<string, string> = {};
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-    });
+describe(hasFixedThemeChoice, () => {
+  it("is false for system", () => {
+    expect(hasFixedThemeChoice("system")).toBe(false);
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("is false until the user saves light or dark", () => {
-    expect(hasExplicitThemeChoice()).toBe(false);
-    localStorage.setItem("fittrack-theme", "sepia");
-    expect(hasExplicitThemeChoice()).toBe(false);
-  });
-
-  it("is true after the user saves light or dark", () => {
-    localStorage.setItem("fittrack-theme", "dark");
-    expect(hasExplicitThemeChoice()).toBe(true);
+  it("is true for light and dark", () => {
+    expect(hasFixedThemeChoice("dark")).toBe(true);
+    expect(hasFixedThemeChoice("light")).toBe(true);
   });
 });
 
@@ -263,7 +261,7 @@ describe(subscribeToSystemTheme, () => {
     vi.unstubAllGlobals();
   });
 
-  it("follows OS changes only while no explicit choice is stored", () => {
+  it("follows OS changes only while no fixed choice is stored", () => {
     const store: Record<string, string> = {};
     const listeners = new Set<() => void>();
     const onChange = vi.fn();
