@@ -16,7 +16,7 @@
     "theme:build": "npm run astryx -- theme build src/lib/fittrack-theme.ts -o src/lib/generated/fittrack-neutral/theme.css",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
-    "test:e2e": "echo 'e2e is DISABLED \u2014 the suite is red (42+ pre-existing failures). No specs ran. Use `npm run test:e2e:run` to run it anyway.'",
+    "test:e2e": "npm run test:e2e:dev-smoke",
     "test:e2e:run": "npx playwright test --project=chromium --project=pixel-7",
     "test:watch": "vitest watch",
     "test:e2e:webkit": "docker run --rm --network host -v \"$PWD\":/work -w /work -e CI=1 mcr.microsoft.com/playwright:v1.62.0-noble npx playwright test --project=iphone-14",

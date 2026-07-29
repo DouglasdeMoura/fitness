@@ -19,6 +19,7 @@
 ## Tests
 
 - Tests run with a single command: `npm run test:unit && npm run test:e2e`.
+- `test:e2e` runs the `dev-runtime` Playwright project (hydration gate against `vite dev`). The full chromium suite is opt-in via `test:e2e:run`.
 - Every new function gets a test. Bug fixes get a regression test.
 - Mock external I/O (API, DB, filesystem) with named fake classes, not inline stubs.
 - Tests must be F.I.R.S.T: fast, independent, repeatable, self-validating, timely.

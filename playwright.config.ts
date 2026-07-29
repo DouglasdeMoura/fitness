@@ -4,7 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Port, server command and database are all env-driven so a run can be fully
 // isolated from anything else on the machine. They default to the previous
-// hardcoded behaviour, so a plain `npm run test:e2e` is unchanged.
+// hardcoded behaviour. `npm run test:e2e` runs only the dev-runtime project;
+// the full chromium suite is opt-in via `npm run test:e2e:run`.
 const PORT = process.env.E2E_PORT ?? "3000";
 
 // Default builds first because `node .output/server/index.mjs` needs an
