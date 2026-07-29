@@ -624,31 +624,31 @@ test.describe("Navigation - Cross-page Flow", () => {
 });
 
 test.describe("Dark Mode Toggle", () => {
-  test("dark mode toggle button is visible in TopNav endContent", async ({
-    page,
-  }) => {
+  test("theme control lives on Settings, not in TopNav", async ({ page }) => {
     await waitForAppReady(page);
     await expect(
       page.getByRole("button", { name: "Toggle dark mode" })
-    ).toBeVisible();
+    ).toHaveCount(0);
+
+    await openAppPage(page, "/settings");
+    await expect(page.getByRole("switch", { name: "Dark Mode" })).toBeVisible();
   });
 
   test("clicking toggle changes theme attribute via Astryx Theme", async ({
     page,
   }) => {
-    await openAppPage(page, "/");
+    await openAppPage(page, "/settings");
     await page.evaluate(() => {
       localStorage.setItem("fittrack-theme", "light");
       document.documentElement.dataset.theme = "light";
     });
     await reloadAppPage(page);
-    await expect(
-      page.getByRole("button", { name: "Toggle dark mode" })
-    ).toBeVisible({
+    const darkModeSwitch = page.getByRole("switch", { name: "Dark Mode" });
+    await expect(darkModeSwitch).toBeVisible({
       timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await darkModeSwitch.click();
     await expect
       .poll(async () =>
         page.evaluate(() => document.documentElement.dataset.theme)
@@ -662,19 +662,18 @@ test.describe("Dark Mode Toggle", () => {
   });
 
   test("persists dark mode across reload", async ({ page }) => {
-    await openAppPage(page, "/");
+    await openAppPage(page, "/settings");
     await page.evaluate(() => {
       localStorage.setItem("fittrack-theme", "light");
       document.documentElement.dataset.theme = "light";
     });
     await reloadAppPage(page);
-    await expect(
-      page.getByRole("button", { name: "Toggle dark mode" })
-    ).toBeVisible({
+    const darkModeSwitch = page.getByRole("switch", { name: "Dark Mode" });
+    await expect(darkModeSwitch).toBeVisible({
       timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await darkModeSwitch.click();
     await expect
       .poll(async () =>
         page.evaluate(() => document.documentElement.dataset.theme)

@@ -1,8 +1,6 @@
 "use client";
 
-import { HStack } from "@astryxdesign/core";
 import { AppShell } from "@astryxdesign/core/AppShell";
-import { IconButton } from "@astryxdesign/core/IconButton";
 import { LinkProvider } from "@astryxdesign/core/Link";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Theme } from "@astryxdesign/core/theme";
@@ -17,7 +15,6 @@ import {
   NutritionIcon,
   ProgressIcon,
   SettingsIcon,
-  ThemeToggleIcon,
   WorkoutIcon,
 } from "~/components/icons/fit-track-icons";
 import { OfflineStatus } from "~/components/offline-status";
@@ -31,10 +28,8 @@ import {
   isMinimalChromeRoute,
   isWorkoutRoute,
   navValueFromPath,
-  persistTheme,
   subscribeToSystemTheme,
   THEME_CHANGE_EVENT,
-  toggleColorMode,
 } from "~/lib/app-chrome";
 import type { ColorMode } from "~/lib/app-chrome";
 import { fittrackNeutralTheme } from "~/lib/generated/fittrack-neutral/fittrack-neutral";
@@ -190,23 +185,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
             mobileNav={false}
             topNav={
               <TopNav
-                endContent={
-                  <HStack align="center" gap={2}>
-                    <UserMenu />
-                    <IconButton
-                      icon={<ThemeToggleIcon />}
-                      label="Toggle dark mode"
-                      onClick={() => {
-                        const nextMode = toggleColorMode(colorMode);
-                        setColorMode(nextMode);
-                        persistTheme(nextMode);
-                      }}
-                      size="lg"
-                      tooltip="Toggle dark mode"
-                      variant="ghost"
-                    />
-                  </HStack>
-                }
+                endContent={<UserMenu />}
                 heading={
                   <TopNavHeading heading="FitTrack" headingHref="/dashboard" />
                 }
