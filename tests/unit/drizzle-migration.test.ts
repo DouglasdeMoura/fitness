@@ -15,11 +15,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../../src/db/migration-diagnostics";
 import { foods } from "../../src/db/schema";
 import {
+  countTableRows,
   createScratchMigrationDb,
+  discoverTablesReferencingUsers,
   execMigrationSql,
   getMigrationsFolder,
   MIGRATION_SQL_FILES,
   recordAppliedMigrations,
+  seedMigrationGateChildRows,
 } from "./db-migration-fixture";
 import { createDrizzleTestDb } from "./drizzle-test-db";
 import type { DrizzleTestDb } from "./drizzle-test-db";
@@ -282,6 +285,69 @@ describe("migration 0004_theme_preference (issue #100)", () => {
         .get(insertResult.lastInsertRowid) as { theme_preference: string };
 
       expect(defaultPreference.theme_preference).toBe("system");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("applies migration 0004 cleanly when users have dependent rows", () => {
+    const fixture = createScratchMigrationDb(
+      "fittrack-migrate-0004-dependent-rows-"
+    );
+    const userId = 7;
+
+    try {
+      for (const fileName of MIGRATION_SQL_FILES.slice(0, 4)) {
+        execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
+      }
+
+      fixture.sqlite
+        .prepare(
+          "INSERT INTO users (id, name, email, activity_level, goal_type, sex) VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          userId,
+          "Pre-migration Athlete",
+          "pre-migration@example.com",
+          "light",
+          "lose_fat",
+          "female"
+        );
+
+      const childTables = discoverTablesReferencingUsers(fixture.sqlite);
+      expect(childTables.length).toBeGreaterThan(0);
+
+      const seededTables = seedMigrationGateChildRows(fixture.sqlite, userId);
+      expect(seededTables).toEqual(childTables);
+
+      const rowCountsBefore = Object.fromEntries(
+        childTables.map((tableName) => [
+          tableName,
+          countTableRows(fixture.sqlite, tableName),
+        ])
+      );
+      for (const tableName of childTables) {
+        expect(rowCountsBefore[tableName]).toBeGreaterThanOrEqual(1);
+      }
+
+      recordAppliedMigrations(fixture.sqlite, 4, fixture.migrationsFolder);
+      runMigrations(drizzle(fixture.sqlite), {
+        dbPath: fixture.dbPath,
+        migrationsFolder: fixture.migrationsFolder,
+      });
+
+      for (const tableName of childTables) {
+        expect(countTableRows(fixture.sqlite, tableName)).toBe(
+          rowCountsBefore[tableName]
+        );
+      }
+
+      expect(fixture.sqlite.pragma("foreign_key_check")).toEqual([]);
+
+      const migratedUser = fixture.sqlite
+        .prepare("SELECT theme_preference FROM users WHERE id = ?")
+        .get(userId) as { theme_preference: string };
+      expect(migratedUser.theme_preference).toBe("system");
     } finally {
       fixture.cleanup();
     }
