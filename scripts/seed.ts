@@ -1,3 +1,4 @@
+import "./load-env.ts";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -10,9 +11,13 @@ import {
   programDays,
   programExercises,
   programs,
-  users,
 } from "../src/db/schema.ts";
-import { linkSeedDemoAccount } from "../src/lib/seed-auth.ts";
+import {
+  assertSeedDemoPasswordForProduction,
+  ensureSeedDemoAccount,
+} from "../src/lib/seed-auth.ts";
+
+assertSeedDemoPasswordForProduction();
 
 const dbPath =
   process.env.DATABASE_PATH ?? join(process.cwd(), "data", "fittrack.db");
@@ -385,22 +390,8 @@ for (const e of exercises as [
     .run();
 }
 
-// Seed training programs
-let athlete = db.select({ id: users.id }).from(users).limit(1).get();
-if (!athlete) {
-  athlete = db
-    .insert(users)
-    .values({
-      activityLevel: "moderate",
-      goalType: "build_muscle",
-      heightCm: 178,
-      name: "Athlete",
-      sex: "male",
-    })
-    .returning({ id: users.id })
-    .get();
-}
-const athleteId = athlete.id;
+// Seed training programs for the deterministic demo profile (issue #82)
+const { profileUserId: athleteId } = await ensureSeedDemoAccount(db);
 const exerciseIds = Object.fromEntries(
   db
     .select({ id: exercisesTable.id, name: exercisesTable.name })
@@ -756,6 +747,4 @@ console.log(
 );
 
 console.log(`Seeded ${foods.length} foods and ${exercises.length} exercises.`);
-
-await linkSeedDemoAccount(db);
-console.log("Linked legacy seed data to demo auth account.");
+console.log(`Demo account profile user id: ${athleteId}`);

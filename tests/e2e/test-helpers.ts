@@ -4,7 +4,10 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import Database from "better-sqlite3";
 
-import { SEED_DEMO_ACCOUNT } from "../../src/lib/seed-auth";
+import {
+  resolveSeedDemoPassword,
+  SEED_DEMO_ACCOUNT,
+} from "../../src/lib/seed-auth";
 
 /**
  * Absolute path of the SQLite file the app under test is using.
@@ -99,7 +102,7 @@ export async function signInAsDemoUser(page: Page): Promise<void> {
     .fill(SEED_DEMO_ACCOUNT.email);
   await page
     .getByRole("textbox", { name: "Password" })
-    .fill(SEED_DEMO_ACCOUNT.password);
+    .fill(resolveSeedDemoPassword());
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
   await expect(appNav).toBeVisible({ timeout: 15_000 });
