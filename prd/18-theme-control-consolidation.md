@@ -269,3 +269,23 @@ Batch 4 being safe, and 1 and 3 can proceed in parallel.
 - **Theme for signed-out visitors.** `/`, `/sign-in` and `/blog` measured 0
   theme controls today and will still have 0 after Batch 4; they follow the OS.
   Giving marketing pages a theme control is a separate request.
+
+## Amended by PRD 20 — Batches 1 and 2 superseded
+
+`prd/20-theme-preference-persistence.md` makes the user's settings row the source
+of truth for the theme, defaulting to `system`, and deletes `localStorage`.
+
+**Batch 1 (#91) and Batch 2 (#92) are closed as superseded.** Batch 1 repaired the
+binary switch by deriving it from a `localStorage` store; PRD 19 #98 deletes that
+switch and PRD 20 #104 deletes that storage. The defect measured here — the
+control reading wrong on 10 of 10 server-rendered loads — is real and is fixed
+structurally by #104, which supplies the preference as root-loader data the server
+and client both see. Verified by spike: an authenticated document carries the
+loader-derived value in its first 260 bytes. The SSR-correctness assertions are
+folded into #99.
+
+**Batches 3, 4 and 5 (#93, #94, #95) stand unchanged.** Re-homing the dev-runtime
+hydration probe, removing the header toggle, and scanning for a single theme
+control are all independent of where the preference is stored. #94 remains a
+prerequisite for PRD 19 #98: a two-way header toggle cannot coexist with a
+three-state preference.

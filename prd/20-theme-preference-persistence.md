@@ -1,53 +1,83 @@
-# PRD 20 — Persist the theme preference on the user's account
+# PRD 20 — The theme preference lives on the account
 
 ## Overview
 
-The theme preference lives in `localStorage` only. It belongs to the device, not
-the account: it does not follow a user to a second device, and clearing site data
-destroys it. It should be a column on the user's settings row, defaulting to
-`system`.
+The theme has three states — **system**, **light**, **dark** — defaulting to
+**system**. The user's settings row in the database is the source of truth.
+Unauthenticated visitors are **system**. There is no flicker, because the server
+knows the preference before it renders anything.
 
-The cause is **not** a missing write — `persistTheme` (`src/lib/app-chrome.ts:95`)
-writes reliably. The preference has simply never had a server-side home.
+That last claim is the design's load-bearing assumption, and it was verified
+rather than assumed: a spike added a session-reading loader to the root route and
+rendered its result onto `<html>`. For an authenticated request the value appears
+in the **first 260 bytes** of the document. The root loader resolves before the
+shell is flushed, and it costs 2–4ms.
 
-The part that makes this more than an `ALTER TABLE`: **the theme must be correct
-in the first paint.** PRD 15 exists because of that flash, and
-`tests/e2e/theme-flash-helpers.ts:26-32` asserts `color-scheme` is already right
-at `domcontentloaded`. Today the inline bootstrap
-(`src/routes/__root.tsx:41-62`) achieves that by reading `localStorage`
-synchronously before paint. A database value is not available to that script. So
-moving the source of truth to the server means the server must also render the
-answer into the document — otherwise every signed-in user on a fresh device gets
-a light first paint that flips to dark after hydration, which is precisely the
-regression PRD 15 forbids.
+One correction to the model, and it shapes the whole design: **the server cannot
+resolve `system`.** `prefers-color-scheme` is a client-side media query, and the
+first request carries no signal of it (`Sec-CH-Prefers-Color-Scheme` needs an
+`Accept-CH` round trip and is Chromium-only, so it cannot serve a first paint).
+Since `system` is both the default and the state of every signed-out visitor, it
+is the common case, not an edge case.
 
-The through-line: **the database becomes the source of truth, `localStorage`
-becomes a pre-paint cache, and the server renders the answer when it knows it.**
+So the server renders the **preference**, not always a resolved mode:
+
+| preference | who resolves it | when |
+| --- | --- | --- |
+| `light` / `dark` | server | before the first byte |
+| `system` | the pre-paint inline script, via `matchMedia` | before the first paint |
+
+Both are flicker-free. The second is exactly how the app behaves today, and it
+is measured below as already correct at `domcontentloaded`.
+
+The simplification this buys: **`localStorage` stops being a source of truth and
+can be deleted.** Authenticated users get the preference from the database on
+every document load; signed-out users are always `system` and have nothing to
+store. No cache, no second writer, no precedence rule to get wrong.
 
 ## What was measured
 
-Measured 2026-07-29 against a **production build** (`npm run build && npm run
-start`, Playwright `chromium`, seeded `data/e2e-fittrack.db`), on `d2aa338`.
+Measured 2026-07-29 against **production builds** (`npm run build && npm run
+start`) on `48b822a`, with the seeded demo account.
 
-### The preference does not travel with the account
+### A root loader resolves before the shell is flushed
 
-Two independent browser contexts (two devices), both signed into the **same**
-seeded account. Device A chooses Dark:
+Spike: a loader on `createRootRoute` calling `fetchServerSession`
+(`src/lib/route-auth.ts:28`), its result rendered onto `<html>`. Raw bytes off
+the wire, `curl`, no browser:
 
-| device | `data-theme` | `localStorage.fittrack-theme` |
-| --- | --- | --- |
-| A, after choosing Dark | `dark` | `"dark"` |
-| B, same account | `light` | `null` |
-| B, after reload | `light` | `null` |
+Unauthenticated `/`:
 
-### Clearing site data destroys it
+```html
+<!DOCTYPE html><html data-spike-theme="system" data-spike-session="false" lang="en"><head>...
+```
 
-| step | `data-theme` | stored |
-| --- | --- | --- |
-| preference set to dark | `dark` | `"dark"` |
-| after `localStorage.removeItem` | `light` | `null` |
+Authenticated `/dashboard`:
 
-### The first-paint guarantee that must not regress
+```html
+<!DOCTYPE html><html data-spike-theme="dark" data-spike-session="true" lang="en"><head>...
+```
+
+The server-derived value is in the opening tag of the document. This is what
+makes a flicker-free explicit light/dark possible.
+
+### The root loader is cheap
+
+Same build, same host, `curl` time-to-first-byte, 7 samples per route, cold
+sample discarded:
+
+| route | no root loader | with root loader | delta |
+| --- | --- | --- | --- |
+| `/` (signed out) | ~7ms | ~6ms | none (noise) |
+| `/dashboard` | ~38ms | ~40ms | +2ms |
+| `/settings` | ~47ms | ~51ms | +4ms |
+
+The spike read the session but not yet a preference row. A single indexed row
+from local SQLite via better-sqlite3 is synchronous and sub-millisecond, so the
+figure above is the dominant cost — but it is not zero, and Batch 6 keeps a
+budget on it.
+
+### The current pre-paint path is already flicker-free
 
 `color-scheme` on `<html>` at `domcontentloaded`, before hydration:
 
@@ -56,179 +86,170 @@ seeded account. Device A chooses Dark:
 | `dark` | `dark` |
 | `light` | `light` |
 
-This is what `captureThemeFlashFrames` asserts. Any design that resolves the
-theme after hydration breaks it.
+This is what `tests/e2e/theme-flash-helpers.ts:26-32` asserts, and it is the
+mechanism `system` will keep using.
 
-### Document TTFB baseline
+### `system` already resolves correctly end to end
 
-The root route has **no loader** today — `createRootRoute`
-(`src/routes/__root.tsx:75-108`) declares only a static `head` and
-`shellComponent`. Reading a session and a database row during document render is
-new work on every document request, including public pages. Baseline, 5 samples
-each:
+Storing the literal `"system"` today:
 
-| route | samples (ms) | median |
+| stored | OS scheme | `data-theme` | `style.colorScheme` | `meta[theme-color]` |
+| --- | --- | --- | --- | --- |
+| `system` | dark | `dark` | `dark` | `#1b1b1b` |
+| `system` | light | `light` | `light` | `#6741d9` |
+
+Live OS changes are followed with no reload. The bootstrap at
+`src/routes/__root.tsx:46-50` treats any unrecognised value as "ask the OS".
+
+### The preference is device-scoped today
+
+Two contexts, same seeded account, device A chooses Dark:
+
+| device | `data-theme` | `localStorage.fittrack-theme` |
 | --- | --- | --- |
-| `/` | 31, 36, 59, 60, 68 | 59 |
-| `/dashboard` | 31, 32, 36, 37, 38 | 36 |
-| `/settings` | 44, 45, 48, 53, 57 | 48 |
+| A, after choosing Dark | `dark` | `"dark"` |
+| B, same account | `light` | `null` |
 
-### Existing patterns this must follow
+Clearing site data destroys it.
+
+### Patterns this must follow
 
 | concern | precedent |
 | --- | --- |
-| per-user preference table + defaults | `src/lib/notification-preferences.ts`, `src/db/notification-queries.ts` |
-| app profile row | `users` (`src/db/schema.ts:39-68`), with `check()` constraints on enum columns |
-| auth-scoped server fn | `getUser` / `updateUser` (`src/lib/api.ts:206-222`), both via `requireAuth()` |
+| app profile row, enum columns with `check()` | `users` (`src/db/schema.ts:39-68`) |
+| per-user preference table | `src/db/notification-queries.ts` |
+| auth-scoped server fn | `getUser` / `updateUser` (`src/lib/api.ts:206-222`) |
 | server-side session | `fetchServerSession` (`src/lib/route-auth.ts:28-33`) |
-| migration journal completeness | `tests/unit/drizzle-migration.test.ts:141-145` (issue #89) |
+| migration journal completeness | `tests/unit/drizzle-migration.test.ts:141-145` |
 | per-migration behaviour gate | `tests/unit/drizzle-migration.test.ts:147-170` |
-| offline-tolerant mutation | `runOrQueue` (`src/lib/offline.ts:335`), used at `src/routes/settings/index.tsx:185` |
 
-Note there are **two** user tables: `users` (`src/db/schema.ts:39`, the app
-profile, integer `id`, already carries `activityLevel`, `goalType`, `sex`) and
-`user` (`src/db/schema.ts:399`, better-auth, text `id`). The theme preference is
-an app profile setting and belongs on `users`, which is what
-`updateUserRecord` already writes.
+Two user tables exist: `users` (`src/db/schema.ts:39`, app profile, integer `id`,
+already carrying `activityLevel`/`goalType`/`sex`) and `user`
+(`src/db/schema.ts:399`, better-auth, text `id`). The preference belongs on
+**`users`**.
 
 ## Problem 1 — The preference is device-scoped
 
-Measured above: same account, second device, `stored: null` and a light page
-while device A is dark. Clearing site data loses it outright. There is no column
-anywhere to hold it.
+Measured above: same account, second device, empty storage and a light page while
+device A is dark. Clearing site data loses it. No column exists to hold it.
 
-## Problem 2 — A server-held value cannot reach the pre-paint script
+## Problem 2 — `localStorage` is the source of truth, and it should not be
 
-`src/routes/__root.tsx:43` reads `localStorage` synchronously inside an inline
-`<script>`. That script runs before paint and cannot await a database read. With
-the database as source of truth and no server-side rendering of the answer, a
-signed-in user on a fresh device paints light (empty cache) and flips after
-hydration — a flash, on the exact path PRD 15 closed.
+`persistTheme` (`src/lib/app-chrome.ts:95`) writes `localStorage`, and the
+pre-paint script (`src/routes/__root.tsx:43`) reads it. Nothing else knows the
+preference. Once the database holds it, keeping `localStorage` authoritative
+would create two writers and force a precedence rule — an entire class of
+staleness bug that simply does not need to exist, because the server can supply
+the answer on every document load.
 
-The root route has no loader to hang a session read on (measured), so this is a
-structural addition, not a tweak.
+## Problem 3 — The server cannot resolve `system`, and `system` is the default
 
-## Problem 3 — Two writers, no precedence rule
-
-Once the database holds the preference and `localStorage` holds a cache, a load
-can present two different answers: a stale cache from before a change made on
-another device, and the server's row. Nothing in the current design says which
-wins. Left unstated, it resolves by accident of ordering — and the cache is read
-first, so the stale one would win.
+The pre-paint script must survive. A design that renders a resolved `light`/`dark`
+server-side for *all* users would have to guess the OS scheme for the default
+state, and would guess wrong for every signed-out visitor and every user who
+never changed the setting. The script stays; what changes is that it is driven by
+the server-rendered preference instead of `localStorage`.
 
 ## Stance
 
-The tempting shape is "add a column, write it on change, read it in a query" —
-three small commits, and every one of them correct in isolation. It produces a
-theme flash for exactly the users this feature is for: the ones arriving on a
-second device, whose cache is empty and whose row says dark.
+The instinct after proving the root loader works is to render a resolved
+`light`/`dark` on the server for everyone and delete the inline script. That
+would be simpler, and it would be wrong: the server has no access to
+`prefers-color-scheme`, so the default state — `system` — would be a coin flip
+resolved after hydration. The flash PRD 15 closed would come back for the
+majority case.
 
-The flash is not a polish item to follow up. `tests/e2e/theme-flash.spec.ts` and
-`tests/unit/theme-flash.test.ts` are gates, and PRD 15 exists because this
-already went wrong once. So the server-render path and the cache-precedence rule
-are part of the feature, not a sequel to it.
+The design that survives the measurements is a split one: the server is
+authoritative for *what the user chose*, and the client remains authoritative for
+*what the OS currently prefers*. Each resolves the part it can see, both before
+paint.
 
-The counter-pressure is real and worth naming: a session lookup plus a database
-read on every document request, on a root route that currently does neither, with
-public pages paying for a value only signed-in users have. That is why the
-budget is measured above and stated as a constraint below, and why the read must
-be skipped when there is no session.
+The payoff for accepting that split is that `localStorage` loses its job
+entirely, which removes more complexity than the split adds.
 
 ## Constraints
 
 - No weakening of an existing gate to make a new one pass.
-- `color-scheme` on `<html>` must still be correct at `domcontentloaded` for
-  every case, signed in or out. `tests/e2e/theme-flash.spec.ts` and
+- `color-scheme` on `<html>` must be correct at `domcontentloaded` for all three
+  preferences, signed in and out. `tests/e2e/theme-flash.spec.ts` and
   `tests/unit/theme-flash.test.ts` stay green.
 - **Default is `system`**, at the column level, for new and existing rows.
-- `ColorMode` remains `"light" | "dark"`. `DEFAULT_COLOR_MODE`
-  (`src/lib/app-chrome.ts:3`) stays `"light"` — it is the *resolved* fallback when
-  `matchMedia` is unavailable, which is a different question from the default
-  *preference*. Do not conflate them.
-- Signed-out visitors keep today's behaviour exactly: `localStorage` plus OS, no
-  session lookup, no database read. `/`, `/sign-in` and `/blog` must not acquire
-  a per-request database read.
-- Document TTFB must not regress beyond the measured baseline by more than 25ms
-  at the median on `/dashboard` and `/settings`, and not at all on `/`.
-- No raw SQL under `src/` — `tests/unit/drizzle-migration.test.ts:125` asserts it.
-- Every migration keeps the journal contiguous
-  (`tests/unit/drizzle-migration.test.ts:141-145`).
-- Changing the theme must not require the "Save Profile" button. It applies
-  immediately, and must not fail hard when offline.
+- **Unauthenticated visitors are `system`.** No session lookup result required,
+  no database read, no stored preference.
+- `ColorMode` remains `"light" | "dark"` — it is the resolved mode.
+  `ThemePreference` is the three-state type. `DEFAULT_COLOR_MODE`
+  (`src/lib/app-chrome.ts:3`) stays `"light"`: it is the resolved fallback when
+  `matchMedia` is unavailable, not the default preference. Do not conflate them.
+- The pre-paint inline script must not be deleted. It is what resolves `system`.
+- No raw SQL under `src/` (`tests/unit/drizzle-migration.test.ts:125`).
+- Migration journal stays contiguous (`tests/unit/drizzle-migration.test.ts:141-145`).
+- Changing the theme applies immediately — it must not require "Save Profile".
+- Document TTFB must stay within +15ms of the measured baselines at the median
+  (`/` ~7ms, `/dashboard` ~38ms, `/settings` ~47ms by `curl`).
 
 ## Relationship to PRD 18 and PRD 19
 
-Neither is superseded; both are unstarted.
-
-- **PRD 18** (#91–#95) fixes a Settings control that reads wrong on 10 of 10 SSR
-  loads, and removes the header toggle. Independent of storage location.
-- **PRD 19** (#96–#99) introduces `ThemePreference = "light" | "dark" | "system"`
-  and the three-way control. #96's type is a prerequisite here — this PRD stores
-  exactly that type.
-
-PRD 19's "Out of scope" previously said the preference stays in `localStorage` and
-that no column would be added. That call is reversed by this PRD; PRD 19's file
-and issue #98 are amended to point here rather than contradict it.
-
-Sequencing consequence: PRD 19 #98 (the three-way control) must write through
-this PRD's persistence layer, or it ships a `localStorage`-only handler that is
-immediately rewritten. #98 gains a dependency on Batch 3 below.
+- **PRD 19** (#96–#99) owns the three-state type and the Light/System/Dark
+  control. Both are required here.
+- **PRD 18** (#93, #94, #95) removes the header toggle and re-homes the
+  dev-runtime hydration probe. Still valid and independent.
+- **PRD 18 #91 and #92 are superseded.** They fixed a binary Settings switch by
+  deriving it from a `localStorage` store. This PRD deletes `localStorage` as a
+  source of truth, and PRD 19 #98 deletes the binary switch. Their measured
+  defect — the switch reading wrong on 10 of 10 SSR loads — is fixed structurally
+  here, because the control's value arrives as loader data that the server and
+  client both see. Their SSR-correctness assertions are folded into #99 so the
+  coverage is not lost.
 
 ## Batch 1 — Column and migration
 
-`theme_preference` on `users`, `NOT NULL DEFAULT 'system'`, with a `check()`
-constraint matching the existing `users_sex_check` style, plus migration `0004`
-and query helpers.
+`users.theme_preference`, `NOT NULL DEFAULT 'system'`, `check()` constraint,
+migration `0004`, query helpers.
 
 ## Batch 2 — Gate the migration
 
-Fresh-database and upgrade-from-`0003` behaviour, the `system` default on
-pre-existing rows, and the CHECK rejecting an invalid value. Follows the
-`migration 0003` describe block precedent.
+Fresh database, upgrade from `0003` with pre-existing rows, the `system` default,
+the CHECK rejecting an invalid value.
 
 ## Batch 3 — Auth-scoped read and write server functions
 
-`requireAuth()`-scoped, following `getUser`/`updateUser`. Not folded into the
-profile form's save.
+Following `getUser` / `updateUser`. Not folded into the profile form's save.
 
 ## Batch 4 — Gate the server functions
 
-Including cross-user isolation: one account must not read or write another's
-preference.
+Including cross-user isolation and validator rejection.
 
-## Batch 5 — Server-render the preference, and define cache precedence
+## Batch 5 — Server-render the preference and retire `localStorage`
 
-The shell resolves the preference server-side when a session exists, renders it
-into the document before paint, and the server's answer takes precedence over the
-`localStorage` cache. No session ⇒ today's path unchanged.
+Root loader supplies the preference; the shell renders it; the pre-paint script
+resolves `system` against `matchMedia` and applies `light`/`dark` directly. The
+theme storage key and its reads and writes are removed.
 
-## Batch 6 — Gate first paint, precedence, and cross-device
+## Batch 6 — Gate no-flicker, all three states, signed in and out
 
-Flash assertions in the `captureThemeFlashFrames` vocabulary, the stale-cache
-precedence case, and the two-device case measured above.
+First-paint assertions for `system`/`light`/`dark` × authenticated/anonymous,
+cross-device propagation, absence of `localStorage`, and the TTFB budget.
 
 ## Sequencing
 
 1 → 2 → 3 → 4 → 5 → 6. Batch 3 unblocks PRD 19 #98.
 
-Batch 5 is the one carrying risk — it adds work to every document request. It
-lands after the storage layer is proven so that a TTFB regression has exactly one
-suspect.
+Batch 5 is the one carrying risk and lands after the storage layer is proven, so
+a regression has one suspect.
 
 ## Out of scope
 
-- **Realtime sync between open devices.** A second device picks up the change on
-  its next document load. No websocket, no polling, no push. The measured defect
-  is that the preference never arrives at all, not that it arrives late.
-- **Migrating existing `localStorage` values into the database.** A device with
-  `"dark"` cached and a row saying `system` resolves per Batch 5's precedence
-  rule. Do not write a backfill that guesses which device was authoritative.
-- **Any other user setting moving to the database.** Notification preferences are
-  already server-side; nothing else changes home in this PRD.
-- **Theme for signed-out visitors.** No session, no row, no change. Do not add a
-  guest-preference table.
-- **The three-way control itself.** PRD 19 #98 owns the UI. This PRD is not
-  closable by shipping a control, and #98 is not closable by adding a column.
-- **PRD 18's hydration defect.** #91 owns it.
-- **Changing `DEFAULT_COLOR_MODE`.** It is the resolved-mode fallback, not the
-  preference default, and this PRD does not touch it.
+- **Realtime sync between open devices.** A second device picks the change up on
+  its next document load. No websocket, no polling.
+- **`Sec-CH-Prefers-Color-Scheme` client hints.** Chromium-only and needs an
+  `Accept-CH` round trip, so it cannot serve a first paint. Do not add it as a
+  way to resolve `system` server-side.
+- **Migrating existing `localStorage` values into the database.** Every user
+  starts at the `system` default. Do not write a backfill that guesses which
+  device was authoritative.
+- **A guest preference for signed-out visitors.** They are `system`, full stop.
+  No cookie, no table, no local storage.
+- **Any other setting moving to the database.**
+- **The control itself.** PRD 19 #98 owns it.
+- **Changing `DEFAULT_COLOR_MODE`.** Resolved-mode fallback, not the preference
+  default.

@@ -180,10 +180,27 @@ three-way control (#98) and its gate (#99). What moves to PRD 20: the column,
 the migration, the server functions, server-side rendering of the preference,
 and the precedence rule between the server's answer and the `localStorage` cache.
 
-Consequence for #98 — the control must write through PRD 20's persistence layer
-rather than writing `localStorage` directly, so it gains a dependency on PRD 20
-Batch 3. Its issue body is amended accordingly. #96 is unaffected: the type is
-the same type either way, and PRD 20 stores exactly it.
+Consequences, after the design was clarified to three states / `system` default /
+database source of truth / no flicker / signed-out visitors are `system`:
+
+- `localStorage` is **deleted**, not demoted to a cache. Authenticated users get
+  the preference from the server on every document load; signed-out visitors are
+  always `system` and have nothing to store. There is no cache and therefore no
+  precedence rule.
+- #96 adds the type and resolution helpers only — no `localStorage` reader or
+  writer, since #104 removes the storage key outright.
+- #98 sources the selected segment from #104's root-loader data and writes
+  through #102's server function. It gains dependencies on #102 and #104, and
+  drops its dependency on #91.
+- PRD 18 #91 and #92 are closed as superseded; their SSR-correctness assertions
+  are folded into #99.
+
+One correction to the model worth stating here, because it constrains the
+control: **the server cannot resolve `system`.** `prefers-color-scheme` is a
+client media query. The server renders the *preference*; the pre-paint inline
+script resolves `system` against `matchMedia` before paint, as it already does
+today. So `system` selected with a dark OS means `data-theme="dark"` and a
+segment reading **System** — the distinction #99 exists to guard.
 
 ## Batch 1 — Split `ThemePreference` from `ColorMode`
 
