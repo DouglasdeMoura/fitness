@@ -8,7 +8,11 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runMigrations } from "../../src/db/migration-diagnostics";
+import {
+  getMigrationsFolder,
+  readJournalMigrationTags,
+  runMigrations,
+} from "../../src/db/migration-diagnostics";
 import { recoverDevDatabase } from "../../src/db/recover-dev-database";
 import * as relations from "../../src/db/relations";
 import * as schema from "../../src/db/schema";
@@ -16,7 +20,12 @@ import {
   AUTH_USER_ADDITIONAL_FIELDS,
   resolveGithubSocialProvider,
 } from "../../src/lib/auth-config";
-import { createUnmigratableDbFixture } from "./db-migration-fixture";
+import {
+  createScratchMigrationDb,
+  createUnmigratableDbFixture,
+  execMigrationSql,
+  MIGRATION_SQL_FILES,
+} from "./db-migration-fixture";
 
 const TEST_AUTH_SECRET = "test-secret-test-secret-test-secret!!";
 const AUTH_TABLES = ["user", "session", "account", "verification"] as const;
@@ -35,6 +44,29 @@ function tableExists(sqlite: Database.Database, tableName: string): boolean {
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get(tableName) as { name: string } | undefined;
   return row !== undefined;
+}
+
+function createSchemaAtMigrationLevel(appliedMigrationCount: number) {
+  const fixture = createScratchMigrationDb("fittrack-recover-");
+  for (const fileName of MIGRATION_SQL_FILES.slice(0, appliedMigrationCount)) {
+    execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
+  }
+  fixture.sqlite.exec(
+    "CREATE TABLE IF NOT EXISTS __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)"
+  );
+  fixture.sqlite.close();
+  return fixture;
+}
+
+function assertRecoveredJournalAndForeignKeys(dbPath: string) {
+  const sqlite = new Database(dbPath, { readonly: true });
+  const expectedCount = readJournalMigrationTags(getMigrationsFolder()).length;
+  const migrationCount = sqlite
+    .prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations")
+    .get() as { count: number };
+  expect(migrationCount.count).toBe(expectedCount);
+  expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+  sqlite.close();
 }
 
 describe("database migration boot failure (issue #88)", () => {
@@ -196,6 +228,28 @@ describe("recoverDevDatabase (issue #88)", () => {
     expect(customFood).toBeUndefined();
     after.close();
     rmSync(scratchRoot, { force: true, recursive: true });
+  });
+
+  it("recovers a database whose schema is at 0003 with an empty journal (issue #109)", () => {
+    const schemaFixture = createSchemaAtMigrationLevel(4);
+
+    try {
+      recoverDevDatabase({ dbPath: schemaFixture.dbPath });
+      assertRecoveredJournalAndForeignKeys(schemaFixture.dbPath);
+    } finally {
+      schemaFixture.cleanup();
+    }
+  });
+
+  it("recovers a database whose schema is at 0004 with an empty journal (issue #109)", () => {
+    const schemaFixture = createSchemaAtMigrationLevel(5);
+
+    try {
+      recoverDevDatabase({ dbPath: schemaFixture.dbPath });
+      assertRecoveredJournalAndForeignKeys(schemaFixture.dbPath);
+    } finally {
+      schemaFixture.cleanup();
+    }
   });
 });
 

@@ -30,6 +30,14 @@ const APPLIED_MIGRATION_MARKERS: {
     isApplied: (sqlite) => columnExists(sqlite, "users", "auth_user_id"),
     tag: "0002_conscious_doomsday",
   },
+  {
+    isApplied: (sqlite) => columnExists(sqlite, "sync_queue", "user_id"),
+    tag: "0003_sync_queue_user_id",
+  },
+  {
+    isApplied: (sqlite) => columnExists(sqlite, "users", "theme_preference"),
+    tag: "0004_theme_preference",
+  },
 ];
 
 export class DevDatabaseRecoveryError extends Error {
