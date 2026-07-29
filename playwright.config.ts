@@ -37,6 +37,11 @@ export default defineConfig({
   fullyParallel: false,
   projects: [
     {
+      name: "dev-runtime",
+      testMatch: /dev-runtime-integrity\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },

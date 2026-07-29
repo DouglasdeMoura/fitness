@@ -29,7 +29,8 @@
     "fix": "ultracite fix",
     "db:migrate": "npx drizzle-kit migrate",
     "db:studio": "npx drizzle-kit studio",
-    "db:generate": "npx drizzle-kit generate"
+    "db:generate": "npx drizzle-kit generate",
+    "test:e2e:dev-smoke": "E2E_WEB_SERVER_COMMAND='npm run dev' E2E_REUSE_SERVER=false npx playwright test --project=dev-runtime"
   },
   "dependencies": {
     "@astryxdesign/cli": "^0.1.8",
