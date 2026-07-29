@@ -70,6 +70,9 @@ function runSeedScript(
       BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
       BETTER_AUTH_URL: TEST_AUTH_URL,
       DATABASE_PATH: dbPath,
+      // CI runs vitest with NODE_ENV=production; isolate the child so
+      // determinism tests exercise seeding, not the production guard.
+      NODE_ENV: "test",
       ...extraEnv,
     },
   });
@@ -371,6 +374,17 @@ describe("scripts/seed.ts determinism (issue #82)", () => {
   it("emits no Better Auth base URL warnings", () => {
     const output = runSeedScript(dbPath);
     expect(output.stdout + output.stderr).not.toMatch(/Base URL is not set/i);
+  });
+
+  it("seeds successfully when parent NODE_ENV is production", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.SEED_DEMO_PASSWORD;
+
+    runSeedScript(dbPath);
+    const snapshot = snapshotSeedTables(dbPath);
+
+    expect(snapshot.user.length).toBe(1);
+    expect(snapshot.programs.length).toBe(2);
   });
 
   it("refuses to write rows in production without SEED_DEMO_PASSWORD", () => {
