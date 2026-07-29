@@ -4,8 +4,11 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
+import { clientNodeBuiltinExternalizationGate } from "./scripts/client-node-builtin-externalization-gate.ts";
+
 export default defineConfig({
   plugins: [
+    clientNodeBuiltinExternalizationGate(),
     tailwindcss(),
     tanstackStart({
       srcDirectory: "src",
