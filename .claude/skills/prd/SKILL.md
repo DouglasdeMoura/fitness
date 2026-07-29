@@ -17,8 +17,13 @@ follow-up question, and will close the issue when its own gates go green.
 
 ## Step 1 — Measure before writing a word
 
-**Do not write a PRD from reading source.** Reproduce the thing first, in the
-real runtime, and record what actually happened.
+When the request is related to design or product feeling, always take into consideration
+Apple's design guidelines.
+
+When the request is related to new features, follow the stablished practices from the repo. 
+
+When the request is related to a bug, **do not write a PRD from reading source.**
+Reproduce the thing first, in the real runtime, and record what actually happened.
 
 - Take the reported symptom **literally**. "Nothing happens" is not "shows an
   error" — it is a claim about the absence of a request, a banner, and a
