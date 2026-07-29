@@ -99,6 +99,33 @@ function countApplicationRows(sqlite: Database.Database): number {
   return total;
 }
 
+function liveSchemaSatisfiesAppliedMigrationMarkers(
+  sqlite: Database.Database
+): boolean {
+  return APPLIED_MIGRATION_MARKERS.every((marker) => marker.isApplied(sqlite));
+}
+
+function hasOnlyUnrecognizedMigrationHashes(
+  sqlite: Database.Database,
+  knownHashes: Set<string>
+): boolean {
+  const recordedHashes = readRecordedMigrationHashes(sqlite);
+  return (
+    recordedHashes.length > 0 &&
+    recordedHashes.every((hash) => !knownHashes.has(hash))
+  );
+}
+
+function isJournalCollapseRecovery(
+  sqlite: Database.Database,
+  knownHashes: Set<string>
+): boolean {
+  return (
+    hasOnlyUnrecognizedMigrationHashes(sqlite, knownHashes) &&
+    liveSchemaSatisfiesAppliedMigrationMarkers(sqlite)
+  );
+}
+
 function backfillAppliedMigrationJournal(sqlite: Database.Database): void {
   const migrationsFolder = getMigrationsFolder();
   const migrations = readMigrationFiles({ migrationsFolder });
@@ -138,6 +165,10 @@ function resolveRecoveryAction(
   const unrecognizedHashes = readRecordedMigrationHashes(sqlite).filter(
     (hash) => !knownHashes.has(hash)
   );
+
+  if (isJournalCollapseRecovery(sqlite, knownHashes)) {
+    return "clear-unrecognized-journal";
+  }
 
   if (unrecognizedHashes.length > 0 && !force) {
     throw new DevDatabaseRecoveryError(
