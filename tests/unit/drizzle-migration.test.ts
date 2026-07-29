@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -34,6 +35,37 @@ interface MigrationJournalEntry {
 
 interface MigrationJournal {
   entries: MigrationJournalEntry[];
+}
+
+interface MigrationSnapshot {
+  id: string;
+  prevId: string;
+}
+
+const ZERO_SNAPSHOT_ID = "00000000-0000-0000-0000-000000000000";
+
+function getMetaFolder(): string {
+  return join(getMigrationsFolder(), "meta");
+}
+
+function formatSnapshotIndex(index: number): string {
+  return String(index).padStart(4, "0");
+}
+
+function snapshotFileName(index: number): string {
+  return `${formatSnapshotIndex(index)}_snapshot.json`;
+}
+
+function listSnapshotIndices(): number[] {
+  return readdirSync(getMetaFolder())
+    .filter((fileName) => /^\d{4}_snapshot\.json$/.test(fileName))
+    .map((fileName) => Number.parseInt(fileName.slice(0, 4), 10))
+    .sort((left, right) => left - right);
+}
+
+function readSnapshot(index: number): MigrationSnapshot {
+  const snapshotPath = join(getMetaFolder(), snapshotFileName(index));
+  return JSON.parse(readFileSync(snapshotPath, "utf-8")) as MigrationSnapshot;
 }
 
 function listMigrationSqlTags(): string[] {
@@ -76,6 +108,82 @@ function assertMigrationJournalCompleteness(): void {
     `Journal idx values must be contiguous from zero; missing: ${idxGaps.join(", ")}`
   ).toEqual([]);
   expect(idxValues).toEqual(expectedIdxValues);
+}
+
+function assertSnapshotCoverage(): void {
+  const journal = readMigrationJournal();
+  const expectedIndices = journal.entries.map((entry) => entry.idx);
+  const snapshotIndices = listSnapshotIndices();
+
+  const missingSnapshots = expectedIndices.filter(
+    (index) => !snapshotIndices.includes(index)
+  );
+  const extraSnapshots = snapshotIndices.filter(
+    (index) => !expectedIndices.includes(index)
+  );
+
+  expect(
+    missingSnapshots.map((index) => formatSnapshotIndex(index)),
+    `Journal entries missing snapshot files: ${missingSnapshots.map((index) => formatSnapshotIndex(index)).join(", ")}`
+  ).toEqual([]);
+  expect(
+    extraSnapshots.map((index) => formatSnapshotIndex(index)),
+    `Snapshot files without journal entries: ${extraSnapshots.map((index) => formatSnapshotIndex(index)).join(", ")}`
+  ).toEqual([]);
+}
+
+function assertSnapshotPrevIdChain(): void {
+  const journal = readMigrationJournal();
+  const brokenLinks: string[] = [];
+  const ids: string[] = [];
+
+  for (const entry of journal.entries) {
+    const snapshotPath = join(getMetaFolder(), snapshotFileName(entry.idx));
+    if (!existsSync(snapshotPath)) {
+      continue;
+    }
+
+    const snapshot = readSnapshot(entry.idx);
+    ids.push(snapshot.id);
+
+    if (entry.idx === 0) {
+      if (snapshot.prevId !== ZERO_SNAPSHOT_ID) {
+        brokenLinks.push(
+          `${formatSnapshotIndex(entry.idx)}: prevId ${snapshot.prevId} !== ${ZERO_SNAPSHOT_ID}`
+        );
+      }
+      continue;
+    }
+
+    const previousIndex = entry.idx - 1;
+    const previousSnapshotPath = join(
+      getMetaFolder(),
+      snapshotFileName(previousIndex)
+    );
+    if (!existsSync(previousSnapshotPath)) {
+      brokenLinks.push(
+        `${formatSnapshotIndex(entry.idx)}: prevId ${snapshot.prevId} does not chain from missing ${formatSnapshotIndex(previousIndex)} snapshot`
+      );
+      continue;
+    }
+
+    const previousSnapshot = readSnapshot(previousIndex);
+    if (snapshot.prevId !== previousSnapshot.id) {
+      brokenLinks.push(
+        `${formatSnapshotIndex(entry.idx)}: prevId ${snapshot.prevId} !== ${previousSnapshot.id} (${formatSnapshotIndex(previousIndex)} snapshot id)`
+      );
+    }
+  }
+
+  const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+  expect(
+    [...new Set(duplicateIds)],
+    `Snapshot ids must be distinct; duplicates: ${[...new Set(duplicateIds)].join(", ")}`
+  ).toEqual([]);
+  expect(
+    brokenLinks,
+    `Snapshot prevId chain broken: ${brokenLinks.join("; ")}`
+  ).toEqual([]);
 }
 
 function syncQueueColumnNames(sqlite: Database.Database): string[] {
@@ -133,6 +241,14 @@ describe("Drizzle-only data layer (issue #41)", () => {
 describe("migration journal completeness (issue #89)", () => {
   it("maps every drizzle/*.sql file to a journal entry with contiguous idx", () => {
     assertMigrationJournalCompleteness();
+  });
+
+  it("maps every journal entry to a drizzle/meta snapshot with no extras (issue #113)", () => {
+    assertSnapshotCoverage();
+  });
+
+  it("chains drizzle/meta snapshot prevId values without gaps or duplicates (issue #113)", () => {
+    assertSnapshotPrevIdChain();
   });
 });
 
