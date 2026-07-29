@@ -10,11 +10,17 @@ import { join } from "node:path";
 
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { readMigrationFiles } from "drizzle-orm/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runMigrations } from "../../src/db/migration-diagnostics";
 import { foods } from "../../src/db/schema";
+import {
+  createScratchMigrationDb,
+  execMigrationSql,
+  getMigrationsFolder,
+  MIGRATION_SQL_FILES,
+  recordAppliedMigrations,
+} from "./db-migration-fixture";
 import { createDrizzleTestDb } from "./drizzle-test-db";
 import type { DrizzleTestDb } from "./drizzle-test-db";
 
@@ -25,10 +31,6 @@ interface MigrationJournalEntry {
 
 interface MigrationJournal {
   entries: MigrationJournalEntry[];
-}
-
-function getMigrationsFolder(): string {
-  return join(process.cwd(), "drizzle");
 }
 
 function listMigrationSqlTags(): string[] {
@@ -71,36 +73,6 @@ function assertMigrationJournalCompleteness(): void {
     `Journal idx values must be contiguous from zero; missing: ${idxGaps.join(", ")}`
   ).toEqual([]);
   expect(idxValues).toEqual(expectedIdxValues);
-}
-
-function execMigrationSql(sqlite: Database.Database, fileName: string): void {
-  const migrationSql = readFileSync(
-    join(getMigrationsFolder(), fileName),
-    "utf-8"
-  );
-  for (const statement of migrationSql.split("--> statement-breakpoint")) {
-    const trimmed = statement.trim();
-    if (trimmed) {
-      sqlite.exec(trimmed);
-    }
-  }
-}
-
-function recordAppliedMigrations(
-  sqlite: Database.Database,
-  migrationsFolder: string,
-  count: number
-): void {
-  sqlite.exec(
-    "CREATE TABLE IF NOT EXISTS __drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)"
-  );
-  const migrations = readMigrationFiles({ migrationsFolder });
-  const insertMigration = sqlite.prepare(
-    "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)"
-  );
-  for (const migration of migrations.slice(0, count)) {
-    insertMigration.run(migration.hash, migration.folderMillis);
-  }
 }
 
 function syncQueueColumnNames(sqlite: Database.Database): string[] {
@@ -192,7 +164,7 @@ describe("migration 0003_sync_queue_user_id (issue #89)", () => {
         execMigrationSql(sqlite, fileName);
       }
 
-      recordAppliedMigrations(sqlite, migrationsFolder, 3);
+      recordAppliedMigrations(sqlite, 3, migrationsFolder);
 
       expect(syncQueueColumnNames(sqlite)).not.toContain("user_id");
 
@@ -253,7 +225,7 @@ describe("migration 0004_theme_preference (issue #100)", () => {
           "maintain",
           "other"
         );
-      recordAppliedMigrations(sqlite, migrationsFolder, 4);
+      recordAppliedMigrations(sqlite, 4, migrationsFolder);
 
       runMigrations(drizzle(sqlite), { dbPath, migrationsFolder });
 
@@ -279,6 +251,154 @@ describe("migration 0004_theme_preference (issue #100)", () => {
     } finally {
       sqlite.close();
       rmSync(scratchRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("adds users.theme_preference when migrating a fresh database", () => {
+    const fixture = createScratchMigrationDb("fittrack-migrate-fresh-0004-");
+
+    try {
+      runMigrations(drizzle(fixture.sqlite), { dbPath: fixture.dbPath });
+
+      const themeColumn = (
+        fixture.sqlite.pragma("table_info(users)") as {
+          dflt_value: string | null;
+          name: string;
+          notnull: number;
+        }[]
+      ).find((column) => column.name === "theme_preference");
+
+      expect(themeColumn).toMatchObject({
+        dflt_value: "'system'",
+        name: "theme_preference",
+        notnull: 1,
+      });
+
+      const insertResult = fixture.sqlite
+        .prepare("INSERT INTO users DEFAULT VALUES")
+        .run();
+      const defaultPreference = fixture.sqlite
+        .prepare("SELECT theme_preference FROM users WHERE id = ?")
+        .get(insertResult.lastInsertRowid) as { theme_preference: string };
+
+      expect(defaultPreference.theme_preference).toBe("system");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("applies migration 0004 cleanly to a database at 0003", () => {
+    const fixture = createScratchMigrationDb("fittrack-migrate-0003-0004-");
+
+    try {
+      for (const fileName of MIGRATION_SQL_FILES.slice(0, 4)) {
+        execMigrationSql(fixture.sqlite, fileName, fixture.migrationsFolder);
+      }
+
+      fixture.sqlite
+        .prepare(
+          "INSERT INTO users (id, name, email, activity_level, goal_type, sex) VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          7,
+          "Pre-migration Athlete",
+          "pre-migration@example.com",
+          "light",
+          "lose_fat",
+          "female"
+        );
+      fixture.sqlite
+        .prepare(
+          "INSERT INTO users (id, name, email, activity_level, goal_type, sex) VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          8,
+          "Second Pre-migration Athlete",
+          "second-pre-migration@example.com",
+          "sedentary",
+          "recomp",
+          "male"
+        );
+
+      const usersColumnsBefore = (
+        fixture.sqlite.pragma("table_info(users)") as { name: string }[]
+      ).map((column) => column.name);
+      expect(usersColumnsBefore).not.toContain("theme_preference");
+
+      recordAppliedMigrations(fixture.sqlite, 4, fixture.migrationsFolder);
+      runMigrations(drizzle(fixture.sqlite), {
+        dbPath: fixture.dbPath,
+        migrationsFolder: fixture.migrationsFolder,
+      });
+
+      const preferences = fixture.sqlite
+        .prepare("SELECT id, theme_preference FROM users ORDER BY id")
+        .all() as { id: number; theme_preference: string }[];
+
+      expect(preferences).toStrictEqual([
+        { id: 7, theme_preference: "system" },
+        { id: 8, theme_preference: "system" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects invalid theme_preference values and accepts light, dark, and system", () => {
+    const fixture = createScratchMigrationDb("fittrack-migrate-check-0004-");
+
+    try {
+      runMigrations(drizzle(fixture.sqlite), { dbPath: fixture.dbPath });
+      const userId = fixture.sqlite
+        .prepare("INSERT INTO users DEFAULT VALUES")
+        .run().lastInsertRowid;
+
+      for (const preference of ["light", "dark", "system"] as const) {
+        expect(() =>
+          fixture.sqlite
+            .prepare("UPDATE users SET theme_preference = ? WHERE id = ?")
+            .run(preference, userId)
+        ).not.toThrow();
+        const stored = fixture.sqlite
+          .prepare("SELECT theme_preference FROM users WHERE id = ?")
+          .get(userId) as { theme_preference: string };
+        expect(stored.theme_preference).toBe(preference);
+      }
+
+      expect(() =>
+        fixture.sqlite
+          .prepare("UPDATE users SET theme_preference = ? WHERE id = ?")
+          .run("purple", userId)
+      ).toThrow(/users_theme_preference_check/);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("requires theme_preference to be NOT NULL", () => {
+    const fixture = createScratchMigrationDb("fittrack-migrate-notnull-0004-");
+
+    try {
+      runMigrations(drizzle(fixture.sqlite), { dbPath: fixture.dbPath });
+      const themeColumn = (
+        fixture.sqlite.pragma("table_info(users)") as {
+          name: string;
+          notnull: number;
+        }[]
+      ).find((column) => column.name === "theme_preference");
+
+      expect(themeColumn?.notnull).toBe(1);
+
+      const userId = fixture.sqlite
+        .prepare("INSERT INTO users DEFAULT VALUES")
+        .run().lastInsertRowid;
+      expect(() =>
+        fixture.sqlite
+          .prepare("UPDATE users SET theme_preference = NULL WHERE id = ?")
+          .run(userId)
+      ).toThrow(/NOT NULL constraint failed: users.theme_preference/);
+    } finally {
+      fixture.cleanup();
     }
   });
 });
