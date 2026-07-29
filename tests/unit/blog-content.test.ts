@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BlogPost } from "~/lib/blog";
 import { loadBlogPostBySlug, loadBlogPosts } from "~/lib/blog-api";
+import { createDefaultBlogReader } from "~/lib/blog-api.server";
 import {
   REQUIRED_BLOG_SLUGS,
   findRequiredBlogPosts,
@@ -80,7 +81,7 @@ describe("blog content helpers (issue #47)", () => {
 });
 
 describe("published blog articles (issue #47)", () => {
-  const posts = loadBlogPosts();
+  const posts = loadBlogPosts(createDefaultBlogReader());
 
   it("loads all five required slugs from content/blog", () => {
     expect(findRequiredBlogPosts(posts).map((post) => post.slug)).toEqual([
@@ -91,7 +92,7 @@ describe("published blog articles (issue #47)", () => {
   it.each(REQUIRED_BLOG_SLUGS)(
     "validates frontmatter, citations, and links for %s",
     (slug) => {
-      const post = loadBlogPostBySlug(slug);
+      const post = loadBlogPostBySlug(slug, createDefaultBlogReader());
       expect(post, `missing content/blog/${slug}.md`).not.toBeNull();
       expect(validateBlogPostContent(post!)).toEqual([]);
     }

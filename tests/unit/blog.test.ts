@@ -15,6 +15,7 @@ import {
 } from "~/lib/blog";
 import type { BlogContentReader, BlogPostSummary } from "~/lib/blog";
 import { loadBlogPostBySlug, loadBlogPosts } from "~/lib/blog-api";
+import { createDefaultBlogReader } from "~/lib/blog-api.server";
 
 const SAMPLE_FRONTMATTER = `title: "How Much Protein Do You Really Need?"
 description: "A deep dive into Morton et al. 2018"
@@ -161,7 +162,7 @@ Intro.`,
   });
 
   it("loads published articles from content/blog", () => {
-    const posts = loadBlogPosts();
+    const posts = loadBlogPosts(createDefaultBlogReader());
     expect(posts.length).toBeGreaterThanOrEqual(5);
     expect(posts.some((post) => post.slug === "protein-for-hypertrophy")).toBe(
       true
@@ -202,5 +203,40 @@ describe("blog route wiring (issue #46)", () => {
     expect(blogPostSource).not.toContain("style={{");
     expect(blogPostSource).not.toContain("<div");
     expect(blogPostSource).not.toContain("className=");
+  });
+});
+
+describe("blog-api client boundary (issue #86)", () => {
+  const projectRoot = process.cwd();
+  const blogApiSource = readFileSync(
+    join(projectRoot, "src/lib/blog-api.ts"),
+    "utf-8"
+  );
+  const blogApiServerSource = readFileSync(
+    join(projectRoot, "src/lib/blog-api.server.ts"),
+    "utf-8"
+  );
+
+  it("keeps node builtins out of the route-imported blog-api module", () => {
+    expect(blogApiSource).not.toMatch(/from\s+["']node:fs["']/u);
+    expect(blogApiSource).not.toMatch(/from\s+["']node:path["']/u);
+    expect(blogApiSource).toContain('await import("./blog-api.server")');
+    expect(blogApiSource).not.toMatch(/from\s+["'].*blog-api\.server["']/u);
+  });
+
+  it("isolates filesystem access in blog-api.server.ts", () => {
+    expect(blogApiServerSource).toContain('from "node:fs"');
+    expect(blogApiServerSource).toContain("createDefaultBlogReader");
+  });
+
+  it("keeps blog routes on the client-safe blog-api entry", () => {
+    for (const routePath of [
+      "src/routes/blog/index.tsx",
+      "src/routes/blog/$slug.tsx",
+    ]) {
+      const source = readFileSync(join(projectRoot, routePath), "utf-8");
+      expect(source).toContain('from "~/lib/blog-api"');
+      expect(source).not.toContain("blog-api.server");
+    }
   });
 });
