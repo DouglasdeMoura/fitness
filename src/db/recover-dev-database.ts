@@ -19,24 +19,11 @@ const APPLIED_MIGRATION_MARKERS: {
   isApplied: (sqlite: Database.Database) => boolean;
 }[] = [
   {
-    isApplied: (sqlite) => tableExists(sqlite, "body_logs"),
-    tag: "0000_jazzy_zaran",
-  },
-  {
-    isApplied: (sqlite) => tableExists(sqlite, "user"),
-    tag: "0001_busy_misty_knight",
-  },
-  {
-    isApplied: (sqlite) => columnExists(sqlite, "users", "auth_user_id"),
-    tag: "0002_conscious_doomsday",
-  },
-  {
-    isApplied: (sqlite) => columnExists(sqlite, "sync_queue", "user_id"),
-    tag: "0003_sync_queue_user_id",
-  },
-  {
-    isApplied: (sqlite) => columnExists(sqlite, "users", "theme_preference"),
-    tag: "0004_theme_preference",
+    isApplied: (sqlite) =>
+      tableExists(sqlite, "users") &&
+      tableExists(sqlite, "user") &&
+      columnExists(sqlite, "users", "theme_preference"),
+    tag: "0000_real_the_renegades",
   },
 ];
 
