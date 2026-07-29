@@ -1,24 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  applyResolvedTheme,
-  getStoredTheme,
-  getThemeColor,
-  hasFixedThemeChoice,
-  isAuthRoute,
-  isBlogRoute,
-  isMinimalChromeRoute,
-  isNavSelected,
-  isPublicMarketingRoute,
-  isWorkoutRoute,
-  navValueFromPath,
-  normalizeThemePreference,
-  persistTheme,
-  resolveTheme,
-  subscribeToSystemTheme,
-  THEME_COLOR_DARK,
-  THEME_COLOR_LIGHT,
-} from "~/lib/app-chrome";
+import { applyResolvedTheme, getStoredTheme, getThemeColor, hasFixedThemeChoice, isAuthRoute, isBlogRoute, isMinimalChromeRoute, isNavSelected, isPublicMarketingRoute, isWorkoutRoute, navValueFromPath, normalizeThemePreference, persistTheme, resolveTheme, subscribeToSystemTheme, THEME_COLOR_DARK, THEME_COLOR_LIGHT, THEME_STORAGE_KEY } from '~/lib/app-chrome';
+import type { ThemePreference } from '~/lib/app-chrome';
 
 function createThemeDocument({
   root,
@@ -144,6 +130,10 @@ describe(hasFixedThemeChoice, () => {
     expect(hasFixedThemeChoice("system")).toBe(false);
   });
 
+  it("is false when the stored preference is absent", () => {
+    expect(hasFixedThemeChoice(normalizeThemePreference(null))).toBe(false);
+  });
+
   it("is true for light and dark", () => {
     expect(hasFixedThemeChoice("dark")).toBe(true);
     expect(hasFixedThemeChoice("light")).toBe(true);
@@ -187,6 +177,18 @@ describe(getStoredTheme, () => {
     localStorage.setItem("fittrack-theme", "sepia");
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     expect(getStoredTheme()).toBe("dark");
+  });
+
+  it("resolves stored system preference against the operating system", () => {
+    localStorage.setItem("fittrack-theme", "system");
+    expect(
+      normalizeThemePreference(localStorage.getItem("fittrack-theme"))
+    ).toBe("system");
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    expect(getStoredTheme()).toBe("dark");
+
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    expect(getStoredTheme()).toBe("light");
   });
 });
 
@@ -238,7 +240,7 @@ describe(persistTheme, () => {
     const themeMeta = { content: THEME_COLOR_DARK };
     const setItem = vi.fn();
     vi.stubGlobal("localStorage", { setItem });
-    vi.stubGlobal("window");
+    vi.stubGlobal("window", { dispatchEvent: vi.fn() });
     vi.stubGlobal(
       "document",
       createThemeDocument({ provider, root, themeMeta })
@@ -307,6 +309,150 @@ describe(subscribeToSystemTheme, () => {
     expect(onChange).not.toHaveBeenCalled();
 
     unsubscribe();
+  });
+
+  it("keeps following the OS after writing a system preference", () => {
+    const store: Record<string, string> = {};
+    const listeners = new Set<() => void>();
+    const onChange = vi.fn();
+    const root = {
+      dataset: { theme: "light" },
+      style: { colorScheme: "light" },
+    };
+    const themeMeta = { content: THEME_COLOR_LIGHT };
+    let prefersDark = false;
+
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+    });
+    vi.stubGlobal("document", createThemeDocument({ root, themeMeta }));
+    vi.stubGlobal("window", { dispatchEvent: vi.fn() });
+    vi.stubGlobal("matchMedia", () => ({
+      addEventListener: (_event: string, listener: () => void) => {
+        listeners.add(listener);
+      },
+      get matches() {
+        return prefersDark;
+      },
+      removeEventListener: (_event: string, listener: () => void) => {
+        listeners.delete(listener);
+      },
+    }));
+
+    const unsubscribe = subscribeToSystemTheme(onChange);
+    localStorage.setItem(THEME_STORAGE_KEY, "system");
+    expect(hasFixedThemeChoice(normalizeThemePreference("system"))).toBe(false);
+
+    onChange.mockClear();
+    prefersDark = true;
+    listeners.forEach((listener) => listener());
+    expect(onChange).toHaveBeenCalledWith("dark");
+    expect(root.dataset.theme).toBe("dark");
+
+    unsubscribe();
+  });
+});
+
+function setupThemeWriterHarness(prefersDark: boolean) {
+  const store: Record<string, string> = {};
+  const root = {
+    dataset: { theme: "light" },
+    style: { colorScheme: "light" },
+  };
+  const provider = {
+    dataset: { theme: "light" },
+    style: { colorScheme: "light" },
+  };
+  const themeMeta = { content: THEME_COLOR_LIGHT };
+  const setItem = vi.fn((key: string, value: string) => {
+    store[key] = value;
+  });
+
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => store[key] ?? null,
+    setItem,
+  });
+  vi.stubGlobal("window", { dispatchEvent: vi.fn() });
+  vi.stubGlobal("matchMedia", () => ({ matches: prefersDark }));
+  vi.stubGlobal("document", createThemeDocument({ provider, root, themeMeta }));
+
+  return { provider, root, setItem, store, themeMeta };
+}
+
+function writeThemePreference(
+  preference: ThemePreference,
+  prefersDark: boolean
+): void {
+  if (preference === "light" || preference === "dark") {
+    persistTheme(preference);
+    return;
+  }
+  localStorage.setItem(THEME_STORAGE_KEY, preference);
+  applyResolvedTheme(resolveTheme(preference, prefersDark));
+}
+
+describe("theme preference writer (issue #97)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    { preference: "light", prefersDark: true, resolved: "light" },
+    { preference: "light", prefersDark: false, resolved: "light" },
+    { preference: "dark", prefersDark: true, resolved: "dark" },
+    { preference: "dark", prefersDark: false, resolved: "dark" },
+    { preference: "system", prefersDark: true, resolved: "dark" },
+    { preference: "system", prefersDark: false, resolved: "light" },
+  ] as const)(
+    "stores $preference and resolves the document to $resolved when the OS is $prefersDark",
+    ({ preference, prefersDark, resolved }) => {
+      const { provider, root, setItem, store, themeMeta } =
+        setupThemeWriterHarness(prefersDark);
+      writeThemePreference(preference, prefersDark);
+
+      expect(normalizeThemePreference(store[THEME_STORAGE_KEY] ?? null)).toBe(
+        preference
+      );
+      expect(setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, preference);
+      expect(root).toEqual({
+        dataset: { theme: resolved },
+        style: { colorScheme: resolved },
+      });
+      expect(provider).toEqual(root);
+      expect(themeMeta.content).toBe(
+        resolved === "dark" ? THEME_COLOR_DARK : THEME_COLOR_LIGHT
+      );
+    }
+  );
+});
+
+describe("ColorMode definition gate (issue #97)", () => {
+  const appChromeLibSource = readFileSync(
+    join(process.cwd(), "src/lib/app-chrome.ts"),
+    "utf-8"
+  );
+
+  it("keeps ColorMode as light | dark in source", () => {
+    expect(appChromeLibSource).toMatch(
+      /export type ColorMode\s*=\s*["']light["']\s*\|\s*["']dark["']/
+    );
+    expect(appChromeLibSource).not.toMatch(
+      /export type ColorMode\s*=.*["']system["']/
+    );
+  });
+
+  it("keeps ThemePreference split exports from batch 1 (#96)", () => {
+    expect(appChromeLibSource).toMatch(/export type ThemePreference/);
+    expect(appChromeLibSource).toMatch(
+      /export function normalizeThemePreference/
+    );
+    expect(appChromeLibSource).toMatch(/export function hasFixedThemeChoice/);
+    expect(appChromeLibSource).not.toMatch(
+      /export function hasExplicitThemeChoice/
+    );
   });
 });
 
