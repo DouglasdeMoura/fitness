@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyResolvedTheme,
+  applyThemePreference,
+  getClientThemePreference,
   getStoredTheme,
   getThemeColor,
   hasFixedThemeChoice,
@@ -18,12 +20,11 @@ import {
   normalizeThemePreference,
   persistTheme,
   resolveTheme,
+  setClientThemePreference,
   subscribeToSystemTheme,
   THEME_COLOR_DARK,
   THEME_COLOR_LIGHT,
-  THEME_STORAGE_KEY,
 } from "~/lib/app-chrome";
-import type { ThemePreference } from "~/lib/app-chrome";
 
 function createThemeDocument({
   root,
@@ -161,48 +162,37 @@ describe(hasFixedThemeChoice, () => {
 
 describe(getStoredTheme, () => {
   beforeEach(() => {
-    const store: Record<string, string> = {};
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      removeItem: (key: string) => {
-        store[key] = undefined as unknown as string;
-      },
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-    });
+    setClientThemePreference("system");
     vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    vi.stubGlobal("document", {});
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("defaults to light when nothing is stored", () => {
+  it("defaults to light when the server preference is system", () => {
     expect(getStoredTheme()).toBe("light");
   });
 
-  it("returns dark when fittrack-theme is dark", () => {
-    localStorage.setItem("fittrack-theme", "dark");
+  it("returns dark when the server preference is dark", () => {
+    setClientThemePreference("dark");
     expect(getStoredTheme()).toBe("dark");
   });
 
-  it("uses the operating-system dark preference when nothing is stored", () => {
+  it("uses the operating-system dark preference when the server preference is system", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     expect(getStoredTheme()).toBe("dark");
   });
 
-  it("follows the operating system for unknown stored values", () => {
-    localStorage.setItem("fittrack-theme", "sepia");
+  it("keeps an explicit light preference when the OS is dark", () => {
+    setClientThemePreference("light");
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
-    expect(getStoredTheme()).toBe("dark");
+    expect(getStoredTheme()).toBe("light");
   });
 
-  it("resolves stored system preference against the operating system", () => {
-    localStorage.setItem("fittrack-theme", "system");
-    expect(
-      normalizeThemePreference(localStorage.getItem("fittrack-theme"))
-    ).toBe("system");
+  it("resolves system preference against the operating system", () => {
+    setClientThemePreference("system");
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     expect(getStoredTheme()).toBe("dark");
 
@@ -247,7 +237,7 @@ describe(persistTheme, () => {
     vi.unstubAllGlobals();
   });
 
-  it("updates storage, the root, and the rendered Astryx provider", () => {
+  it("updates the root and the rendered Astryx provider", () => {
     const root = {
       dataset: { theme: "dark" },
       style: { colorScheme: "dark" },
@@ -257,8 +247,6 @@ describe(persistTheme, () => {
       style: { colorScheme: "dark" },
     };
     const themeMeta = { content: THEME_COLOR_DARK };
-    const setItem = vi.fn();
-    vi.stubGlobal("localStorage", { setItem });
     vi.stubGlobal("window", { dispatchEvent: vi.fn() });
     vi.stubGlobal(
       "document",
@@ -267,7 +255,6 @@ describe(persistTheme, () => {
 
     persistTheme("light");
 
-    expect(setItem).toHaveBeenCalledWith("fittrack-theme", "light");
     expect(root).toEqual({
       dataset: { theme: "light" },
       style: { colorScheme: "light" },
@@ -283,7 +270,6 @@ describe(subscribeToSystemTheme, () => {
   });
 
   it("follows OS changes only while no fixed choice is stored", () => {
-    const store: Record<string, string> = {};
     const listeners = new Set<() => void>();
     const onChange = vi.fn();
     const root = {
@@ -293,12 +279,7 @@ describe(subscribeToSystemTheme, () => {
     const themeMeta = { content: THEME_COLOR_LIGHT };
     let prefersDark = true;
 
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-    });
+    setClientThemePreference("system");
     vi.stubGlobal("document", createThemeDocument({ root, themeMeta }));
     vi.stubGlobal("window", {
       dispatchEvent: vi.fn(),
@@ -321,7 +302,7 @@ describe(subscribeToSystemTheme, () => {
     expect(root.dataset.theme).toBe("dark");
     expect(themeMeta.content).toBe(THEME_COLOR_DARK);
 
-    localStorage.setItem("fittrack-theme", "light");
+    setClientThemePreference("light");
     onChange.mockClear();
     prefersDark = true;
     listeners.forEach((listener) => listener());
@@ -331,7 +312,6 @@ describe(subscribeToSystemTheme, () => {
   });
 
   it("keeps following the OS after writing a system preference", () => {
-    const store: Record<string, string> = {};
     const listeners = new Set<() => void>();
     const onChange = vi.fn();
     const root = {
@@ -341,12 +321,7 @@ describe(subscribeToSystemTheme, () => {
     const themeMeta = { content: THEME_COLOR_LIGHT };
     let prefersDark = false;
 
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-    });
+    setClientThemePreference("system");
     vi.stubGlobal("document", createThemeDocument({ root, themeMeta }));
     vi.stubGlobal("window", { dispatchEvent: vi.fn() });
     vi.stubGlobal("matchMedia", () => ({
@@ -362,8 +337,7 @@ describe(subscribeToSystemTheme, () => {
     }));
 
     const unsubscribe = subscribeToSystemTheme(onChange);
-    localStorage.setItem(THEME_STORAGE_KEY, "system");
-    expect(hasFixedThemeChoice(normalizeThemePreference("system"))).toBe(false);
+    expect(hasFixedThemeChoice(getClientThemePreference())).toBe(false);
 
     onChange.mockClear();
     prefersDark = true;
@@ -376,7 +350,6 @@ describe(subscribeToSystemTheme, () => {
 });
 
 function setupThemeWriterHarness(prefersDark: boolean) {
-  const store: Record<string, string> = {};
   const root = {
     dataset: { theme: "light" },
     style: { colorScheme: "light" },
@@ -386,31 +359,12 @@ function setupThemeWriterHarness(prefersDark: boolean) {
     style: { colorScheme: "light" },
   };
   const themeMeta = { content: THEME_COLOR_LIGHT };
-  const setItem = vi.fn((key: string, value: string) => {
-    store[key] = value;
-  });
 
-  vi.stubGlobal("localStorage", {
-    getItem: (key: string) => store[key] ?? null,
-    setItem,
-  });
   vi.stubGlobal("window", { dispatchEvent: vi.fn() });
   vi.stubGlobal("matchMedia", () => ({ matches: prefersDark }));
   vi.stubGlobal("document", createThemeDocument({ provider, root, themeMeta }));
 
-  return { provider, root, setItem, store, themeMeta };
-}
-
-function writeThemePreference(
-  preference: ThemePreference,
-  prefersDark: boolean
-): void {
-  if (preference === "light" || preference === "dark") {
-    persistTheme(preference);
-    return;
-  }
-  localStorage.setItem(THEME_STORAGE_KEY, preference);
-  applyResolvedTheme(resolveTheme(preference, prefersDark));
+  return { provider, root, themeMeta };
 }
 
 describe("theme preference writer (issue #97)", () => {
@@ -428,14 +382,11 @@ describe("theme preference writer (issue #97)", () => {
   ] as const)(
     "stores $preference and resolves the document to $resolved when the OS is $prefersDark",
     ({ preference, prefersDark, resolved }) => {
-      const { provider, root, setItem, store, themeMeta } =
+      const { provider, root, themeMeta } =
         setupThemeWriterHarness(prefersDark);
-      writeThemePreference(preference, prefersDark);
+      applyThemePreference(preference);
 
-      expect(normalizeThemePreference(store[THEME_STORAGE_KEY] ?? null)).toBe(
-        preference
-      );
-      expect(setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, preference);
+      expect(getClientThemePreference()).toBe(preference);
       expect(root).toEqual({
         dataset: { theme: resolved },
         style: { colorScheme: resolved },

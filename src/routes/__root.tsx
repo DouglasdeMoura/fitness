@@ -12,13 +12,18 @@ import type { RouterManagedTag } from "@tanstack/router-core";
 import * as React from "react";
 
 import { AppChrome } from "~/components/app-chrome";
+import { db } from "~/db";
+import { ensureSessionUserRecord } from "~/db/user-body-queries";
 import {
   DARK_COLOR_SCHEME_QUERY,
   DEFAULT_COLOR_MODE,
+  setClientThemePreference,
   THEME_COLOR_DARK,
   THEME_COLOR_LIGHT,
-  THEME_STORAGE_KEY,
 } from "~/lib/app-chrome";
+import type { ThemePreference } from "~/lib/app-chrome";
+import { fetchServerSession } from "~/lib/route-auth";
+import { getStoredThemePreference } from "~/lib/theme-preference-persistence";
 
 import appCss from "~/styles/app.css?url";
 import focusVisibleCss from "~/styles/focus-visible.css?url";
@@ -40,11 +45,14 @@ const PRESERVE_STYLESHEET_ORDER = () => {
 
 const THEME_BOOTSTRAP_SCRIPT = `
   (function() {
-    var storedTheme = localStorage.getItem("${THEME_STORAGE_KEY}");
+    var preference = document.documentElement.getAttribute("data-theme-preference");
+    if (preference !== "light" && preference !== "dark") {
+      preference = "system";
+    }
     var prefersDark = typeof matchMedia === "function"
       && matchMedia("${DARK_COLOR_SCHEME_QUERY}").matches;
-    var theme = storedTheme === "light" || storedTheme === "dark"
-      ? storedTheme
+    var theme = preference === "light" || preference === "dark"
+      ? preference
       : prefersDark
         ? "dark"
         : "${DEFAULT_COLOR_MODE}";
@@ -72,6 +80,15 @@ const THEME_PROVIDER_SYNC_SCRIPT = `
     provider.style.colorScheme = theme;
   })();
 `;
+
+async function loadRootThemePreference(): Promise<ThemePreference> {
+  const session = await fetchServerSession();
+  if (!session) {
+    return "system";
+  }
+  const user = await ensureSessionUserRecord(db, session.user);
+  return getStoredThemePreference(db, user.id);
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -104,6 +121,9 @@ export const Route = createRootRoute({
       { content: "default", name: "apple-mobile-web-app-status-bar-style" },
       { content: "FitTrack", name: "apple-mobile-web-app-title" },
     ],
+  }),
+  loader: async () => ({
+    themePreference: await loadRootThemePreference(),
   }),
   shellComponent: RootDocument,
 });
@@ -157,10 +177,14 @@ function ThemeFirstHeadContent() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const { themePreference } = Route.useLoaderData();
   const queryClient = React.useMemo(
     () => new QueryClient(QUERY_CLIENT_OPTIONS),
     []
   );
+  React.useEffect(() => {
+    setClientThemePreference(themePreference);
+  }, [themePreference]);
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,7 +192,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     }
   }, [queryClient]);
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      data-theme-preference={themePreference}
+      lang="en"
+      suppressHydrationWarning
+    >
       <head>
         <script>{THEME_BOOTSTRAP_SCRIPT}</script>
         <ThemeFirstHeadContent />

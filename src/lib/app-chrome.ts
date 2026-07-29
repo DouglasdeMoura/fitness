@@ -5,7 +5,6 @@ export const THEME_PREFERENCES = ["light", "dark", "system"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 
 export const DEFAULT_COLOR_MODE: ColorMode = "light";
-export const THEME_STORAGE_KEY = "fittrack-theme";
 export const DARK_COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 
 /** PWA status-bar colour in light mode (brand primary). */
@@ -25,15 +24,9 @@ export function setClientThemePreference(preference: ThemePreference): void {
   clientThemePreference = preference;
 }
 
-/** Preference used by client-side resolution; falls back to legacy storage until #104 retires it. */
+/** Preference seeded from the root loader and updated by Settings (#104). */
 export function getClientThemePreference(): ThemePreference {
-  if (clientThemePreference !== null) {
-    return clientThemePreference;
-  }
-  if (typeof localStorage === "undefined") {
-    return "system";
-  }
-  return normalizeThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
+  return clientThemePreference ?? "system";
 }
 
 function isThemePreference(value: string): value is ThemePreference {
@@ -87,18 +80,15 @@ function readPrefersDark(): boolean {
 }
 
 /**
- * Resolves the stored preference before the operating-system preference.
+ * Resolves the server-supplied preference before the operating-system preference.
  *
- * @example getStoredTheme() // "dark" when no choice is stored and the OS is dark
+ * @example getStoredTheme() // "dark" when preference is system and the OS is dark
  */
 export function getStoredTheme(): ColorMode {
-  if (typeof localStorage === "undefined") {
+  if (typeof document === "undefined") {
     return DEFAULT_COLOR_MODE;
   }
-  return resolveTheme(
-    normalizeThemePreference(localStorage.getItem(THEME_STORAGE_KEY)),
-    readPrefersDark()
-  );
+  return resolveTheme(getClientThemePreference(), readPrefersDark());
 }
 
 function setThemeColorMeta(mode: ColorMode): void {
@@ -131,7 +121,7 @@ export function applyResolvedTheme(mode: ColorMode): void {
 export const THEME_CHANGE_EVENT = "fittrack-theme-changed";
 
 /**
- * Applies a theme preference immediately without persisting to localStorage (#98).
+ * Applies a theme preference immediately without persisting to device storage (#98).
  *
  * @example applyThemePreference("system")
  */
@@ -145,7 +135,6 @@ export function applyThemePreference(preference: ThemePreference): void {
 }
 
 export function persistTheme(mode: ColorMode): void {
-  localStorage.setItem(THEME_STORAGE_KEY, mode);
   applyResolvedTheme(mode);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: mode }));
@@ -164,7 +153,7 @@ const NOOP_UNSUBSCRIBE = () => {
 export function subscribeToSystemTheme(
   onChange: (mode: ColorMode) => void
 ): () => void {
-  if (typeof window === "undefined" || typeof matchMedia !== "function") {
+  if (typeof document === "undefined" || typeof matchMedia !== "function") {
     return NOOP_UNSUBSCRIBE;
   }
   const mediaQuery = matchMedia(DARK_COLOR_SCHEME_QUERY);
