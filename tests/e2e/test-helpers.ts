@@ -52,8 +52,15 @@ export const APP_ROUTES = [
 
 export type AppRoute = (typeof APP_ROUTES)[number];
 export type ColorMode = "light" | "dark";
+export type ThemePreference = "light" | "dark" | "system";
 
-/** Fixed calendar date so nutrition/workout pages render deterministically. */
+export const THEME_SEGMENT_LABELS: Record<ThemePreference, string> = {
+  dark: "Dark",
+  light: "Light",
+  system: "System",
+};
+
+/** Fixed calendar date so nutrition/workout pages render deterministically. so nutrition/workout pages render deterministically. */
 export const FIXED_E2E_DATE = "2020-01-01";
 
 /** Frozen clock instant matching FIXED_E2E_DATE (AGENTS.md: F.I.R.S.T). */
@@ -83,6 +90,96 @@ export async function prepareTheme(
     localStorage.setItem("fittrack-theme", theme);
     document.documentElement.dataset.theme = theme;
   }, colorMode);
+}
+
+/** Resolves preference + OS scheme to the document colour mode (#99). */
+export function resolveExpectedDataTheme(
+  preference: ThemePreference,
+  osScheme: ColorMode
+): ColorMode {
+  if (preference === "light") {
+    return "light";
+  }
+  if (preference === "dark") {
+    return "dark";
+  }
+  return osScheme;
+}
+
+export async function emulateColorScheme(
+  page: Page,
+  scheme: ColorMode
+): Promise<void> {
+  await page.emulateMedia({ colorScheme: scheme });
+}
+
+export function setDemoUserThemePreference(preference: ThemePreference): void {
+  const db = openE2eDatabase();
+  try {
+    const user = db.prepare("SELECT id FROM users LIMIT 1").get() as
+      | { id: number }
+      | undefined;
+    if (!user) {
+      throw new Error("demo user not found in e2e database");
+    }
+    db.prepare("UPDATE users SET theme_preference = ? WHERE id = ?").run(
+      preference,
+      user.id
+    );
+  } finally {
+    db.close();
+  }
+}
+
+export function readDemoUserThemePreference(): ThemePreference {
+  const db = openE2eDatabase();
+  try {
+    const row = db
+      .prepare("SELECT theme_preference AS themePreference FROM users LIMIT 1")
+      .get() as { themePreference: ThemePreference } | undefined;
+    if (!row) {
+      throw new Error("demo user not found in e2e database");
+    }
+    return row.themePreference;
+  } finally {
+    db.close();
+  }
+}
+
+export function themeAppearanceRadiogroup(page: Page) {
+  return page.getByRole("radiogroup", { name: "Appearance" });
+}
+
+/** Assert the selected segment and data-theme agree (#99). */
+export async function assertThemeControlPair(
+  page: Page,
+  expected: { segment: ThemePreference; dataTheme: ColorMode }
+): Promise<void> {
+  const group = themeAppearanceRadiogroup(page);
+  const label = THEME_SEGMENT_LABELS[expected.segment];
+  await expect(group.getByRole("radio", { name: label })).toBeChecked();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-theme",
+    expected.dataTheme
+  );
+}
+
+export async function hardLoadSettings(page: Page): Promise<void> {
+  await page.goto("/settings");
+  await page.waitForLoadState("networkidle");
+  await expect(themeAppearanceRadiogroup(page)).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
+export async function clickThemeSegment(
+  page: Page,
+  preference: ThemePreference
+): Promise<void> {
+  const group = themeAppearanceRadiogroup(page);
+  await group
+    .getByRole("radio", { name: THEME_SEGMENT_LABELS[preference] })
+    .click();
 }
 
 /** Sign in with the seeded demo account when the app shell is not loaded. */
