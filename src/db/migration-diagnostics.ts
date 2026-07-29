@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import Database from "better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
@@ -13,6 +14,10 @@ interface JournalEntry {
 interface MigrationJournal {
   entries: JournalEntry[];
 }
+
+type MigratingDatabase = BetterSQLite3Database<Record<string, unknown>> & {
+  $client: InstanceType<typeof Database>;
+};
 
 export class DatabaseMigrationError extends Error {
   readonly dbPath: string;
@@ -59,47 +64,82 @@ function extractSqliteMessage(error: unknown): string {
   return String(error);
 }
 
-function extractObjectNameFromSqliteMessage(
-  message: string
-): string | undefined {
-  const tableMatch = message.match(/table [`']?([^`']+)[`']? already exists/i);
-  if (tableMatch) {
-    return tableMatch[1];
+function readLastAppliedMigrationCreatedAt(
+  drizzleDb: MigratingDatabase
+): number | undefined {
+  try {
+    const row = drizzleDb.$client
+      .prepare(
+        "SELECT created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1"
+      )
+      .get() as { created_at: number | string } | undefined;
+    if (!row) {
+      return undefined;
+    }
+    return Number(row.created_at);
+  } catch {
+    return undefined;
   }
-  const columnMatch = message.match(
-    /duplicate column name: [`']?([^`']+)[`']?/i
-  );
-  return columnMatch?.[1];
+}
+
+function resolveFirstPendingMigrationTag(
+  migrationsFolder: string,
+  lastAppliedCreatedAt: number | undefined
+): string {
+  const journal = readMigrationJournal(migrationsFolder);
+  const migrations = readMigrationFiles({ migrationsFolder });
+
+  for (let index = 0; index < migrations.length; index++) {
+    const migration = migrations[index];
+    if (
+      lastAppliedCreatedAt === undefined ||
+      lastAppliedCreatedAt < migration.folderMillis
+    ) {
+      return journal.entries[index]?.tag ?? "unknown";
+    }
+  }
+
+  return "unknown";
+}
+
+function migrationContainsQuerySnippet(
+  migration: { sql: string[] },
+  querySnippet: string
+): boolean {
+  const prefix = querySnippet.slice(0, 60).trim();
+  return migration.sql.some((statement) => statement.trim().startsWith(prefix));
 }
 
 function resolveFailingMigrationTag(
   error: unknown,
-  migrationsFolder: string
+  migrationsFolder: string,
+  drizzleDb: MigratingDatabase
 ): string {
-  const journal = readMigrationJournal(migrationsFolder);
-  const migrations = readMigrationFiles({ migrationsFolder });
-  const querySnippet = extractQueryFromDrizzleError(error);
-  const sqliteMessage = extractSqliteMessage(error);
-  const objectName = extractObjectNameFromSqliteMessage(sqliteMessage);
+  const lastAppliedCreatedAt = readLastAppliedMigrationCreatedAt(drizzleDb);
+  const pendingTag = resolveFirstPendingMigrationTag(
+    migrationsFolder,
+    lastAppliedCreatedAt
+  );
 
-  for (let index = 0; index < migrations.length; index++) {
-    const tag = journal.entries[index]?.tag ?? "unknown";
-    const migration = migrations[index];
-    for (const statement of migration.sql) {
-      const trimmedStatement = statement.trim();
-      if (
-        querySnippet &&
-        trimmedStatement.startsWith(querySnippet.slice(0, 60).trim())
-      ) {
-        return tag;
-      }
-      if (objectName && statement.includes(objectName)) {
-        return tag;
-      }
-    }
+  const querySnippet = extractQueryFromDrizzleError(error);
+  if (!querySnippet || pendingTag === "unknown") {
+    return pendingTag;
   }
 
-  return journal.entries[0]?.tag ?? "unknown";
+  const journal = readMigrationJournal(migrationsFolder);
+  const migrations = readMigrationFiles({ migrationsFolder });
+  const pendingIndex = journal.entries.findIndex(
+    (entry) => entry.tag === pendingTag
+  );
+  const pendingMigration = migrations[pendingIndex];
+  if (
+    pendingMigration &&
+    migrationContainsQuerySnippet(pendingMigration, querySnippet)
+  ) {
+    return pendingTag;
+  }
+
+  return pendingTag;
 }
 
 /**
@@ -110,7 +150,7 @@ function resolveFailingMigrationTag(
  * runMigrations(drizzleDb, { dbPath: "/tmp/fittrack.db" });
  */
 export function runMigrations(
-  drizzleDb: BetterSQLite3Database<Record<string, unknown>>,
+  drizzleDb: MigratingDatabase,
   options: { dbPath: string; migrationsFolder?: string }
 ): void {
   const migrationsFolder =
@@ -118,7 +158,11 @@ export function runMigrations(
   try {
     migrate(drizzleDb, { migrationsFolder });
   } catch (error) {
-    const migrationTag = resolveFailingMigrationTag(error, migrationsFolder);
+    const migrationTag = resolveFailingMigrationTag(
+      error,
+      migrationsFolder,
+      drizzleDb
+    );
     const sqliteMessage = extractSqliteMessage(error);
     throw new DatabaseMigrationError(
       options.dbPath,
