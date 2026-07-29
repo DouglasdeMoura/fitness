@@ -133,13 +133,17 @@ export async function listWorkoutSessionRecords(
 /** Load one session with sets and exercise metadata. */
 export async function findWorkoutSessionWithSets(
   database: FitTrackDatabase,
-  sessionId: number
+  sessionId: number,
+  userId: number
 ): Promise<{
   session: WorkoutSession;
   sets: WorkoutSetWithExercise[];
 } | null> {
   const result = await database.query.workoutSessions.findFirst({
-    where: eq(workoutSessions.id, sessionId),
+    where: and(
+      eq(workoutSessions.id, sessionId),
+      eq(workoutSessions.userId, userId)
+    ),
     with: {
       sets: {
         orderBy: [asc(workoutSets.exerciseId), asc(workoutSets.setNumber)],
@@ -191,6 +195,7 @@ export async function insertWorkoutSessionRecord(
 /** Insert a set and return the persisted row. */
 export async function insertWorkoutSetRecord(
   database: FitTrackDatabase,
+  userId: number,
   input: {
     exerciseId: number;
     notes?: string | null;
@@ -201,7 +206,16 @@ export async function insertWorkoutSetRecord(
     setNumber: number;
     weightKg: number;
   }
-): Promise<WorkoutSetRecord> {
+): Promise<WorkoutSetRecord | null> {
+  const ownedSession = await findWorkoutSessionForUser(
+    database,
+    input.sessionId,
+    userId
+  );
+  if (!ownedSession) {
+    return null;
+  }
+
   return database
     .insert(workoutSets)
     .values({
@@ -221,15 +235,22 @@ export async function insertWorkoutSetRecord(
 /** Delete one workout set by id. */
 export async function deleteWorkoutSetRecord(
   database: FitTrackDatabase,
-  setId: number
+  setId: number,
+  userId: number
 ): Promise<void> {
-  database.delete(workoutSets).where(eq(workoutSets.id, setId)).run();
+  const ownedSetId = await findWorkoutSetIdForUser(database, setId, userId);
+  if (ownedSetId === null) {
+    return;
+  }
+
+  database.delete(workoutSets).where(eq(workoutSets.id, ownedSetId)).run();
 }
 
 /** Sets logged in one session for volume and PR helpers. */
 export async function listSessionSetRows(
   database: FitTrackDatabase,
-  sessionId: number
+  sessionId: number,
+  userId: number
 ): Promise<SessionSetRow[]> {
   return database
     .select({
@@ -239,7 +260,13 @@ export async function listSessionSetRows(
       weight_kg: workoutSets.weightKg,
     })
     .from(workoutSets)
-    .where(eq(workoutSets.sessionId, sessionId))
+    .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+    .where(
+      and(
+        eq(workoutSets.sessionId, sessionId),
+        eq(workoutSessions.userId, userId)
+      )
+    )
     .orderBy(asc(workoutSets.exerciseId), asc(workoutSets.setNumber));
 }
 
@@ -337,12 +364,15 @@ export async function findWorkoutSetIdForUser(
 export async function updateWorkoutSessionDuration(
   database: FitTrackDatabase,
   sessionId: number,
+  userId: number,
   durationMinutes: number
 ): Promise<void> {
   database
     .update(workoutSessions)
     .set({ durationMinutes })
-    .where(eq(workoutSessions.id, sessionId))
+    .where(
+      and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId))
+    )
     .run();
 }
 

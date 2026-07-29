@@ -79,7 +79,11 @@ describe("Drizzle meal plan queries", () => {
     );
     expect(weekPlans[0].template_name).toBe("High Protein Lunch");
 
-    const totals = await templateMacroTotals(fixture.db, templateId);
+    const totals = await templateMacroTotals(
+      fixture.db,
+      templateId,
+      fixture.userId
+    );
     expect(totals.calories).toBe(200);
 
     await deleteMealPlanRecord(

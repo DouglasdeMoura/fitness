@@ -1,7 +1,11 @@
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 
 import type { NutritionTotals } from "../lib/nutrition";
-import { calculateFoodMacros, sumNutritionTotals } from "../lib/nutrition";
+import {
+  calculateFoodMacros,
+  emptyTotals,
+  sumNutritionTotals,
+} from "../lib/nutrition";
 import type { FoodRecord } from "./food-nutrition-queries";
 import type { FitTrackDatabase } from "./index";
 import { foods, mealPlans, mealTemplateItems, mealTemplates } from "./schema";
@@ -167,8 +171,19 @@ export async function findMealTemplateDetail(
 /** Aggregate macros for one template without loading full detail. */
 export async function templateMacroTotals(
   database: FitTrackDatabase,
-  templateId: number
+  templateId: number,
+  userId: number
 ): Promise<NutritionTotals> {
+  const template = await database.query.mealTemplates.findFirst({
+    where: and(
+      eq(mealTemplates.id, templateId),
+      eq(mealTemplates.userId, userId)
+    ),
+  });
+  if (!template) {
+    return emptyTotals();
+  }
+
   const items = await database
     .select({
       food: foods,

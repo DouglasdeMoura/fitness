@@ -45,7 +45,7 @@ describe("Drizzle workout queries", () => {
       userId: fixture.userId,
     });
 
-    await insertWorkoutSetRecord(fixture.db, {
+    await insertWorkoutSetRecord(fixture.db, fixture.userId, {
       exerciseId: fixture.exerciseId,
       reps: 8,
       sessionId,
@@ -53,7 +53,11 @@ describe("Drizzle workout queries", () => {
       weightKg: 60,
     });
 
-    const detail = await findWorkoutSessionWithSets(fixture.db, sessionId);
+    const detail = await findWorkoutSessionWithSets(
+      fixture.db,
+      sessionId,
+      fixture.userId
+    );
     expect(detail?.session.name).toBe("Push");
     expect(detail?.sets).toHaveLength(1);
     expect(detail?.sets[0]).toMatchObject({
@@ -70,8 +74,16 @@ describe("Drizzle workout queries", () => {
     );
     expect(sessions).toHaveLength(1);
 
-    await deleteWorkoutSetRecord(fixture.db, detail!.sets[0].id);
-    const afterDelete = await findWorkoutSessionWithSets(fixture.db, sessionId);
+    await deleteWorkoutSetRecord(
+      fixture.db,
+      detail!.sets[0].id,
+      fixture.userId
+    );
+    const afterDelete = await findWorkoutSessionWithSets(
+      fixture.db,
+      sessionId,
+      fixture.userId
+    );
     expect(afterDelete?.sets).toHaveLength(0);
   });
 
@@ -81,14 +93,14 @@ describe("Drizzle workout queries", () => {
       name: "Push",
       userId: fixture.userId,
     });
-    await insertWorkoutSetRecord(fixture.db, {
+    await insertWorkoutSetRecord(fixture.db, fixture.userId, {
       exerciseId: fixture.exerciseId,
       reps: 10,
       sessionId,
       setNumber: 1,
       weightKg: 50,
     });
-    await insertWorkoutSetRecord(fixture.db, {
+    await insertWorkoutSetRecord(fixture.db, fixture.userId, {
       exerciseId: fixture.exerciseId,
       reps: 8,
       sessionId,

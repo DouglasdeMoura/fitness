@@ -401,8 +401,16 @@ export async function findLastProgramExerciseSet(
 export async function findProgramDayRecord(
   database: FitTrackDatabase,
   programDayId: number,
-  programId: number
+  programId: number,
+  userId: number
 ): Promise<ProgramDay | null> {
+  const program = await database.query.programs.findFirst({
+    where: and(eq(programs.id, programId), eq(programs.userId, userId)),
+  });
+  if (!program) {
+    return null;
+  }
+
   const row = await database.query.programDays.findFirst({
     where: and(
       eq(programDays.id, programDayId),

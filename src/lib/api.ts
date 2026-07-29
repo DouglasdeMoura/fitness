@@ -89,6 +89,7 @@ import {
   executeAddWorkoutSet,
   executeDeleteWorkoutSet,
   executeGetSyncedClientIds,
+  executeStartWorkoutFromProgram,
   executeUnsubscribePush,
 } from "./auth-enforcement-handlers.server";
 import { barcodeLookupVariants, normalizeBarcode } from "./barcode";
@@ -615,7 +616,7 @@ export const getWorkoutSession = createServerFn({ method: "GET" })
     if (!owned) {
       return null;
     }
-    return findWorkoutSessionWithSets(drizzleDb, ctx.data.id);
+    return findWorkoutSessionWithSets(drizzleDb, ctx.data.id, user.id);
   });
 
 export const createWorkoutSession = createServerFn({ method: "POST" })
@@ -623,11 +624,31 @@ export const createWorkoutSession = createServerFn({ method: "POST" })
   .handler(async (ctx) => {
     const { user } = await requireAuth();
     const date = ctx.data.date || todayString();
+    const programId = ctx.data.program_id ?? null;
+    const programDayId = ctx.data.program_day_id ?? null;
+
+    if (programId !== null || programDayId !== null) {
+      if (programId === null || programDayId === null) {
+        throw new Error(
+          `createWorkoutSession: program_id and program_day_id must both be set when either is provided (program_id=${programId}, program_day_id=${programDayId})`
+        );
+      }
+      const day = await findProgramDayRecord(
+        drizzleDb,
+        programDayId,
+        programId,
+        user.id
+      );
+      if (!day) {
+        throw new Error("Program day not found");
+      }
+    }
+
     const id = await insertWorkoutSessionRecord(drizzleDb, {
       date,
       name: ctx.data.name || "Workout",
-      programDayId: ctx.data.program_day_id ?? null,
-      programId: ctx.data.program_id ?? null,
+      programDayId,
+      programId,
       userId: user.id,
     });
     return { id };
@@ -684,7 +705,7 @@ async function buildWorkoutSessionSummary(
   userId: number,
   session: WorkoutSession
 ): Promise<WorkoutSessionSummary> {
-  const sets = await listSessionSetRows(drizzleDb, session.id);
+  const sets = await listSessionSetRows(drizzleDb, session.id, userId);
   const stats = computeSessionVolumeStats(sets);
   const previousSession = await findPreviousNamedSessionRecord(
     drizzleDb,
@@ -693,7 +714,7 @@ async function buildWorkoutSessionSummary(
   );
   const previousStats = previousSession
     ? computeSessionVolumeStats(
-        await listSessionSetRows(drizzleDb, previousSession.id)
+        await listSessionSetRows(drizzleDb, previousSession.id, userId)
       )
     : null;
   const comparison = compareSessionVolumes(stats, previousStats);
@@ -737,7 +758,12 @@ export const finishWorkoutSession = createServerFn({ method: "POST" })
       finishedAt
     );
 
-    await updateWorkoutSessionDuration(drizzleDb, session.id, durationMinutes);
+    await updateWorkoutSessionDuration(
+      drizzleDb,
+      session.id,
+      user.id,
+      durationMinutes
+    );
 
     return buildWorkoutSessionSummary(user.id, {
       ...session,
@@ -924,24 +950,9 @@ export const getProgramDayTargets = createServerFn({ method: "GET" })
 export const startWorkoutFromProgram = createServerFn({ method: "POST" })
   .validator(serverInputValidator(startWorkoutFromProgramInputSchema))
   .handler(async (ctx) => {
-    const { user } = await requireAuth();
-    const day = await findProgramDayRecord(
-      drizzleDb,
-      ctx.data.programDayId,
-      ctx.data.programId
+    const { dayName, sessionId } = await executeStartWorkoutFromProgram(
+      ctx.data
     );
-    if (!day) {
-      throw new Error("Program day not found");
-    }
-
-    const date = todayString();
-    const sessionId = await insertWorkoutSessionRecord(drizzleDb, {
-      date,
-      name: day.day_name,
-      programDayId: ctx.data.programDayId,
-      programId: ctx.data.programId,
-      userId: user.id,
-    });
 
     const dayTargets = await getProgramDayTargets({
       data: {
@@ -951,7 +962,7 @@ export const startWorkoutFromProgram = createServerFn({ method: "POST" })
     });
 
     return {
-      dayName: day.day_name,
+      dayName,
       sessionId,
       targets: dayTargets?.targets ?? [],
     };
@@ -1050,7 +1061,7 @@ export const getWeekMealPlan = createServerFn({ method: "GET" })
           (entry) => entry.date === date && entry.meal_type === mealType
         );
         const macros = plan
-          ? await templateMacroTotals(drizzleDb, plan.template_id)
+          ? await templateMacroTotals(drizzleDb, plan.template_id, user.id)
           : emptyTotals();
         dayTotals = sumNutritionTotals([dayTotals, macros]);
         slots.push({
