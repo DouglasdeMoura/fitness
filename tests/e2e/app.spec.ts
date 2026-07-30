@@ -18,7 +18,7 @@ async function reloadAppPage(page: Page) {
 async function waitForAppReady(page: Page) {
   await openAppPage(page, "/");
   await expect(
-    page.getByRole("navigation", { name: "FitTrack mobile navigation" })
+    page.getByRole("navigation", { name: "FitTrack primary navigation" })
   ).toBeVisible({
     timeout: 15_000,
   });
@@ -26,7 +26,7 @@ async function waitForAppReady(page: Page) {
 }
 
 function nav(page: Page): Locator {
-  return page.getByRole("navigation", { name: "FitTrack mobile navigation" });
+  return page.getByRole("navigation", { name: "FitTrack primary navigation" });
 }
 
 test.describe("Dashboard - User Landing Experience", () => {

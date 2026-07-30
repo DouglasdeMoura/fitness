@@ -19,46 +19,56 @@ const MAIN_ROUTES = [
   { heading: "Settings", label: "Settings", path: "/settings" },
 ] as const;
 
-function mobileNav(page: Page): Locator {
-  return page.getByRole("navigation", { name: "FitTrack mobile navigation" });
+function bottomNav(page: Page): Locator {
+  return page.getByRole("navigation", { name: "FitTrack primary navigation" });
 }
 
-function topNav(page: Page): Locator {
-  return page.getByRole("navigation", { name: "FitTrack navigation" });
+/** Distance from the bar's bottom edge to the bottom of the viewport. */
+async function gapBelowNav(page: Page): Promise<number> {
+  const box = await bottomNav(page).boundingBox();
+  expect(box).not.toBeNull();
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  return (viewport?.height ?? 0) - ((box?.y ?? 0) + (box?.height ?? 0));
 }
 
-test.describe("Mobile bottom navigation (issue #52)", () => {
+test.describe("Bottom navigation bar (issue #52)", () => {
   test.beforeEach(async ({ page }) => {
     await prepareTheme(page, "light");
     await installDeterministicClock(page);
   });
 
-  test("shows bottom navigation below 768px and hides it at desktop width", async ({
+  test("stays visible at both mobile and desktop widths", async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await openAppRoute(page, "/");
+    await expect(bottomNav(page)).toBeVisible();
+
+    await page.setViewportSize(DESKTOP_VIEWPORT);
+    await expect(bottomNav(page)).toBeVisible();
+  });
+
+  test("renders a text label for every item", async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await openAppRoute(page, "/");
+
+    for (const route of MAIN_ROUTES) {
+      await expect(
+        bottomNav(page).getByRole("link", { name: route.label })
+      ).toContainText(route.label);
+    }
+  });
+
+  test("stays pinned to the viewport bottom while the page scrolls", async ({
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await openAppRoute(page, "/");
-    await expect(mobileNav(page)).toBeVisible();
-    await expect(
-      topNav(page).getByRole("toolbar", { name: "FitTrack primary routes" })
-    ).toBeHidden();
-
-    await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.reload();
+    await page.goto(routeWithStableQuery("/settings"));
     await page.waitForLoadState("networkidle");
-    await expect(mobileNav(page)).toBeHidden();
-    await expect(
-      topNav(page).getByRole("toolbar", { name: "FitTrack primary routes" })
-    ).toBeVisible();
-  });
 
-  test("shows top navigation at 768px and above", async ({ page }) => {
-    await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openAppRoute(page, "/");
-    await expect(
-      topNav(page).getByRole("link", { name: "Nutrition" })
-    ).toBeVisible();
-    await expect(mobileNav(page)).toBeHidden();
+    expect(await gapBelowNav(page)).toBeLessThanOrEqual(1);
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect.poll(() => gapBelowNav(page)).toBeLessThanOrEqual(1);
   });
 
   for (const route of MAIN_ROUTES) {
@@ -68,7 +78,7 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
       await page.setViewportSize(MOBILE_VIEWPORT);
       await openAppRoute(page, "/");
 
-      await mobileNav(page).getByRole("link", { name: route.label }).click();
+      await bottomNav(page).getByRole("link", { name: route.label }).click();
       await expect(page).toHaveURL(
         new RegExp(`${route.path === "/" ? "/$" : route.path}`)
       );
@@ -84,16 +94,16 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openAppRoute(page, "/");
     await expect(
-      mobileNav(page).getByRole("link", { name: "Dashboard" })
+      bottomNav(page).getByRole("link", { name: "Dashboard" })
     ).toHaveAttribute("aria-current", "page");
 
-    await mobileNav(page).getByRole("link", { name: "Nutrition" }).click();
+    await bottomNav(page).getByRole("link", { name: "Nutrition" }).click();
     await expect(page).toHaveURL(/\/nutrition/u);
     await expect(
-      mobileNav(page).getByRole("link", { name: "Nutrition" })
+      bottomNav(page).getByRole("link", { name: "Nutrition" })
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      mobileNav(page).getByRole("link", { name: "Dashboard" })
+      bottomNav(page).getByRole("link", { name: "Dashboard" })
     ).not.toHaveAttribute("aria-current", "page");
   });
 
@@ -111,7 +121,7 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
 
     await expect
       .poll(async () =>
-        mobileNav(page).evaluate(
+        bottomNav(page).evaluate(
           (element) => getComputedStyle(element).paddingBottom
         )
       )
@@ -128,7 +138,7 @@ test.describe("Mobile bottom navigation (issue #52)", () => {
     const lastItem = page.getByRole("listitem").last();
     await lastItem.scrollIntoViewIfNeeded();
 
-    const navBox = await mobileNav(page).boundingBox();
+    const navBox = await bottomNav(page).boundingBox();
     const itemBox = await lastItem.boundingBox();
     expect(navBox).not.toBeNull();
     expect(itemBox).not.toBeNull();

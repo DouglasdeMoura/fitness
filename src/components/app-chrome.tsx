@@ -53,15 +53,21 @@ const NOOP = () => {
   /* intentional no-op for TabList onChange */
 };
 
-function MobileBottomNav() {
+/**
+ * Primary route switcher, pinned to the viewport bottom on every width.
+ *
+ * `hasDivider` is deliberately off: bottom-nav.css draws the rule on the top
+ * edge instead, where it separates the bar from the content above it.
+ */
+function BottomNavBar() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
 
   return (
     <TabList
-      aria-label="FitTrack mobile navigation"
-      hasDivider
+      aria-label="FitTrack primary navigation"
+      data-fittrack-bottom-nav=""
       layout="fill"
       onChange={NOOP}
       size="lg"
@@ -73,7 +79,6 @@ function MobileBottomNav() {
           <Tab
             href={item.href}
             icon={<Icon />}
-            isLabelHidden
             key={item.href}
             label={item.label}
             value={item.href}
@@ -179,12 +184,15 @@ export function AppChrome({ children }: { children: ReactNode }) {
     );
   }
 
+  // BottomNavBar renders outside this section on purpose: the page-enter
+  // animation puts a transform on it, which would become the containing block
+  // for the bar's `position: fixed` and unpin it from the viewport. Staying
+  // outside also keeps the bar mounted across route changes.
   const pageContent = (
-    <section data-page-transition key={pathname}>
+    <section data-fittrack-app-content data-page-transition key={pathname}>
       <OfflineStatus />
       {children}
       <RestTimerMount />
-      <MobileBottomNav />
     </section>
   );
 
@@ -208,6 +216,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
           >
             {pageContent}
           </AppShell>
+          <BottomNavBar />
         </ToastViewport>
       </LinkProvider>
       <ShortcutsHelpDialog

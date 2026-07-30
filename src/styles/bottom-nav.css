@@ -1,0 +1,62 @@
+/*
+ * Always-visible bottom navigation bar.
+ *
+ * Astryx ships no bottom-nav component, so the bar is a TabList that this file
+ * pins to the viewport bottom and re-stacks as icon-over-label. Loaded from
+ * __root.tsx rather than app.css, which is held to Astryx imports only
+ * (issue #16).
+ *
+ * Every rule is scoped to [data-fittrack-bottom-nav] so the Progress page's
+ * TabList keeps its stock horizontal layout.
+ *
+ * Unlayered on purpose: Astryx's StyleX atomics live in @layer astryx-base and
+ * carry :not(#\#) specificity hacks, so an unlayered rule wins the cascade
+ * without needing !important.
+ */
+
+:root {
+  /* viewport-fit=cover in __root.tsx exposes the home-indicator inset. */
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  /* Icon over label needs more than --spacing-12, the top of the scale. */
+  --app-bottom-nav-bar-height: calc(var(--spacing-12) + var(--spacing-2));
+  --app-bottom-nav-height: calc(
+    var(--app-bottom-nav-bar-height) + var(--app-safe-area-bottom)
+  );
+}
+
+[data-fittrack-bottom-nav] {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  /* 500 matches the Astryx sticky-header layer; toasts use the top layer. */
+  z-index: 500;
+  padding-bottom: var(--app-safe-area-bottom);
+  border-top: var(--border-width) solid var(--color-border);
+  background-color: var(--color-background-surface);
+  box-shadow: var(--shadow-low);
+}
+
+/*
+ * Icon above label keeps five labelled tabs legible at 360px, where the stock
+ * inline layout overflows. `height: auto` releases the fixed --size-element-lg
+ * tab height so the two rows have room.
+ */
+[data-fittrack-bottom-nav] .astryx-tab {
+  flex-direction: column;
+  gap: var(--spacing-0-5);
+  height: auto;
+  min-height: var(--app-bottom-nav-bar-height);
+  padding-inline: var(--spacing-1);
+  font-size: var(--font-size-sm);
+}
+
+/* Selected marker belongs on the bar's top edge, not off the screen bottom. */
+[data-fittrack-bottom-nav] .astryx-tab-indicator {
+  top: 0;
+  bottom: auto;
+}
+
+/* Page content scrolls clear of the fixed bar instead of behind it. */
+[data-fittrack-app-content] {
+  padding-bottom: var(--app-bottom-nav-height);
+}

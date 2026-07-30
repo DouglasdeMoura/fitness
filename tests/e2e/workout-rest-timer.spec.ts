@@ -107,7 +107,7 @@ test.describe("Rest timer (issue #60)", () => {
     await expect(restTimerRegion(page).getByText(/1:1[0-5]/)).toBeVisible();
 
     await page
-      .getByRole("navigation", { name: "FitTrack mobile navigation" })
+      .getByRole("navigation", { name: "FitTrack primary navigation" })
       .getByRole("link", { name: "Nutrition" })
       .click();
     await expect(
@@ -122,7 +122,7 @@ test.describe("Rest timer (issue #60)", () => {
     });
 
     await page
-      .getByRole("navigation", { name: "FitTrack mobile navigation" })
+      .getByRole("navigation", { name: "FitTrack primary navigation" })
       .getByRole("link", { name: "Workout" })
       .click();
     await expect(restTimerRegion(page).getByText(/0:4[0-9]/)).toBeVisible({

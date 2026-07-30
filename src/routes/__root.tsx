@@ -24,6 +24,7 @@ import type { ThemePreference } from "~/lib/app-chrome";
 import { fetchServerSession } from "~/lib/route-auth";
 
 import appCss from "~/styles/app.css?url";
+import bottomNavCss from "~/styles/bottom-nav.css?url";
 import focusVisibleCss from "~/styles/focus-visible.css?url";
 import pageTransitionsCss from "~/styles/page-transitions.css?url";
 import reducedMotionCss from "~/styles/reduced-motion.css?url";
@@ -100,6 +101,7 @@ export const Route = createRootRoute({
       { href: appCss, rel: "stylesheet" },
       { href: reducedMotionCss, rel: "stylesheet" },
       { href: pageTransitionsCss, rel: "stylesheet" },
+      { href: bottomNavCss, rel: "stylesheet" },
       { href: focusVisibleCss, rel: "stylesheet" },
       { href: "/manifest.json", rel: "manifest" },
       {
